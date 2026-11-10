@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, ArrowRightLeft } from 'lucide-react';
+// SESUAIKAN BARIS DI BAWAH INI DENGAN NAMA FILE DI FOLDER src/db/ (misal: '../../db' atau '../../db/db')
 import { db } from '../../db';
 
 interface Account {
@@ -51,7 +52,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
     const toAccount = accounts.find((a) => a.id === toAccountId);
 
     try {
-      // 1. Catat Pengeluaran dari Rekening Asal
+      // 1. Catat pengeluaran dari rekening asal
       await db.transactions.add({
         type: 'expense',
         accountId: fromAccountId,
@@ -62,7 +63,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
         createdAt: new Date().toISOString(),
       });
 
-      // 2. Catat Pemasukan ke Rekening Tujuan
+      // 2. Catat pemasukan ke rekening tujuan
       await db.transactions.add({
         type: 'income',
         accountId: toAccountId,
@@ -174,7 +175,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
             </label>
             <input
               type="text"
-              placeholder="Contoh: Top up saldo / Pindah dana"
+              placeholder="Contoh: Tarik tunai / Pindah saldo"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               className="w-full rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-white"
@@ -201,3 +202,4 @@ export const TransferModal: React.FC<TransferModalProps> = ({
     </div>
   );
 };
+                  
