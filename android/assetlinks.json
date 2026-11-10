@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.rf_uangku.twa",
+        "sha256_cert_fingerprints": ["1F:8C:C0:53:4A:86:08:24:89:51:23:34:BF:EB:DE:9B:93:2C:ED:35:22:96:80:25:41:CB:8D:B2:5B:F1:D3:F1"]
+      }
+    }]

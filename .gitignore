@@ -1,0 +1,25 @@
+node_modules
+dist
+dist-ssr
+*.local
+.env
+.env.*
+!.env.example
+.DS_Store
+*.log
+.vscode/*
+!.vscode/extensions.json
+.idea
+
+# Local Netlify folder
+.netlify
+.vercel
+
+# Android signing secrets
+android/*.keystore
+android/signing-key-info.txt
+android/rf-uangku-pwabuilder.zip
+
+# Build artifacts (upload to GitHub Releases instead)
+android/*.apk
+android/*.aab
