@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, ArrowRightLeft } from 'lucide-react';
 // SESUAIKAN BARIS DI BAWAH INI DENGAN NAMA FILE DI FOLDER src/db/ (misal: '../../db' atau '../../db/db')
-import { db } from '../../db';
+import { db } from '../../db/db';
 
 interface Account {
   id: string;
