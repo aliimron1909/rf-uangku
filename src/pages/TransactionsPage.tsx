@@ -1,5 +1,3 @@
-import { TransferModal } from '../components/transactions/TransferModal';
-import { ArrowRightLeft } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, MessageCircle, Plus, SearchX } from 'lucide-react'
@@ -26,22 +24,6 @@ import { TransactionForm } from '../components/transactions/TransactionForm'
 import { AiChatModal } from '../components/transactions/AiChatModal'
 
 const PAGE_SIZE = 15
-
-const [isTransferOpen, setIsTransferOpen] = useState(false);
-
-<button
-  onClick={() => setIsTransferOpen(true)}
-  className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 rounded-xl font-medium"
->
-  <ArrowRightLeft className="w-4 h-4" />
-  Transfer
-</button>
-
-<TransferModal
-  isOpen={isTransferOpen}
-  onClose={() => setIsTransferOpen(false)}
-  accounts={accounts}
-/>
     
 const emptyFilters: TransactionFilterState = {
   search: '',
