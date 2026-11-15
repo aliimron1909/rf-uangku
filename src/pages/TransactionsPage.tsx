@@ -4,10 +4,8 @@ import { ChevronLeft, ChevronRight, MessageCircle, Plus, SearchX } from 'lucide-
 import type { Transaction, TransactionWithRefs } from '../types'
 import { useTransactions } from '../hooks/useTransactions'
 import { useAllAccounts } from '../hooks/useAccounts'
-import { useBudgets } from '../hooks/useBudgets'
 import { useAllCategories } from '../hooks/useCategories'
 import { computeTotals, withRefs } from '../lib/analytics'
-import { newExpenseBudgetAlert } from '../lib/budget'
 import { createTransaction, deleteTransaction } from '../db/transactions'
 import type { ResolvedAiDraft } from '../lib/groq'
 import { errorMessage } from '../lib/utils'
@@ -39,7 +37,6 @@ export function TransactionsPage() {
   const transactions = useTransactions()
   const accounts = useAllAccounts()
   const categories = useAllCategories()
-  const budgets = useBudgets()
   const { toast } = useToast()
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -146,8 +143,6 @@ export function TransactionsPage() {
     }
     await createTransaction(input)
     toast('Transaksi berhasil disimpan.')
-    const alert = newExpenseBudgetAlert(budgets, transactions, categories, input)
-    if (alert) toast(alert.message, alert.type)
     setChatOpen(false)
     setPage(1)
   }

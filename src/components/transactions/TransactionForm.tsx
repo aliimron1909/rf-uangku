@@ -2,13 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { ArrowDownLeft, ArrowUpRight, Save } from 'lucide-react'
 import type { Transaction, TxType } from '../../types'
 import { useAccounts, useAllAccounts } from '../../hooks/useAccounts'
-import { useBudgets } from '../../hooks/useBudgets'
 import { useCategories, useAllCategories } from '../../hooks/useCategories'
-import { useTransactions } from '../../hooks/useTransactions'
 import { createTransaction, updateTransaction } from '../../db/transactions'
 import { createFavorite } from '../../db/favorites'
 import { FAVORITE_NAME_MAX_LENGTH, suggestFavoriteName } from '../../lib/favorites'
-import { newExpenseBudgetAlert } from '../../lib/budget'
 import { todayISO } from '../../lib/dates'
 import { formatNumberInput, parseNumberInput } from '../../lib/format'
 import type { ResolvedAiDraft } from '../../lib/groq'
@@ -45,8 +42,6 @@ export function TransactionForm({
   const allAccounts = useAllAccounts()
   const categories = useCategories()
   const allCategories = useAllCategories()
-  const budgets = useBudgets()
-  const allTransactions = useTransactions()
   const { toast } = useToast()
 
   const [type, setType] = useState<TxType>(
@@ -164,8 +159,6 @@ export function TransactionForm({
       } else {
         await createTransaction(input)
         toast('Transaksi berhasil disimpan.')
-        const alert = newExpenseBudgetAlert(budgets, allTransactions, allCategories, input)
-        if (alert) toast(alert.message, alert.type)
       }
       if (saveAsFavorite) {
         try {

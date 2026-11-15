@@ -7,9 +7,11 @@ import { Topbar } from './Topbar'
 import { PageLoader } from '../ui/PageLoader'
 import { OfflineBanner } from '../pwa/OfflineBanner'
 import { useRecurringRunner } from '../../hooks/useRecurringRunner'
+import { useBudgetAlerts } from '../../hooks/useBudgetAlerts'
 
 export function AppShell() {
   useRecurringRunner()
+  useBudgetAlerts()
 
   return (
     <div className="min-h-dvh bg-slate-50 dark:bg-slate-950">

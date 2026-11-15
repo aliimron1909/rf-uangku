@@ -22,6 +22,8 @@ import { goalProgress, goalSaved } from '../src/lib/goals'
 import { debtAccountFlows, debtProgress } from '../src/lib/debts'
 import { createFavorite, deleteFavorite, undoFavoriteUse, updateFavorite, useFavorite } from '../src/db/favorites'
 import { favoriteIssue } from '../src/lib/favorites'
+import { evaluateBudgetAlerts } from '../src/lib/budgetAlerts'
+import type { BudgetProgress } from '../src/types'
 import {
   defaultAccountIconKey,
   defaultCategoryIconKey,
@@ -933,6 +935,36 @@ async function main() {
   await restoreBackup(noFavBackup)
   assert.equal(await db.favorites.count(), 0)
   await deleteFavorite(favorite.id)
+
+
+  // ---- Notifikasi budget ----
+  const row = (categoryId: string, percentage: number): BudgetProgress => ({
+    budgetId: `b-${categoryId}`,
+    categoryId,
+    categoryName: categoryId,
+    categoryColor: '#000',
+    limit: 100,
+    spent: percentage,
+    remaining: 100 - percentage,
+    percentage,
+    status: percentage >= 100 ? 'over' : percentage >= 80 ? 'warning' : 'safe',
+    effectiveFrom: '0000-00',
+  })
+  const first = evaluateBudgetAlerts([row('a', 90), row('b', 10)], '2026-11', undefined)
+  assert.equal(first.events.length, 0)
+  assert.deepEqual(first.nextSeen, ['2026-11|a|80'])
+  const same = evaluateBudgetAlerts([row('a', 95), row('b', 10)], '2026-11', first.nextSeen)
+  assert.equal(same.events.length, 0)
+  const crossed = evaluateBudgetAlerts([row('a', 105), row('b', 85)], '2026-11', first.nextSeen)
+  assert.deepEqual(crossed.events.map((e) => `${e.categoryId}:${e.threshold}`).sort(), ['a:100', 'b:80'])
+  const jump = evaluateBudgetAlerts([row('b', 120)], '2026-11', [])
+  assert.deepEqual(jump.events.map((e) => e.threshold), [100])
+  const dropped = evaluateBudgetAlerts([row('a', 50)], '2026-11', crossed.nextSeen)
+  assert.deepEqual(dropped.nextSeen, [])
+  const again = evaluateBudgetAlerts([row('a', 82)], '2026-11', dropped.nextSeen)
+  assert.equal(again.events.length, 1)
+  const newMonth = evaluateBudgetAlerts([row('a', 85)], '2026-12', again.nextSeen)
+  assert.equal(newMonth.events.length, 1)
 
   await db.delete()
   console.log('Semua verifikasi data lulus.')
