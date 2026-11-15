@@ -109,7 +109,9 @@ function isBudgetRow(value: unknown): boolean {
     Number.isFinite(value.amount) &&
     // amount 0 = penanda budget dihentikan mulai bulan tertentu
     value.amount >= 0 &&
-    (value.effectiveFrom === undefined || isMonthKey(value.effectiveFrom)) &&
+    (value.effectiveFrom === undefined ||
+      value.effectiveFrom === BUDGET_LEGACY_MONTH ||
+      isMonthKey(value.effectiveFrom)) &&
     typeof value.createdAt === 'string' &&
     typeof value.updatedAt === 'string'
   )
