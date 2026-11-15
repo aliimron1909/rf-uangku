@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ArrowRight, MessageCircle, Plus, ShieldAlert } from 'lucide-react'
+import { ArrowLeftRight, ArrowRight, MessageCircle, Plus, ShieldAlert } from 'lucide-react'
 import { useDashboardData } from '../hooks/useDashboard'
 import { useProfile } from '../hooks/useProfile'
 import { useSetting } from '../hooks/useSetting'
@@ -57,6 +57,13 @@ export function DashboardPage() {
           >
             <MessageCircle className="h-4 w-4" />
             Chat AI
+          </Link>
+          <Link
+            to="/dashboard?transfer=1"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+          >
+            <ArrowLeftRight className="h-4 w-4" />
+            Transfer
           </Link>
           <Link
             to="/transactions?new=1"

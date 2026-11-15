@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { ArrowLeftRight, ArrowRight, Pencil, Plus, Trash2 } from 'lucide-react'
 import type { Transfer } from '../../types'
 import { useAllAccounts } from '../../hooks/useAccounts'
@@ -20,6 +21,7 @@ export function TransferSection() {
   const transfers = useTransfers()
   const accounts = useAllAccounts()
   const { toast } = useToast()
+  const [params, setParams] = useSearchParams()
 
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Transfer | null>(null)
@@ -32,6 +34,16 @@ export function TransferSection() {
     [accounts],
   )
   const rows = showAll ? transfers : transfers.slice(0, VISIBLE_LIMIT)
+
+  // Dibuka dari tombol "Transfer" di header dashboard (?transfer=1).
+  useEffect(() => {
+    if (params.get('transfer') !== '1') return
+    setEditing(null)
+    setFormOpen(true)
+    const next = new URLSearchParams(params)
+    next.delete('transfer')
+    setParams(next, { replace: true })
+  }, [params, setParams])
 
   function openNew() {
     setEditing(null)
@@ -63,7 +75,10 @@ export function TransferSection() {
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <div
+      id="transfer"
+      className="scroll-mt-4 rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900"
+    >
       <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3.5 dark:border-slate-800 sm:px-5">
         <div>
           <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
