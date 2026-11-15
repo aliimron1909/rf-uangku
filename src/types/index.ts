@@ -46,10 +46,70 @@ export interface TransactionWithRefs extends Transaction {
   categoryColor: string
 }
 
+export interface Transfer {
+  id: string
+  fromAccountId: string
+  toAccountId: string
+  amount: number
+  occurredAt: string
+  note?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export type GoalContributionKind = 'deposit' | 'withdrawal'
+
+export interface Goal {
+  id: string
+  name: string
+  targetAmount: number
+  /** Tenggat opsional (YYYY-MM-DD). */
+  deadline?: string
+  color: string
+  note?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface GoalContribution {
+  id: string
+  goalId: string
+  kind: GoalContributionKind
+  amount: number
+  occurredAt: string
+  note?: string
+  createdAt: string
+}
+
+/** owe = hutang saya ke orang lain; lent = piutang (orang lain berhutang ke saya). */
+export type DebtDirection = 'owe' | 'lent'
+
+export interface Debt {
+  id: string
+  direction: DebtDirection
+  person: string
+  amount: number
+  dueDate?: string
+  note?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface DebtPayment {
+  id: string
+  debtId: string
+  amount: number
+  occurredAt: string
+  note?: string
+  createdAt: string
+}
+
 export interface Budget {
   id: string
   categoryId: string
   amount: number
+  /** Bulan mulai berlaku (YYYY-MM). Amount 0 = budget dihentikan mulai bulan ini. */
+  effectiveFrom: string
   createdAt: string
   updatedAt: string
 }
@@ -85,6 +145,7 @@ export interface BudgetProgress {
   remaining: number
   percentage: number
   status: BudgetStatus
+  effectiveFrom: string
 }
 
 export interface BudgetSummary {
@@ -109,13 +170,18 @@ export interface ProfileBackup {
 
 export interface BackupData {
   app: 'rf-uangku'
-  version: 1 | 2
+  version: 1 | 2 | 3 | 4 | 5
   exportedAt: string
   accounts: Account[]
   categories: Category[]
   transactions: Transaction[]
   budgets?: Budget[]
   recurringTransactions?: RecurringTransaction[]
+  transfers?: Transfer[]
+  goals?: Goal[]
+  goalContributions?: GoalContribution[]
+  debts?: Debt[]
+  debtPayments?: DebtPayment[]
   profile?: ProfileBackup
 }
 

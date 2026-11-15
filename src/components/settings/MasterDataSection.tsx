@@ -317,6 +317,14 @@ export function MasterDataSection() {
         setDeletingAccount(null)
         return
       }
+      const usedByTransfer =
+        (await db.transfers.where('fromAccountId').equals(deletingAccount.id).count()) +
+        (await db.transfers.where('toAccountId').equals(deletingAccount.id).count())
+      if (usedByTransfer > 0) {
+        toast('Rekening masih dipakai transfer. Arsipkan saja agar riwayat tetap aman.', 'error')
+        setDeletingAccount(null)
+        return
+      }
       await db.accounts.delete(deletingAccount.id)
       toast('Rekening berhasil dihapus.')
       setDeletingAccount(null)

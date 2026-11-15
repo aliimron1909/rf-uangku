@@ -1,14 +1,27 @@
 import { useSearchParams } from 'react-router-dom'
-import { Repeat, Target } from 'lucide-react'
+import { HandCoins, PiggyBank, Repeat, Target, type LucideIcon } from 'lucide-react'
 import { BudgetSection } from '../components/planning/BudgetSection'
+import { DebtSection } from '../components/planning/DebtSection'
+import { GoalSection } from '../components/planning/GoalSection'
 import { RecurringSection } from '../components/planning/RecurringSection'
 import { cn } from '../lib/utils'
 
-type PlanningTab = 'budget' | 'recurring'
+type PlanningTab = 'budget' | 'recurring' | 'goals' | 'debts'
+
+const TABS: { id: PlanningTab; label: string; icon: LucideIcon }[] = [
+  { id: 'budget', label: 'Budget', icon: Target },
+  { id: 'recurring', label: 'Berulang', icon: Repeat },
+  { id: 'goals', label: 'Tabungan', icon: PiggyBank },
+  { id: 'debts', label: 'Hutang', icon: HandCoins },
+]
+
+function parseTab(value: string | null): PlanningTab {
+  return TABS.some((tab) => tab.id === value) ? (value as PlanningTab) : 'budget'
+}
 
 export function PlanningPage() {
   const [params, setParams] = useSearchParams()
-  const tab: PlanningTab = params.get('tab') === 'recurring' ? 'recurring' : 'budget'
+  const tab = parseTab(params.get('tab'))
 
   function selectTab(nextTab: PlanningTab) {
     const next = new URLSearchParams(params)
@@ -26,40 +39,34 @@ export function PlanningPage() {
           Rencana
         </h2>
         <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
-          Atur batas pengeluaran dan transaksi rutin yang berjalan otomatis.
+          Atur budget, transaksi rutin, target tabungan, serta hutang dan piutang.
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <button
-          type="button"
-          onClick={() => selectTab('budget')}
-          className={cn(
-            'flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition',
-            tab === 'budget'
-              ? 'bg-emerald-50 text-emerald-700 shadow-sm dark:bg-emerald-950/60 dark:text-emerald-300'
-              : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200',
-          )}
-        >
-          <Target className="h-4 w-4" />
-          Budget
-        </button>
-        <button
-          type="button"
-          onClick={() => selectTab('recurring')}
-          className={cn(
-            'flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition',
-            tab === 'recurring'
-              ? 'bg-emerald-50 text-emerald-700 shadow-sm dark:bg-emerald-950/60 dark:text-emerald-300'
-              : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200',
-          )}
-        >
-          <Repeat className="h-4 w-4" />
-          Berulang
-        </button>
+      <div className="grid grid-cols-4 gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        {TABS.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => selectTab(id)}
+            aria-pressed={tab === id}
+            className={cn(
+              'flex flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[11px] font-semibold transition sm:flex-row sm:gap-2 sm:px-3 sm:py-2.5 sm:text-sm',
+              tab === id
+                ? 'bg-emerald-50 text-emerald-700 shadow-sm dark:bg-emerald-950/60 dark:text-emerald-300'
+                : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200',
+            )}
+          >
+            <Icon className="h-4 w-4" />
+            {label}
+          </button>
+        ))}
       </div>
 
-      {tab === 'budget' ? <BudgetSection /> : <RecurringSection />}
+      {tab === 'budget' && <BudgetSection />}
+      {tab === 'recurring' && <RecurringSection />}
+      {tab === 'goals' && <GoalSection />}
+      {tab === 'debts' && <DebtSection />}
     </div>
   )
 }

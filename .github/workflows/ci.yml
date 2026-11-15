@@ -1,0 +1,28 @@
+name: CI
+
+# Menjalankan typecheck + build + verifikasi data di server GitHub,
+# sehingga tidak perlu Node.js terpasang di komputer lokal.
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Pasang dependensi
+        run: npm ci
+
+      - name: Typecheck + build
+        run: npm run build
+
+      - name: Verifikasi data
+        run: npm run verify

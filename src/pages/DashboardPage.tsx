@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ArrowRight, MessageCircle, Plus, ShieldAlert } from 'lucide-react'
+import { ArrowLeftRight, ArrowRight, MessageCircle, Plus, ShieldAlert } from 'lucide-react'
 import { useDashboardData } from '../hooks/useDashboard'
 import { useProfile } from '../hooks/useProfile'
 import { useSetting } from '../hooks/useSetting'
@@ -10,6 +10,8 @@ import { CategoryDonut } from '../components/charts/CategoryDonut'
 import { RecentTransactions } from '../components/dashboard/RecentTransactions'
 import { AccountBalances } from '../components/dashboard/AccountBalances'
 import { BudgetOverview } from '../components/dashboard/BudgetOverview'
+import { TransferSection } from '../components/transfers/TransferSection'
+import { DebtReminders } from '../components/dashboard/DebtReminders'
 
 export function DashboardPage() {
   const {
@@ -58,6 +60,13 @@ export function DashboardPage() {
             Chat AI
           </Link>
           <Link
+            to="/dashboard?transfer=1"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+          >
+            <ArrowLeftRight className="h-4 w-4" />
+            Transfer
+          </Link>
+          <Link
             to="/transactions?new=1"
             className="hidden h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 sm:inline-flex"
           >
@@ -93,6 +102,8 @@ export function DashboardPage() {
         </div>
       )}
 
+      <DebtReminders />
+
       <SummaryCards
         balance={balance}
         income={totals.income}
@@ -120,6 +131,8 @@ export function DashboardPage() {
       </div>
 
       <AccountBalances accounts={balances} />
+
+      <TransferSection />
 
       <p className="pb-2 text-center text-[10px] text-slate-400 dark:text-slate-600">
         RF Uangku · data lokal · dibuat untuk pemakaian pribadi

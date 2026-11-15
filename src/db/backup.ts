@@ -4,11 +4,18 @@ import type {
   BackupData,
   Budget,
   Category,
+  Debt,
+  DebtPayment,
+  Goal,
+  GoalContribution,
   ProfileBackup,
   RecurringTransaction,
   Transaction,
+  Transfer,
 } from '../types'
-import { DEFAULT_PROFILE_NAME } from '../lib/constants'
+import { BUDGET_LEGACY_MONTH, DEFAULT_PROFILE_NAME } from '../lib/constants'
+import { isMonthKey } from '../lib/dates'
+import { isIsoDate } from '../lib/dateMath'
 import { PROFILE_PHOTO_MAX_DATA_URL_LENGTH } from '../lib/profile'
 
 export async function buildBackup(): Promise<BackupData> {
@@ -25,13 +32,18 @@ export async function buildBackup(): Promise<BackupData> {
 
   return {
     app: 'rf-uangku',
-    version: 2,
+    version: 5,
     exportedAt: new Date().toISOString(),
     accounts: await db.accounts.toArray(),
     categories: await db.categories.toArray(),
     transactions: await db.transactions.toArray(),
     budgets: await db.budgets.toArray(),
     recurringTransactions: await db.recurringTransactions.toArray(),
+    transfers: await db.transfers.toArray(),
+    goals: await db.goals.toArray(),
+    goalContributions: await db.goalContributions.toArray(),
+    debts: await db.debts.toArray(),
+    debtPayments: await db.debtPayments.toArray(),
     ...(profile ? { profile } : {}),
   }
 }
@@ -95,7 +107,11 @@ function isBudgetRow(value: unknown): boolean {
     typeof value.categoryId === 'string' &&
     typeof value.amount === 'number' &&
     Number.isFinite(value.amount) &&
-    value.amount > 0 &&
+    // amount 0 = penanda budget dihentikan mulai bulan tertentu
+    value.amount >= 0 &&
+    (value.effectiveFrom === undefined ||
+      value.effectiveFrom === BUDGET_LEGACY_MONTH ||
+      isMonthKey(value.effectiveFrom)) &&
     typeof value.createdAt === 'string' &&
     typeof value.updatedAt === 'string'
   )
@@ -129,6 +145,79 @@ function isRecurringRow(value: unknown): boolean {
   )
 }
 
+function isTransferRow(value: unknown): boolean {
+  if (!isRecord(value)) return false
+  return (
+    typeof value.id === 'string' &&
+    typeof value.fromAccountId === 'string' &&
+    typeof value.toAccountId === 'string' &&
+    value.fromAccountId !== value.toAccountId &&
+    typeof value.amount === 'number' &&
+    Number.isFinite(value.amount) &&
+    value.amount > 0 &&
+    isDateString(value.occurredAt) &&
+    (value.note === undefined || typeof value.note === 'string') &&
+    typeof value.createdAt === 'string'
+  )
+}
+
+function isPositive(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+}
+
+function isGoalRow(value: unknown): boolean {
+  if (!isRecord(value)) return false
+  return (
+    typeof value.id === 'string' &&
+    typeof value.name === 'string' &&
+    value.name.trim().length > 0 &&
+    isPositive(value.targetAmount) &&
+    (value.deadline === undefined || isIsoDate(value.deadline)) &&
+    typeof value.color === 'string' &&
+    (value.note === undefined || typeof value.note === 'string') &&
+    typeof value.createdAt === 'string'
+  )
+}
+
+function isGoalContributionRow(value: unknown): boolean {
+  if (!isRecord(value)) return false
+  return (
+    typeof value.id === 'string' &&
+    typeof value.goalId === 'string' &&
+    (value.kind === 'deposit' || value.kind === 'withdrawal') &&
+    isPositive(value.amount) &&
+    isIsoDate(value.occurredAt) &&
+    (value.note === undefined || typeof value.note === 'string') &&
+    typeof value.createdAt === 'string'
+  )
+}
+
+function isDebtRow(value: unknown): boolean {
+  if (!isRecord(value)) return false
+  return (
+    typeof value.id === 'string' &&
+    (value.direction === 'owe' || value.direction === 'lent') &&
+    typeof value.person === 'string' &&
+    value.person.trim().length > 0 &&
+    isPositive(value.amount) &&
+    (value.dueDate === undefined || isIsoDate(value.dueDate)) &&
+    (value.note === undefined || typeof value.note === 'string') &&
+    typeof value.createdAt === 'string'
+  )
+}
+
+function isDebtPaymentRow(value: unknown): boolean {
+  if (!isRecord(value)) return false
+  return (
+    typeof value.id === 'string' &&
+    typeof value.debtId === 'string' &&
+    isPositive(value.amount) &&
+    isIsoDate(value.occurredAt) &&
+    (value.note === undefined || typeof value.note === 'string') &&
+    typeof value.createdAt === 'string'
+  )
+}
+
 function isProfileRow(value: unknown): value is ProfileBackup {
   if (!isRecord(value)) return false
   if (typeof value.name !== 'string' || !value.name.trim()) return false
@@ -144,11 +233,20 @@ export function validateBackup(value: unknown): asserts value is BackupData {
   if (!value || typeof value !== 'object') {
     throw new Error('File backup tidak valid.')
   }
+  if ((value as { encrypted?: unknown }).encrypted === true) {
+    throw new Error('File backup ini terenkripsi. Buka dulu dengan password.')
+  }
   const data = value as Partial<BackupData>
   if (data.app !== 'rf-uangku') {
     throw new Error('File ini bukan backup RF Uangku.')
   }
-  if (data.version !== 1 && data.version !== 2) {
+  if (
+    data.version !== 1 &&
+    data.version !== 2 &&
+    data.version !== 3 &&
+    data.version !== 4 &&
+    data.version !== 5
+  ) {
     throw new Error('Versi file backup tidak didukung.')
   }
   if (
@@ -180,19 +278,59 @@ export function validateBackup(value: unknown): asserts value is BackupData {
       throw new Error('Data transaksi berulang di file backup tidak valid.')
     }
   }
+  if (data.transfers !== undefined) {
+    if (!Array.isArray(data.transfers) || !data.transfers.every(isTransferRow)) {
+      throw new Error('Data transfer di file backup tidak valid.')
+    }
+  }
+  if (data.goals !== undefined) {
+    if (!Array.isArray(data.goals) || !data.goals.every(isGoalRow)) {
+      throw new Error('Data target tabungan di file backup tidak valid.')
+    }
+  }
+  if (data.goalContributions !== undefined) {
+    if (
+      !Array.isArray(data.goalContributions) ||
+      !data.goalContributions.every(isGoalContributionRow)
+    ) {
+      throw new Error('Data setoran tabungan di file backup tidak valid.')
+    }
+  }
+  if (data.debts !== undefined) {
+    if (!Array.isArray(data.debts) || !data.debts.every(isDebtRow)) {
+      throw new Error('Data hutang/piutang di file backup tidak valid.')
+    }
+  }
+  if (data.debtPayments !== undefined) {
+    if (!Array.isArray(data.debtPayments) || !data.debtPayments.every(isDebtPaymentRow)) {
+      throw new Error('Data pembayaran hutang/piutang di file backup tidak valid.')
+    }
+  }
   if (data.profile !== undefined && !isProfileRow(data.profile)) {
     throw new Error('Data profil di file backup tidak valid.')
   }
   const budgets = data.budgets ?? []
   const recurringTransactions = data.recurringTransactions ?? []
+  const transfers = data.transfers ?? []
+  const goals = data.goals ?? []
+  const goalContributions = data.goalContributions ?? []
+  const debts = data.debts ?? []
+  const debtPayments = data.debtPayments ?? []
   if (
     new Set(data.accounts.map((account) => account.id)).size !== data.accounts.length ||
     new Set(data.categories.map((category) => category.id)).size !== data.categories.length ||
     new Set(data.transactions.map((transaction) => transaction.id)).size !==
       data.transactions.length ||
     new Set(budgets.map((budget) => budget.id)).size !== budgets.length ||
-    new Set(budgets.map((budget) => budget.categoryId)).size !== budgets.length ||
-    new Set(recurringTransactions.map((rule) => rule.id)).size !== recurringTransactions.length
+    new Set(
+      budgets.map((budget) => `${budget.categoryId}|${budget.effectiveFrom ?? BUDGET_LEGACY_MONTH}`),
+    ).size !== budgets.length ||
+    new Set(recurringTransactions.map((rule) => rule.id)).size !== recurringTransactions.length ||
+    new Set(transfers.map((transfer) => transfer.id)).size !== transfers.length ||
+    new Set(goals.map((goal) => goal.id)).size !== goals.length ||
+    new Set(goalContributions.map((item) => item.id)).size !== goalContributions.length ||
+    new Set(debts.map((debt) => debt.id)).size !== debts.length ||
+    new Set(debtPayments.map((payment) => payment.id)).size !== debtPayments.length
   ) {
     throw new Error('File backup berisi ID ganda.')
   }
@@ -214,6 +352,39 @@ export function validateBackup(value: unknown): asserts value is BackupData {
     )
   ) {
     throw new Error('Transaksi di file backup merujuk rekening atau kategori yang tidak ada.')
+  }
+
+  if (
+    !transfers.every(
+      (transfer) => accountIds.has(transfer.fromAccountId) && accountIds.has(transfer.toAccountId),
+    )
+  ) {
+    throw new Error('Transfer di file backup merujuk rekening yang tidak ada.')
+  }
+
+  const goalIds = new Set(goals.map((goal) => goal.id))
+  if (!goalContributions.every((item) => goalIds.has(item.goalId))) {
+    throw new Error('Setoran tabungan di file backup merujuk target yang tidak ada.')
+  }
+  const savedByGoal = new Map<string, number>()
+  for (const item of goalContributions) {
+    const delta = item.kind === 'deposit' ? item.amount : -item.amount
+    savedByGoal.set(item.goalId, (savedByGoal.get(item.goalId) ?? 0) + delta)
+  }
+  if (Array.from(savedByGoal.values()).some((saved) => saved < 0)) {
+    throw new Error('Tabungan di file backup bernilai negatif.')
+  }
+
+  const debtIds = new Set(debts.map((debt) => debt.id))
+  if (!debtPayments.every((payment) => debtIds.has(payment.debtId))) {
+    throw new Error('Pembayaran di file backup merujuk hutang/piutang yang tidak ada.')
+  }
+  const paidByDebt = new Map<string, number>()
+  for (const payment of debtPayments) {
+    paidByDebt.set(payment.debtId, (paidByDebt.get(payment.debtId) ?? 0) + payment.amount)
+  }
+  if (debts.some((debt) => (paidByDebt.get(debt.id) ?? 0) > debt.amount)) {
+    throw new Error('Pembayaran di file backup melebihi nominal hutang/piutang.')
   }
 
   const categoryMap = new Map(data.categories.map((category) => [category.id, category]))
@@ -263,6 +434,8 @@ export async function restoreBackup(data: BackupData): Promise<void> {
   const budgets: Budget[] = (data.budgets ?? []).map((budget) => ({
     ...budget,
     amount: Number(budget.amount) || 0,
+    // Backup lama (v1-v3) tidak punya bulan mulai: berlaku sejak awal.
+    effectiveFrom: budget.effectiveFrom || BUDGET_LEGACY_MONTH,
     updatedAt: budget.updatedAt || budget.createdAt,
   }))
   const recurringTransactions: RecurringTransaction[] = (
@@ -276,6 +449,34 @@ export async function restoreBackup(data: BackupData): Promise<void> {
     updatedAt: rule.updatedAt || rule.createdAt,
   }))
 
+  const transfers: Transfer[] = (data.transfers ?? []).map((transfer) => ({
+    ...transfer,
+    amount: Number(transfer.amount) || 0,
+    note: transfer.note || '',
+    updatedAt: transfer.updatedAt || transfer.createdAt,
+  }))
+
+  const goalsRows: Goal[] = (data.goals ?? []).map((goal) => ({
+    ...goal,
+    targetAmount: Number(goal.targetAmount) || 0,
+    note: goal.note || '',
+    updatedAt: goal.updatedAt || goal.createdAt,
+  }))
+  const goalContributionRows: GoalContribution[] = (data.goalContributions ?? []).map(
+    (item) => ({ ...item, amount: Number(item.amount) || 0, note: item.note || '' }),
+  )
+  const debtRows: Debt[] = (data.debts ?? []).map((debt) => ({
+    ...debt,
+    amount: Number(debt.amount) || 0,
+    note: debt.note || '',
+    updatedAt: debt.updatedAt || debt.createdAt,
+  }))
+  const debtPaymentRows: DebtPayment[] = (data.debtPayments ?? []).map((payment) => ({
+    ...payment,
+    amount: Number(payment.amount) || 0,
+    note: payment.note || '',
+  }))
+
   await db.transaction(
     'rw',
     [
@@ -284,6 +485,11 @@ export async function restoreBackup(data: BackupData): Promise<void> {
       db.transactions,
       db.budgets,
       db.recurringTransactions,
+      db.transfers,
+      db.goals,
+      db.goalContributions,
+      db.debts,
+      db.debtPayments,
       db.settings,
     ],
     async () => {
@@ -292,6 +498,11 @@ export async function restoreBackup(data: BackupData): Promise<void> {
       await db.categories.clear()
       await db.budgets.clear()
       await db.recurringTransactions.clear()
+      await db.transfers.clear()
+      await db.goalContributions.clear()
+      await db.goals.clear()
+      await db.debtPayments.clear()
+      await db.debts.clear()
       await db.accounts.bulkAdd(accounts)
       await db.categories.bulkAdd(categories)
       await db.transactions.bulkAdd(transactions)
@@ -299,6 +510,13 @@ export async function restoreBackup(data: BackupData): Promise<void> {
       if (recurringTransactions.length > 0) {
         await db.recurringTransactions.bulkAdd(recurringTransactions)
       }
+      if (transfers.length > 0) await db.transfers.bulkAdd(transfers)
+      if (goalsRows.length > 0) await db.goals.bulkAdd(goalsRows)
+      if (goalContributionRows.length > 0) {
+        await db.goalContributions.bulkAdd(goalContributionRows)
+      }
+      if (debtRows.length > 0) await db.debts.bulkAdd(debtRows)
+      if (debtPaymentRows.length > 0) await db.debtPayments.bulkAdd(debtPaymentRows)
 
       if (data.profile) {
         await db.settings.put({ key: 'profileName', value: data.profile.name.trim() })

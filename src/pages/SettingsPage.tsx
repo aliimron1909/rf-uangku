@@ -49,6 +49,13 @@ import { useProfile } from '../hooks/useProfile'
 import { useSetting } from '../hooks/useSetting'
 import { useTransactions } from '../hooks/useTransactions'
 import { useLock } from '../contexts/LockContext'
+import {
+  decryptBackup,
+  encryptBackup,
+  isEncryptedBackup,
+  type EncryptedBackup,
+} from '../lib/backupCrypto'
+import { BackupPasswordDialog } from '../components/settings/BackupPasswordDialog'
 import { useTheme } from '../contexts/ThemeContext'
 import { useToast } from '../contexts/ToastContext'
 import { listGroqChatModels, testGroq, type GroqModelInfo } from '../lib/groq'
@@ -130,6 +137,8 @@ export function SettingsPage() {
 
   const [pendingRestore, setPendingRestore] = useState<BackupData | null>(null)
   const [restoring, setRestoring] = useState(false)
+  const [encryptDialogOpen, setEncryptDialogOpen] = useState(false)
+  const [pendingEncrypted, setPendingEncrypted] = useState<EncryptedBackup | null>(null)
   const [confirmClearTx, setConfirmClearTx] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
   const [confirmRemoveKey, setConfirmRemoveKey] = useState(false)
@@ -350,6 +359,23 @@ export function SettingsPage() {
     }
   }
 
+  async function handleExportEncrypted(password: string) {
+    const backup = await buildBackup()
+    const encrypted = await encryptBackup(backup, password)
+    downloadJson(encrypted, `RF-Uangku-backup-terenkripsi-${todayISO()}.json`)
+    await setSetting('lastBackupAt', new Date().toISOString())
+    setEncryptDialogOpen(false)
+    toast('Backup terenkripsi berhasil diunduh. Simpan password dengan aman.')
+  }
+
+  async function handleDecryptBackup(password: string) {
+    if (!pendingEncrypted) return
+    const decrypted = await decryptBackup(pendingEncrypted, password)
+    validateBackup(decrypted)
+    setPendingEncrypted(null)
+    setPendingRestore(decrypted)
+  }
+
   function handleExportCsv() {
     if (transactions.length === 0) {
       toast('Belum ada transaksi untuk diekspor.', 'info')
@@ -369,6 +395,10 @@ export function SettingsPage() {
     try {
       const text = await file.text()
       const parsed: unknown = JSON.parse(text)
+      if (isEncryptedBackup(parsed)) {
+        setPendingEncrypted(parsed)
+        return
+      }
       validateBackup(parsed)
       setPendingRestore(parsed)
     } catch (caught) {
@@ -392,7 +422,10 @@ export function SettingsPage() {
 
   async function handleClearTransactions() {
     try {
-      await db.transactions.clear()
+      await db.transaction('rw', db.transactions, db.transfers, async () => {
+        await db.transactions.clear()
+        await db.transfers.clear()
+      })
       setConfirmClearTx(false)
       toast('Semua transaksi telah dihapus.')
     } catch (caught) {
@@ -887,6 +920,10 @@ export function SettingsPage() {
             <Download className="h-4 w-4" />
             Unduh Backup JSON
           </Button>
+          <Button variant="outline" onClick={() => setEncryptDialogOpen(true)}>
+            <Lock className="h-4 w-4" />
+            Backup Terenkripsi
+          </Button>
           <Button variant="outline" onClick={handleExportCsv}>
             <FileSpreadsheet className="h-4 w-4" />
             Ekspor Transaksi CSV
@@ -914,7 +951,9 @@ export function SettingsPage() {
           <p>
             Memulihkan backup akan <span className="font-bold">mengganti seluruh data lokal</span>{' '}
             dengan isi file. Unduh backup terbaru dulu jika ragu. File backup JSON berisi seluruh
-            transaksi, rekening, kategori, dan profil.
+            transaksi, transfer, rekening, kategori, budget, dan profil. Backup JSON biasa tidak
+            dikunci, jadi pakai <span className="font-bold">Backup Terenkripsi</span> jika file akan
+            disimpan di cloud atau dikirim lewat chat. Pemulihan mengenali file terenkripsi otomatis.
           </p>
         </div>
 
@@ -1059,6 +1098,20 @@ export function SettingsPage() {
         onConfirm={() => void removeAiKey()}
       />
 
+      <BackupPasswordDialog
+        open={encryptDialogOpen}
+        mode="encrypt"
+        onSubmit={handleExportEncrypted}
+        onCancel={() => setEncryptDialogOpen(false)}
+      />
+
+      <BackupPasswordDialog
+        open={Boolean(pendingEncrypted)}
+        mode="decrypt"
+        onSubmit={handleDecryptBackup}
+        onCancel={() => setPendingEncrypted(null)}
+      />
+
       <ConfirmDialog
         open={Boolean(pendingRestore)}
         title="Pulihkan data dari backup?"
@@ -1073,7 +1126,7 @@ export function SettingsPage() {
       <ConfirmDialog
         open={confirmClearTx}
         title="Hapus semua transaksi?"
-        message="Semua transaksi akan dihapus permanen. Rekening dan kategori tetap ada. Sebaiknya unduh backup JSON terlebih dahulu."
+        message="Semua transaksi dan transfer antar rekening akan dihapus permanen. Rekening dan kategori tetap ada. Sebaiknya unduh backup JSON terlebih dahulu."
         confirmLabel="Hapus semua"
         danger
         onCancel={() => setConfirmClearTx(false)}
@@ -1083,7 +1136,7 @@ export function SettingsPage() {
       <ConfirmDialog
         open={confirmReset}
         title="Reset ke data awal?"
-        message="Semua transaksi akan dihapus, lalu rekening dan kategori dikembalikan ke daftar bawaan. Tindakan ini tidak bisa dibatalkan."
+        message="Semua transaksi, target tabungan, dan hutang/piutang akan dihapus, lalu rekening dan kategori dikembalikan ke daftar bawaan. Tindakan ini tidak bisa dibatalkan."
         confirmLabel="Reset data"
         danger
         onCancel={() => setConfirmReset(false)}

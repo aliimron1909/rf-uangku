@@ -3,7 +3,24 @@ import assert from 'node:assert/strict'
 import { db } from '../src/db/db'
 import { DEFAULT_ACCOUNTS, DEFAULT_CATEGORIES, seedIfEmpty } from '../src/db/seed'
 import { createTransaction, deleteTransaction, updateTransaction } from '../src/db/transactions'
-import { upsertBudget } from '../src/db/budgets'
+import { stopBudget, upsertBudget } from '../src/db/budgets'
+import {
+  addGoalContribution,
+  createGoal,
+  deleteGoal,
+  deleteGoalContribution,
+  updateGoal,
+} from '../src/db/goals'
+import {
+  addDebtPayment,
+  createDebt,
+  deleteDebt,
+  deleteDebtPayment,
+  updateDebt,
+} from '../src/db/debts'
+import { goalProgress, goalSaved } from '../src/lib/goals'
+import { debtProgress } from '../src/lib/debts'
+import { createTransfer, deleteTransfer, updateTransfer } from '../src/db/transfers'
 import {
   createRecurring,
   deleteRecurring,
@@ -19,9 +36,22 @@ import {
   totalBalance,
   withRefs,
 } from '../src/lib/analytics'
-import { buildTrend, monthRange, presetRange, todayISO } from '../src/lib/dates'
+import {
+  buildTrend,
+  monthKey,
+  monthRange,
+  monthRangeFromKey,
+  presetRange,
+  shiftMonthKey,
+  todayISO,
+} from '../src/lib/dates'
 import { formatNumberInput, formatRupiah, parseNumberInput } from '../src/lib/format'
-import { budgetProgress, budgetSummary } from '../src/lib/budget'
+import {
+  budgetProgress,
+  budgetSummary,
+  newExpenseBudgetAlert,
+  resolveBudgets,
+} from '../src/lib/budget'
 import {
   advanceOccurrence,
   frequencyLabel,
@@ -30,6 +60,7 @@ import {
 } from '../src/lib/recurrence'
 import { profileInitials } from '../src/lib/profile'
 import { isValidPin, savePin, verifyPin, hasPin } from '../src/lib/pin'
+import { decryptBackup, encryptBackup, isEncryptedBackup } from '../src/lib/backupCrypto'
 
 const store = new Map<string, string>()
 Object.defineProperty(globalThis, 'localStorage', {
@@ -176,10 +207,79 @@ async function main() {
   await db.settings.put({ key: 'profileName', value: 'Rafi' })
   await db.settings.put({ key: 'profilePhoto', value: 'data:image/png;base64,AAAA' })
 
+  const transfer = await createTransfer({
+    fromAccountId: bca.id,
+    toAccountId: gopay.id,
+    amount: 1_000_000,
+    occurredAt: todayISO(),
+    note: '  Isi saldo Gopay  ',
+  })
+  assert.equal(transfer.note, 'Isi saldo Gopay')
+  const savedTransfers = await db.transfers.toArray()
+  assert.equal(savedTransfers.length, 1)
+
+  // Transfers move money between accounts but never change totals.
+  const afterTransfer = accountsWithBalance(DEFAULT_ACCOUNTS, transactions, savedTransfers)
+  assert.equal(afterTransfer.find((account) => account.id === bca.id)?.balance, 4_000_000)
+  assert.equal(afterTransfer.find((account) => account.id === gopay.id)?.balance, 975_000)
+  assert.equal(
+    afterTransfer.reduce((sum, account) => sum + account.balance, 0),
+    totalBalance(DEFAULT_ACCOUNTS, transactions),
+  )
+  assert.equal(computeTotals(transactions).income, 5_000_000)
+  assert.equal(computeTotals(transactions).expense, 25_000)
+
+  await assert.rejects(
+    createTransfer({ fromAccountId: bca.id, toAccountId: bca.id, amount: 1, occurredAt: todayISO() }),
+    /tidak boleh sama/,
+  )
+  await assert.rejects(
+    createTransfer({ fromAccountId: bca.id, toAccountId: gopay.id, amount: 0, occurredAt: todayISO() }),
+    /lebih dari 0/,
+  )
+  await assert.rejects(
+    createTransfer({ fromAccountId: bca.id, toAccountId: 'tidak-ada', amount: 1, occurredAt: todayISO() }),
+    /tidak ditemukan/,
+  )
+  assert.equal(await db.transfers.count(), 1)
+
+  await updateTransfer(transfer.id, {
+    fromAccountId: bca.id,
+    toAccountId: gopay.id,
+    amount: 250_000,
+    occurredAt: todayISO(),
+  })
+  assert.equal((await db.transfers.get(transfer.id))?.amount, 250_000)
+  const extra = await createTransfer({
+    fromAccountId: gopay.id,
+    toAccountId: bca.id,
+    amount: 50_000,
+    occurredAt: todayISO(),
+  })
+  await deleteTransfer(extra.id)
+  assert.equal(await db.transfers.count(), 1)
+
   const backup = await buildBackup()
   validateBackup(backup)
   assert.equal(backup.app, 'rf-uangku')
-  assert.equal(backup.version, 2)
+  assert.equal(backup.version, 5)
+  assert.equal(backup.transfers?.length, 1)
+  assert.throws(
+    () =>
+      validateBackup({
+        ...backup,
+        transfers: [{ ...transfer, toAccountId: transfer.fromAccountId }],
+      }),
+    /transfer/i,
+  )
+  assert.throws(
+    () => validateBackup({ ...backup, transfers: [{ ...transfer, toAccountId: 'hilang' }] }),
+    /transfer/i,
+  )
+  assert.throws(
+    () => validateBackup({ ...backup, transfers: [transfer, transfer] }),
+    /ID ganda/,
+  )
   assert.equal(backup.accounts.length, DEFAULT_ACCOUNTS.length)
   assert.equal(backup.transactions.length, 2)
   assert.equal(backup.budgets?.length, 1)
@@ -251,6 +351,8 @@ async function main() {
   assert.equal((await db.transactions.get(expense.id))?.amount, 25_000)
   assert.equal(await db.budgets.count(), 1)
   assert.equal(await db.recurringTransactions.count(), 1)
+  assert.equal(await db.transfers.count(), 1)
+  assert.equal((await db.transfers.get(transfer.id))?.amount, 250_000)
   assert.equal((await db.settings.get('profileName'))?.value, 'Rafi')
   assert.equal((await db.settings.get('profilePhoto'))?.value, 'data:image/png;base64,AAAA')
 
@@ -289,6 +391,7 @@ async function main() {
   const {
     budgets: _budgets,
     recurringTransactions: _recurringTransactions,
+    transfers: _transfers,
     ...legacyV1
   } = backup
   const v1Backup = { ...legacyV1, version: 1 as const }
@@ -296,7 +399,350 @@ async function main() {
   await restoreBackup(v1Backup)
   assert.equal(await db.budgets.count(), 0)
   assert.equal(await db.recurringTransactions.count(), 0)
+  assert.equal(await db.transfers.count(), 0)
   assert.equal(await db.transactions.count(), 2)
+
+  // Riwayat budget per bulan
+  const nowKey = monthKey()
+  const prevKey = shiftMonthKey(nowKey, -1)
+  assert.equal(shiftMonthKey('2026-01', -1), '2025-12')
+  assert.equal(shiftMonthKey('2026-12', 1), '2027-01')
+  assert.equal(shiftMonthKey('2026-03', 12), '2027-03')
+  assert.equal(await db.budgets.count(), 0)
+
+  // Budget lama (tanpa bulan mulai) otomatis berlaku sejak awal.
+  await db.budgets.add({
+    id: 'legacy-budget',
+    categoryId: makan.id,
+    amount: 100_000,
+    effectiveFrom: '0000-00',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  })
+  const changed = await upsertBudget({ categoryId: makan.id, amount: 200_000 })
+  assert.equal(changed.effectiveFrom, nowKey)
+  const again = await upsertBudget({ categoryId: makan.id, amount: 250_000 })
+  assert.equal(again.id, changed.id)
+  assert.equal(await db.budgets.count(), 2)
+  await assert.rejects(upsertBudget({ categoryId: makan.id, amount: 0 }), /lebih dari 0/)
+  await assert.rejects(
+    upsertBudget({ categoryId: makan.id, amount: 1, month: '2026-13' }),
+    /tidak valid/,
+  )
+
+  let rows = await db.budgets.toArray()
+  assert.equal(resolveBudgets(rows, prevKey)[0].amount, 100_000)
+  assert.equal(resolveBudgets(rows, nowKey)[0].amount, 250_000)
+  assert.equal(resolveBudgets(rows, shiftMonthKey(nowKey, 3))[0].amount, 250_000)
+  assert.equal(resolveBudgets(rows, '2020-01')[0].amount, 100_000)
+
+  // Perubahan bulan ini tidak mengubah progres bulan lalu.
+  const prevProgress = budgetProgress([...rows], [], DEFAULT_CATEGORIES, monthRangeFromKey(prevKey))
+  assert.equal(prevProgress[0].limit, 100_000)
+  const nowProgress = budgetProgress([...rows], [], DEFAULT_CATEGORIES, monthRangeFromKey(nowKey))
+  assert.equal(nowProgress[0].limit, 250_000)
+  assert.equal(
+    newExpenseBudgetAlert(rows, [], DEFAULT_CATEGORIES, {
+      type: 'expense',
+      categoryId: makan.id,
+      amount: 90_000,
+      occurredAt: `${prevKey}-15`,
+    })?.type,
+    'info',
+  )
+  assert.equal(
+    newExpenseBudgetAlert(rows, [], DEFAULT_CATEGORIES, {
+      type: 'expense',
+      categoryId: makan.id,
+      amount: 90_000,
+      occurredAt: `${nowKey}-15`,
+    }),
+    null,
+  )
+
+  // Menghentikan budget mulai bulan ini: bulan lalu tetap, bulan ini dst. kosong.
+  await stopBudget(makan.id, nowKey)
+  rows = await db.budgets.toArray()
+  assert.equal(rows.length, 2)
+  assert.equal(rows.find((row) => row.effectiveFrom === nowKey)?.amount, 0)
+  assert.equal(resolveBudgets(rows, prevKey)[0].amount, 100_000)
+  assert.equal(resolveBudgets(rows, nowKey).length, 0)
+  assert.equal(resolveBudgets(rows, shiftMonthKey(nowKey, 2)).length, 0)
+
+  // Menetapkan lagi setelah dihentikan memakai baris penanda yang sama.
+  const revived = await upsertBudget({ categoryId: makan.id, amount: 80_000 })
+  assert.equal(revived.effectiveFrom, nowKey)
+  assert.equal(await db.budgets.count(), 2)
+  assert.equal(resolveBudgets(await db.budgets.toArray(), nowKey)[0].amount, 80_000)
+
+  // Menghentikan budget tanpa riwayat sebelumnya: baris cukup dihapus.
+  const lain = DEFAULT_CATEGORIES.find(
+    (category) => category.type === 'expense' && category.id !== makan.id,
+  )!
+  await upsertBudget({ categoryId: lain.id, amount: 30_000 })
+  assert.equal(await db.budgets.count(), 3)
+  await stopBudget(lain.id, nowKey)
+  assert.equal(await db.budgets.count(), 2)
+
+  // Menghentikan di bulan lalu: penanda ditambahkan, riwayat lama tetap utuh.
+  await stopBudget(makan.id, prevKey)
+  rows = await db.budgets.toArray()
+  assert.equal(rows.length, 3)
+  assert.equal(resolveBudgets(rows, prevKey).length, 0)
+  assert.equal(resolveBudgets(rows, '2020-01')[0].amount, 100_000)
+  assert.equal(resolveBudgets(rows, nowKey)[0].amount, 80_000)
+
+  // Backup memuat riwayat budget (v4); file lama tanpa bulan mulai tetap bisa dipulihkan.
+  const withHistory = await buildBackup()
+  validateBackup(withHistory)
+  assert.equal(withHistory.version, 5)
+  assert.equal(withHistory.budgets?.length, rows.length)
+  assert.throws(
+    () =>
+      validateBackup({
+        ...withHistory,
+        budgets: [rows[0], { ...rows[0], id: 'dup' }],
+      }),
+    /ID ganda/,
+  )
+  assert.throws(
+    () =>
+      validateBackup({
+        ...withHistory,
+        budgets: [{ ...rows[0], effectiveFrom: '2026-13' }],
+      }),
+    /budget/i,
+  )
+  await restoreBackup(withHistory)
+  assert.equal(await db.budgets.count(), rows.length)
+
+  const oldBudgetBackup: unknown = {
+    ...withHistory,
+    version: 3,
+    budgets: [
+      {
+        id: 'old-budget',
+        categoryId: makan.id,
+        amount: 50_000,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
+    ],
+  }
+  validateBackup(oldBudgetBackup)
+  await restoreBackup(oldBudgetBackup)
+  assert.equal((await db.budgets.get('old-budget'))?.effectiveFrom, '0000-00')
+  assert.equal(resolveBudgets(await db.budgets.toArray(), '2020-01')[0].amount, 50_000)
+
+  // Target tabungan
+  const goal = await createGoal({
+    name: '  Laptop  ',
+    targetAmount: 12_000_000,
+    deadline: '2027-05-15',
+    color: '#10b981',
+  })
+  assert.equal(goal.name, 'Laptop')
+  await assert.rejects(createGoal({ name: '  ', targetAmount: 1, color: '#000' }), /wajib diisi/)
+  await assert.rejects(createGoal({ name: 'X', targetAmount: 0, color: '#000' }), /lebih dari 0/)
+  await assert.rejects(
+    createGoal({ name: 'X', targetAmount: 1, deadline: '2026-02-30', color: '#000' }),
+    /Tenggat/,
+  )
+  const deposit = await addGoalContribution({
+    goalId: goal.id,
+    kind: 'deposit',
+    amount: 3_000_000,
+    occurredAt: todayISO(),
+  })
+  const withdrawal = await addGoalContribution({
+    goalId: goal.id,
+    kind: 'withdrawal',
+    amount: 500_000,
+    occurredAt: todayISO(),
+    note: ' dipakai ',
+  })
+  assert.equal(withdrawal.note, 'dipakai')
+  assert.equal(goalSaved(await db.goalContributions.toArray(), goal.id), 2_500_000)
+  await assert.rejects(
+    addGoalContribution({ goalId: goal.id, kind: 'withdrawal', amount: 9_999_999, occurredAt: todayISO() }),
+    /melebihi/,
+  )
+  await assert.rejects(
+    addGoalContribution({ goalId: 'tidak-ada', kind: 'deposit', amount: 1, occurredAt: todayISO() }),
+    /tidak ditemukan/,
+  )
+  await assert.rejects(
+    addGoalContribution({ goalId: goal.id, kind: 'deposit', amount: 0, occurredAt: todayISO() }),
+    /lebih dari 0/,
+  )
+  await assert.rejects(
+    addGoalContribution({ goalId: goal.id, kind: 'deposit', amount: 1, occurredAt: 'bukan-tanggal' }),
+    /Tanggal/,
+  )
+  assert.equal(await db.goalContributions.count(), 2)
+
+  // Menghapus setoran yang membuat tabungan negatif ditolak; menghapus pengambilan boleh.
+  await assert.rejects(deleteGoalContribution(deposit.id), /negatif/)
+  await deleteGoalContribution(withdrawal.id)
+  assert.equal(goalSaved(await db.goalContributions.toArray(), goal.id), 3_000_000)
+  await updateGoal(goal.id, { name: 'Laptop', targetAmount: 3_000_000, color: '#0ea5e9' })
+  assert.equal(
+    goalProgress(await db.goals.toArray(), await db.goalContributions.toArray(), todayISO())[0].status,
+    'done',
+  )
+  await assert.rejects(
+    updateGoal('tidak-ada', { name: 'X', targetAmount: 1, color: '#000' }),
+    /tidak ditemukan/,
+  )
+
+  // Hapus target ikut menghapus setorannya.
+  const temp = await createGoal({ name: 'Sementara', targetAmount: 1_000, color: '#000' })
+  await addGoalContribution({ goalId: temp.id, kind: 'deposit', amount: 500, occurredAt: todayISO() })
+  assert.equal(await db.goalContributions.count(), 2)
+  await deleteGoal(temp.id)
+  assert.equal(await db.goalContributions.count(), 1)
+  assert.equal(await db.goals.count(), 1)
+
+  // Hutang & piutang
+  const debt = await createDebt({
+    direction: 'owe',
+    person: ' Budi ',
+    amount: 1_000_000,
+    dueDate: '2026-12-01',
+  })
+  assert.equal(debt.person, 'Budi')
+  await assert.rejects(createDebt({ direction: 'owe', person: ' ', amount: 1 }), /wajib diisi/)
+  await assert.rejects(
+    createDebt({ direction: 'x' as never, person: 'A', amount: 1 }),
+    /tidak valid/,
+  )
+  await assert.rejects(createDebt({ direction: 'lent', person: 'A', amount: -5 }), /lebih dari 0/)
+  await assert.rejects(
+    createDebt({ direction: 'lent', person: 'A', amount: 1, dueDate: '2026-13-01' }),
+    /Jatuh tempo/,
+  )
+  const payment = await addDebtPayment({ debtId: debt.id, amount: 400_000, occurredAt: todayISO() })
+  await assert.rejects(
+    addDebtPayment({ debtId: debt.id, amount: 700_000, occurredAt: todayISO() }),
+    /melebihi sisa/,
+  )
+  await assert.rejects(
+    addDebtPayment({ debtId: 'tidak-ada', amount: 1, occurredAt: todayISO() }),
+    /tidak ditemukan/,
+  )
+  await assert.rejects(
+    updateDebt(debt.id, { direction: 'owe', person: 'Budi', amount: 300_000 }),
+    /lebih kecil/,
+  )
+  await updateDebt(debt.id, { direction: 'owe', person: 'Budi', amount: 1_200_000 })
+  await addDebtPayment({ debtId: debt.id, amount: 800_000, occurredAt: todayISO() })
+  const paidOff = debtProgress(await db.debts.toArray(), await db.debtPayments.toArray(), todayISO())
+  assert.equal(paidOff[0].status, 'paid')
+  assert.equal(paidOff[0].remaining, 0)
+  await deleteDebtPayment(payment.id)
+  const reopened = debtProgress(await db.debts.toArray(), await db.debtPayments.toArray(), todayISO())
+  assert.notEqual(reopened[0].status, 'paid')
+  assert.equal(reopened[0].remaining, 400_000)
+
+  const piutang = await createDebt({ direction: 'lent', person: 'Sari', amount: 250_000 })
+  await addDebtPayment({ debtId: piutang.id, amount: 50_000, occurredAt: todayISO() })
+  assert.equal(await db.debtPayments.count(), 2)
+  await deleteDebt(piutang.id)
+  assert.equal(await db.debtPayments.count(), 1)
+  assert.equal(await db.debts.count(), 1)
+
+  // Backup v5 memuat target tabungan dan hutang/piutang.
+  const withPlans = await buildBackup()
+  validateBackup(withPlans)
+  assert.equal(withPlans.version, 5)
+  assert.equal(withPlans.goals?.length, 1)
+  assert.equal(withPlans.goalContributions?.length, 1)
+  assert.equal(withPlans.debts?.length, 1)
+  assert.equal(withPlans.debtPayments?.length, 1)
+  assert.throws(
+    () =>
+      validateBackup({
+        ...withPlans,
+        goalContributions: [{ ...deposit, goalId: 'hilang' }],
+      }),
+    /target yang tidak ada/,
+  )
+  assert.throws(
+    () =>
+      validateBackup({
+        ...withPlans,
+        goalContributions: [deposit, { ...deposit, id: 'tarik', kind: 'withdrawal', amount: 3_500_000 }],
+      }),
+    /negatif/,
+  )
+  assert.throws(
+    () => validateBackup({ ...withPlans, goalContributions: [deposit, deposit] }),
+    /ID ganda/,
+  )
+  assert.throws(
+    () =>
+      validateBackup({
+        ...withPlans,
+        debtPayments: [{ ...(withPlans.debtPayments ?? [])[0], amount: 5_000_000 }],
+      }),
+    /melebihi/,
+  )
+  assert.throws(
+    () =>
+      validateBackup({
+        ...withPlans,
+        debtPayments: [{ ...(withPlans.debtPayments ?? [])[0], debtId: 'hilang' }],
+      }),
+    /yang tidak ada/,
+  )
+  assert.throws(
+    () => validateBackup({ ...withPlans, debts: [{ ...debt, direction: 'x' }] }),
+    /hutang/i,
+  )
+  await db.goals.clear()
+  await db.goalContributions.clear()
+  await db.debts.clear()
+  await db.debtPayments.clear()
+  await restoreBackup(withPlans)
+  assert.equal(await db.goals.count(), 1)
+  assert.equal(await db.goalContributions.count(), 1)
+  assert.equal(await db.debts.count(), 1)
+  assert.equal(await db.debtPayments.count(), 1)
+  assert.equal((await db.debts.get(debt.id))?.amount, 1_200_000)
+
+  // Backup versi lama (tanpa target/hutang) mengosongkan tabel baru.
+  const { goals: _g, goalContributions: _gc, debts: _d, debtPayments: _dp, ...legacyNoPlans } = withPlans
+  const v4Backup = { ...legacyNoPlans, version: 4 as const }
+  validateBackup(v4Backup)
+  await restoreBackup(v4Backup)
+  assert.equal(await db.goals.count(), 0)
+  assert.equal(await db.debts.count(), 0)
+
+  // Backup terenkripsi
+  const secret = await buildBackup()
+  assert.equal(secret.profile?.name, 'Rafi')
+  const envelope = await encryptBackup(secret, 'rahasia-123')
+  assert.equal(isEncryptedBackup(envelope), true)
+  assert.equal(isEncryptedBackup(secret), false)
+  const serialized = JSON.stringify(envelope)
+  assert.ok(!serialized.includes('Rafi'))
+  assert.ok(!serialized.includes('transactions'))
+  const decrypted = await decryptBackup(JSON.parse(serialized), 'rahasia-123')
+  validateBackup(decrypted)
+  assert.deepEqual(decrypted, JSON.parse(JSON.stringify(secret)))
+  assert.notEqual((await encryptBackup(secret, 'rahasia-123')).data, envelope.data)
+  await assert.rejects(decryptBackup(envelope, 'salah-total'), /Password salah/)
+  await assert.rejects(encryptBackup(secret, 'pendek'), /minimal 8/)
+  const flipped = envelope.data[10] === 'A' ? 'B' : 'A'
+  await assert.rejects(
+    decryptBackup(
+      { ...envelope, data: envelope.data.slice(0, 10) + flipped + envelope.data.slice(11) },
+      'rahasia-123',
+    ),
+    /Password salah atau file backup rusak/,
+  )
+  await assert.rejects(decryptBackup({ ...envelope, iterations: 10 }, 'rahasia-123'), /tidak valid/)
+  assert.throws(() => validateBackup(envelope), /terenkripsi/)
 
   await db.delete()
   console.log('Semua verifikasi data lulus.')

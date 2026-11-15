@@ -3,10 +3,16 @@ import type {
   Account,
   Budget,
   Category,
+  Debt,
+  DebtPayment,
+  Goal,
+  GoalContribution,
   RecurringTransaction,
   SettingRow,
   Transaction,
+  Transfer,
 } from '../types'
+import { BUDGET_LEGACY_MONTH } from '../lib/constants'
 
 class UangkuDB extends Dexie {
   accounts!: Table<Account, string>
@@ -15,6 +21,11 @@ class UangkuDB extends Dexie {
   settings!: Table<SettingRow, string>
   budgets!: Table<Budget, string>
   recurringTransactions!: Table<RecurringTransaction, string>
+  transfers!: Table<Transfer, string>
+  goals!: Table<Goal, string>
+  goalContributions!: Table<GoalContribution, string>
+  debts!: Table<Debt, string>
+  debtPayments!: Table<DebtPayment, string>
 
   constructor() {
     super('rf-uangku')
@@ -30,6 +41,30 @@ class UangkuDB extends Dexie {
         'id, occurredAt, type, accountId, categoryId, updatedAt, recurringId, [type+occurredAt], [accountId+occurredAt]',
       budgets: 'id, &categoryId',
       recurringTransactions: 'id, nextRunAt, accountId, categoryId',
+    })
+    this.version(3).stores({
+      transfers: 'id, occurredAt, fromAccountId, toAccountId',
+    })
+    // v4: riwayat budget per bulan. categoryId tidak lagi unik; satu kategori
+    // bisa punya beberapa baris dengan bulan mulai berlaku berbeda.
+    this.version(4)
+      .stores({
+        budgets: 'id, categoryId, [categoryId+effectiveFrom]',
+      })
+      .upgrade((tx) =>
+        tx
+          .table('budgets')
+          .toCollection()
+          .modify((row: { effectiveFrom?: string }) => {
+            if (!row.effectiveFrom) row.effectiveFrom = BUDGET_LEGACY_MONTH
+          }),
+      )
+    // v5: target tabungan dan hutang/piutang.
+    this.version(5).stores({
+      goals: 'id, deadline',
+      goalContributions: 'id, goalId, occurredAt',
+      debts: 'id, direction, dueDate',
+      debtPayments: 'id, debtId, occurredAt',
     })
   }
 }
