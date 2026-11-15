@@ -89,6 +89,8 @@ export interface Debt {
   direction: DebtDirection
   person: string
   amount: number
+  /** Rekening tempat uang pinjaman masuk/keluar saat dicatat (opsional). */
+  accountId?: string
   dueDate?: string
   note?: string
   createdAt: string
@@ -99,9 +101,17 @@ export interface DebtPayment {
   id: string
   debtId: string
   amount: number
+  /** Rekening yang dipakai membayar/menerima cicilan (opsional). */
+  accountId?: string
   occurredAt: string
   note?: string
   createdAt: string
+}
+
+/** Perubahan saldo satu rekening yang bukan transaksi atau transfer (mis. hutang). */
+export interface AccountFlow {
+  accountId: string
+  amount: number
 }
 
 export interface Budget {
@@ -170,7 +180,7 @@ export interface ProfileBackup {
 
 export interface BackupData {
   app: 'rf-uangku'
-  version: 1 | 2 | 3 | 4 | 5
+  version: 1 | 2 | 3 | 4 | 5 | 6
   exportedAt: string
   accounts: Account[]
   categories: Category[]

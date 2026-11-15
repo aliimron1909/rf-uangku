@@ -15,7 +15,7 @@ Aplikasi PWA keuangan pribadi yang **local-first**: semua data tersimpan di HP, 
 - **Budget bulanan dengan riwayat** — atur limit per kategori pengeluaran, lihat progres, status aman/hampir penuh/terlampaui, dan ringkasan di dashboard. Limit berlaku mulai bulan dipilih dan berlanjut ke bulan berikutnya; mengubahnya tidak mengubah bulan-bulan lalu. Bisa membuka bulan lain dengan tombol panah.
 - **Transfer antar rekening** — pindahkan saldo antar rekening (misalnya BCA ke e-wallet). Hanya mengubah saldo per rekening; tidak dihitung sebagai pemasukan atau pengeluaran.
 - **Target tabungan** — buat target (nama, nominal, tenggat opsional), catat setoran atau pengambilan dana, lihat progres dan saran setoran per bulan.
-- **Hutang & piutang** — catat hutang saya dan piutang, jatuh tempo, serta cicilan/pembayaran sebagian. Pengingat muncul di dashboard saat jatuh tempo mendekati atau terlewat.
+- **Hutang & piutang** — catat hutang saya dan piutang, jatuh tempo, serta cicilan/pembayaran sebagian. Bisa dikaitkan ke rekening agar saldo ikut berubah (tanpa memengaruhi laporan). Pengingat muncul di dashboard saat jatuh tempo mendekati atau terlewat.
 - **Transaksi berulang** — aturan harian/mingguan/bulanan/tahunan dengan interval, tanggal mulai, dan tanggal selesai opsional. Transaksi otomatis dibuat saat aplikasi dibuka/dilanjutkan.
 - **Laporan** — periode harian/mingguan/bulanan/tahunan/kustom, filter jenis & rekening, ekspor **PDF** dan **CSV**.
 - **Master data** — tambah, edit, arsip, atau hapus rekening dan kategori langsung dari **Pengaturan → Rekening & Kategori**.
@@ -178,7 +178,7 @@ Buka **Rencana → Hutang**.
 - Isi nama, nominal, dan jatuh tempo (opsional). Catat cicilan dengan **Bayar** (hutang) atau **Terima pembayaran** (piutang); nominal tidak boleh melebihi sisa. Catatan otomatis **Lunas** saat sisa nol.
 - Status: Berjalan, jatuh tempo dalam 7 hari, Terlambat, atau Lunas. Yang terlambat atau hampir jatuh tempo muncul sebagai pengingat di Dashboard.
 
-> Seperti target tabungan, hutang/piutang hanya **dicatat sebagai pengingat** dan tidak mengubah saldo rekening. Catat transaksi atau transfer terpisah jika uangnya benar-benar bergerak.
+> **Hubungan dengan saldo rekening (opsional).** Saat menambah hutang/piutang atau mencatat pembayaran, kamu bisa memilih rekening. Jika dipilih, saldo rekening ikut berubah: hutang saya menambah saldo saat dicatat dan menguranginya saat dibayar; piutang sebaliknya. Perubahan ini **bukan pemasukan atau pengeluaran**, jadi laporan dan budget tetap benar, tetapi total saldo di Dashboard ikut berubah karena uangnya memang masuk atau keluar. Pilih *Tidak dicatat ke rekening* untuk sekadar mencatat pengingat. Rekening yang dipakai hutang/piutang tidak bisa dihapus (arsipkan saja).
 
 ### Laporan PDF/CSV
 
@@ -200,7 +200,7 @@ Data lokal bisa hilang jika Anda menghapus data browser, memakai mode incognito,
 
 > Restore akan **mengganti rekening, kategori, transaksi, budget, dan aturan berulang lokal** dengan isi file. Profil ikut dipulihkan jika tersedia di file backup. Unduh backup terbaru dulu jika ragu.
 
-Backup JSON v5 berisi rekening, kategori, transaksi, transfer, budget (beserta riwayat limit per bulan), aturan berulang, target tabungan beserta setorannya, hutang/piutang beserta pembayarannya, dan profil (nama + foto). Backup v1–v3 dari versi sebelumnya tetap bisa dipulihkan; budget lama otomatis berlaku sejak awal, dan tabel yang belum ada di file lama akan dikosongkan. PIN, fingerprint, tema, dan API key Groq **tidak** ikut ke dalam file backup (agar rahasia perangkat tidak ikut tersebar).
+Backup JSON v6 berisi rekening, kategori, transaksi, transfer, budget (beserta riwayat limit per bulan), aturan berulang, target tabungan beserta setorannya, hutang/piutang beserta pembayarannya, dan profil (nama + foto). Backup v1–v3 dari versi sebelumnya tetap bisa dipulihkan; budget lama otomatis berlaku sejak awal, dan tabel yang belum ada di file lama akan dikosongkan. PIN, fingerprint, tema, dan API key Groq **tidak** ikut ke dalam file backup (agar rahasia perangkat tidak ikut tersebar).
 
 **Backup terenkripsi.** Di **Pengaturan → Backup & Data**, tekan **Backup Terenkripsi**, isi password (minimal 8 karakter), lalu file terkunci diunduh. Saat **Pulihkan dari Backup**, aplikasi mengenali file terenkripsi dan meminta password. Password **tidak disimpan** dan tidak bisa dipulihkan; jika lupa, file tidak bisa dibuka lagi. Enkripsi memakai Web Crypto (butuh HTTPS atau localhost).
 

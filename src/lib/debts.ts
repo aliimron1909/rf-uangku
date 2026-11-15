@@ -1,4 +1,4 @@
-import type { Debt, DebtDirection, DebtPayment } from '../types'
+import type { AccountFlow, Debt, DebtDirection, DebtPayment } from '../types'
 import { daysBetween } from './dateMath'
 
 export const DEBT_DUE_SOON_DAYS = 7
@@ -82,4 +82,33 @@ export function debtSummary(progress: DebtProgress[]): {
 /** Yang perlu diingatkan: sudah lewat jatuh tempo atau jatuh tempo dalam 7 hari. */
 export function debtReminders(progress: DebtProgress[]): DebtProgress[] {
   return progress.filter((item) => item.status === 'overdue' || item.status === 'dueSoon')
+}
+
+/**
+ * Perubahan saldo rekening akibat hutang/piutang yang dikaitkan ke rekening.
+ * - Hutang saya: uang masuk saat dicatat (+), keluar saat dibayar (-).
+ * - Piutang: uang keluar saat dicatat (-), masuk saat diterima (+).
+ * Bukan pemasukan/pengeluaran, jadi tidak memengaruhi laporan dan budget.
+ */
+export function debtAccountFlows(debts: Debt[], payments: DebtPayment[]): AccountFlow[] {
+  const flows: AccountFlow[] = []
+  const byId = new Map(debts.map((debt) => [debt.id, debt]))
+
+  for (const debt of debts) {
+    if (!debt.accountId) continue
+    flows.push({
+      accountId: debt.accountId,
+      amount: debt.direction === 'owe' ? debt.amount : -debt.amount,
+    })
+  }
+  for (const payment of payments) {
+    if (!payment.accountId) continue
+    const debt = byId.get(payment.debtId)
+    if (!debt) continue
+    flows.push({
+      accountId: payment.accountId,
+      amount: debt.direction === 'owe' ? -payment.amount : payment.amount,
+    })
+  }
+  return flows
 }

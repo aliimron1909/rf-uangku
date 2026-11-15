@@ -19,7 +19,7 @@ import {
   updateDebt,
 } from '../src/db/debts'
 import { goalProgress, goalSaved } from '../src/lib/goals'
-import { debtProgress } from '../src/lib/debts'
+import { debtAccountFlows, debtProgress } from '../src/lib/debts'
 import { createTransfer, deleteTransfer, updateTransfer } from '../src/db/transfers'
 import {
   createRecurring,
@@ -262,7 +262,7 @@ async function main() {
   const backup = await buildBackup()
   validateBackup(backup)
   assert.equal(backup.app, 'rf-uangku')
-  assert.equal(backup.version, 5)
+  assert.equal(backup.version, 6)
   assert.equal(backup.transfers?.length, 1)
   assert.throws(
     () =>
@@ -495,7 +495,7 @@ async function main() {
   // Backup memuat riwayat budget (v4); file lama tanpa bulan mulai tetap bisa dipulihkan.
   const withHistory = await buildBackup()
   validateBackup(withHistory)
-  assert.equal(withHistory.version, 5)
+  assert.equal(withHistory.version, 6)
   assert.equal(withHistory.budgets?.length, rows.length)
   assert.throws(
     () =>
@@ -651,10 +651,83 @@ async function main() {
   assert.equal(await db.debtPayments.count(), 1)
   assert.equal(await db.debts.count(), 1)
 
+  // Hutang/piutang yang dikaitkan ke rekening mengubah saldo, bukan laporan.
+  const linkedDebt = await createDebt({
+    direction: 'owe',
+    person: 'Bank',
+    amount: 2_000_000,
+    accountId: bca.id,
+  })
+  assert.equal(linkedDebt.accountId, bca.id)
+  await assert.rejects(
+    createDebt({ direction: 'owe', person: 'X', amount: 1, accountId: 'tidak-ada' }),
+    /Rekening tidak ditemukan/,
+  )
+  await assert.rejects(
+    updateDebt(linkedDebt.id, { direction: 'owe', person: 'Bank', amount: 2_000_000, accountId: 'tidak-ada' }),
+    /Rekening tidak ditemukan/,
+  )
+  const linkedPayment = await addDebtPayment({
+    debtId: linkedDebt.id,
+    amount: 500_000,
+    occurredAt: todayISO(),
+    accountId: gopay.id,
+  })
+  assert.equal(linkedPayment.accountId, gopay.id)
+  await assert.rejects(
+    addDebtPayment({ debtId: linkedDebt.id, amount: 1, occurredAt: todayISO(), accountId: 'tidak-ada' }),
+    /Rekening tidak ditemukan/,
+  )
+  const flows = debtAccountFlows(await db.debts.toArray(), await db.debtPayments.toArray())
+  const baseBalances = accountsWithBalance(DEFAULT_ACCOUNTS, transactions, await db.transfers.toArray())
+  const linkedBalances = accountsWithBalance(
+    DEFAULT_ACCOUNTS,
+    transactions,
+    await db.transfers.toArray(),
+    flows,
+  )
+  const balanceOf = (rows: typeof baseBalances, id: string) =>
+    rows.find((account) => account.id === id)!.balance
+  assert.equal(balanceOf(linkedBalances, bca.id), balanceOf(baseBalances, bca.id) + 2_000_000)
+  assert.equal(balanceOf(linkedBalances, gopay.id), balanceOf(baseBalances, gopay.id) - 500_000)
+  assert.equal(
+    totalBalance(DEFAULT_ACCOUNTS, transactions, flows),
+    totalBalance(DEFAULT_ACCOUNTS, transactions) + 2_000_000 - 500_000,
+  )
+  // Tidak memengaruhi total pemasukan/pengeluaran.
+  assert.equal(computeTotals(transactions).income, 5_000_000)
+  assert.equal(computeTotals(transactions).expense, 25_000)
+
+  // Backup merujuk rekening hutang yang valid; rekening hilang ditolak.
+  const linkedBackup = await buildBackup()
+  validateBackup(linkedBackup)
+  assert.equal(linkedBackup.debts?.find((row) => row.id === linkedDebt.id)?.accountId, bca.id)
+  assert.throws(
+    () =>
+      validateBackup({
+        ...linkedBackup,
+        debts: (linkedBackup.debts ?? []).map((row) => ({ ...row, accountId: 'hilang' })),
+      }),
+    /rekening yang tidak ada/,
+  )
+  assert.throws(
+    () =>
+      validateBackup({
+        ...linkedBackup,
+        debtPayments: (linkedBackup.debtPayments ?? []).map((row) => ({ ...row, accountId: 'hilang' })),
+      }),
+    /rekening yang tidak ada/,
+  )
+  await deleteDebt(linkedDebt.id)
+  assert.equal(
+    (await db.debtPayments.filter((row) => row.debtId === linkedDebt.id).count()),
+    0,
+  )
+
   // Backup v5 memuat target tabungan dan hutang/piutang.
   const withPlans = await buildBackup()
   validateBackup(withPlans)
-  assert.equal(withPlans.version, 5)
+  assert.equal(withPlans.version, 6)
   assert.equal(withPlans.goals?.length, 1)
   assert.equal(withPlans.goalContributions?.length, 1)
   assert.equal(withPlans.debts?.length, 1)

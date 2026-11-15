@@ -1,5 +1,6 @@
 import type {
   Account,
+  AccountFlow,
   AccountWithBalance,
   Category,
   CategoryBreakdown,
@@ -25,7 +26,11 @@ export function computeTotals(transactions: Transaction[]): {
   return { income, expense, net: income - expense, count: transactions.length }
 }
 
-export function totalBalance(accounts: Account[], transactions: Transaction[]): number {
+export function totalBalance(
+  accounts: Account[],
+  transactions: Transaction[],
+  flows: AccountFlow[] = [],
+): number {
   const opening = accounts.reduce(
     (sum, account) => sum + (Number(account.openingBalance) || 0),
     0,
@@ -35,7 +40,8 @@ export function totalBalance(accounts: Account[], transactions: Transaction[]): 
       sum + (transaction.type === 'income' ? transaction.amount : -transaction.amount),
     0,
   )
-  return opening + net
+  const fromFlows = flows.reduce((sum, flow) => sum + flow.amount, 0)
+  return opening + net + fromFlows
 }
 
 /**
@@ -46,6 +52,7 @@ export function accountBalance(
   account: Account,
   transactions: Transaction[],
   transfers: Transfer[] = [],
+  flows: AccountFlow[] = [],
 ): number {
   const fromTransactions = transactions.reduce(
     (sum, transaction) =>
@@ -59,17 +66,22 @@ export function accountBalance(
     if (transfer.toAccountId === account.id) return sum + transfer.amount
     return sum
   }, 0)
-  return (Number(account.openingBalance) || 0) + fromTransactions + fromTransfers
+  const fromFlows = flows.reduce(
+    (sum, flow) => (flow.accountId === account.id ? sum + flow.amount : sum),
+    0,
+  )
+  return (Number(account.openingBalance) || 0) + fromTransactions + fromTransfers + fromFlows
 }
 
 export function accountsWithBalance(
   accounts: Account[],
   transactions: Transaction[],
   transfers: Transfer[] = [],
+  flows: AccountFlow[] = [],
 ): AccountWithBalance[] {
   return accounts.map((account) => ({
     ...account,
-    balance: accountBalance(account, transactions, transfers),
+    balance: accountBalance(account, transactions, transfers, flows),
   }))
 }
 
