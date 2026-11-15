@@ -16,6 +16,7 @@ import type {
 import { BUDGET_LEGACY_MONTH, DEFAULT_PROFILE_NAME } from '../lib/constants'
 import { isMonthKey } from '../lib/dates'
 import { isIsoDate } from '../lib/dateMath'
+import { ICON_KEY_MAX_LENGTH } from '../lib/icons'
 import { PROFILE_PHOTO_MAX_DATA_URL_LENGTH } from '../lib/profile'
 
 export async function buildBackup(): Promise<BackupData> {
@@ -52,6 +53,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object'
 }
 
+/** Ikon opsional: teks pendek. Kunci tak dikenal tetap diterima (tampil sebagai ikon bawaan). */
+function isOptionalIcon(value: unknown): boolean {
+  return value === undefined || (typeof value === 'string' && value.length <= ICON_KEY_MAX_LENGTH)
+}
+
 function isAccountRow(value: unknown): boolean {
   if (!isRecord(value)) return false
   return (
@@ -61,6 +67,7 @@ function isAccountRow(value: unknown): boolean {
     typeof value.openingBalance === 'number' &&
     Number.isFinite(value.openingBalance) &&
     typeof value.color === 'string' &&
+    isOptionalIcon(value.icon) &&
     typeof value.sortOrder === 'number' &&
     typeof value.archived === 'boolean' &&
     typeof value.createdAt === 'string'
@@ -74,6 +81,7 @@ function isCategoryRow(value: unknown): boolean {
     typeof value.name === 'string' &&
     (value.type === 'income' || value.type === 'expense') &&
     typeof value.color === 'string' &&
+    isOptionalIcon(value.icon) &&
     typeof value.sortOrder === 'number' &&
     typeof value.archived === 'boolean' &&
     typeof value.createdAt === 'string'

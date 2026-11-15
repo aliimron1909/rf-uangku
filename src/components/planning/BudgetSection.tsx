@@ -23,6 +23,8 @@ import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { EmptyState } from '../ui/EmptyState'
 import { Modal } from '../ui/Modal'
+import { EntityIcon } from '../ui/EntityIcon'
+import { defaultCategoryIconKey } from '../../lib/icons'
 import { BudgetForm } from './BudgetForm'
 
 export function BudgetSection() {
@@ -301,9 +303,12 @@ function BudgetRow({
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div className="flex items-start gap-3">
-        <span
-          className="mt-0.5 h-10 w-10 shrink-0 rounded-xl"
-          style={{ backgroundColor: item.categoryColor }}
+        <EntityIcon
+          icon={item.categoryIcon}
+          fallback={defaultCategoryIconKey(item.categoryName, 'expense')}
+          color={item.categoryColor}
+          size="lg"
+          className="mt-0.5"
         />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">

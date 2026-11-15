@@ -141,6 +141,7 @@ export function withRefs(
       accountName: accountMap.get(transaction.accountId) ?? 'Rekening tidak ditemukan',
       categoryName: category?.name ?? 'Kategori tidak ditemukan',
       categoryColor: category?.color ?? '#64748b',
+      categoryIcon: category?.icon,
     }
   })
 }

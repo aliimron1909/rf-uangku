@@ -10,6 +10,8 @@ export interface Account {
   id: string
   name: string
   kind: AccountKind
+  /** Kunci ikon (lihat lib/icons); kosong = ikon bawaan. */
+  icon?: string
   openingBalance: number
   color: string
   sortOrder: number
@@ -21,6 +23,8 @@ export interface Category {
   id: string
   name: string
   type: TxType
+  /** Kunci ikon (lihat lib/icons); kosong = ikon bawaan. */
+  icon?: string
   color: string
   sortOrder: number
   archived: boolean
@@ -44,6 +48,7 @@ export interface TransactionWithRefs extends Transaction {
   accountName: string
   categoryName: string
   categoryColor: string
+  categoryIcon?: string
 }
 
 export interface Transfer {
@@ -149,6 +154,7 @@ export interface BudgetProgress {
   categoryId: string
   categoryName: string
   categoryColor: string
+  categoryIcon?: string
   categoryArchived: boolean
   limit: number
   spent: number

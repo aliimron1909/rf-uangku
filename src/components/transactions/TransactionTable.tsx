@@ -1,4 +1,6 @@
 import { Pencil, RefreshCw, Trash2 } from 'lucide-react'
+import { EntityIcon } from '../ui/EntityIcon'
+import { defaultCategoryIconKey } from '../../lib/icons'
 import type { TransactionWithRefs } from '../../types'
 import { formatDate } from '../../lib/dates'
 import { formatSignedRupiah } from '../../lib/format'
@@ -35,9 +37,11 @@ export function TransactionTable({ transactions, onEdit, onDelete }: Transaction
               </td>
               <td className="px-4 py-3">
                 <div className="flex items-center gap-2">
-                  <span
-                    className="h-2.5 w-2.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: transaction.categoryColor }}
+                  <EntityIcon
+                    icon={transaction.categoryIcon}
+                    fallback={defaultCategoryIconKey(transaction.categoryName, transaction.type)}
+                    color={transaction.categoryColor}
+                    size="xs"
                   />
                   <div>
                     <p className="max-w-[220px] truncate text-xs font-semibold text-slate-700 dark:text-slate-200">
