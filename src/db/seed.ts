@@ -217,12 +217,14 @@ export async function seedIfEmpty(): Promise<void> {
 export async function resetMasterData(): Promise<void> {
   await db.transaction(
     'rw',
-    db.accounts,
-    db.categories,
-    db.transactions,
-    db.budgets,
-    db.recurringTransactions,
-    db.transfers,
+    [
+      db.accounts,
+      db.categories,
+      db.transactions,
+      db.budgets,
+      db.recurringTransactions,
+      db.transfers,
+    ],
     async () => {
       await db.transactions.clear()
       await db.transfers.clear()
