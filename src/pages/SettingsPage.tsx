@@ -392,7 +392,10 @@ export function SettingsPage() {
 
   async function handleClearTransactions() {
     try {
-      await db.transactions.clear()
+      await db.transaction('rw', db.transactions, db.transfers, async () => {
+        await db.transactions.clear()
+        await db.transfers.clear()
+      })
       setConfirmClearTx(false)
       toast('Semua transaksi telah dihapus.')
     } catch (caught) {
@@ -1073,7 +1076,7 @@ export function SettingsPage() {
       <ConfirmDialog
         open={confirmClearTx}
         title="Hapus semua transaksi?"
-        message="Semua transaksi akan dihapus permanen. Rekening dan kategori tetap ada. Sebaiknya unduh backup JSON terlebih dahulu."
+        message="Semua transaksi dan transfer antar rekening akan dihapus permanen. Rekening dan kategori tetap ada. Sebaiknya unduh backup JSON terlebih dahulu."
         confirmLabel="Hapus semua"
         danger
         onCancel={() => setConfirmClearTx(false)}

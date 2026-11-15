@@ -4,6 +4,7 @@ import { db } from '../src/db/db'
 import { DEFAULT_ACCOUNTS, DEFAULT_CATEGORIES, seedIfEmpty } from '../src/db/seed'
 import { createTransaction, deleteTransaction, updateTransaction } from '../src/db/transactions'
 import { upsertBudget } from '../src/db/budgets'
+import { createTransfer, deleteTransfer, updateTransfer } from '../src/db/transfers'
 import {
   createRecurring,
   deleteRecurring,
@@ -176,10 +177,79 @@ async function main() {
   await db.settings.put({ key: 'profileName', value: 'Rafi' })
   await db.settings.put({ key: 'profilePhoto', value: 'data:image/png;base64,AAAA' })
 
+  const transfer = await createTransfer({
+    fromAccountId: bca.id,
+    toAccountId: gopay.id,
+    amount: 1_000_000,
+    occurredAt: todayISO(),
+    note: '  Isi saldo Gopay  ',
+  })
+  assert.equal(transfer.note, 'Isi saldo Gopay')
+  const savedTransfers = await db.transfers.toArray()
+  assert.equal(savedTransfers.length, 1)
+
+  // Transfers move money between accounts but never change totals.
+  const afterTransfer = accountsWithBalance(DEFAULT_ACCOUNTS, transactions, savedTransfers)
+  assert.equal(afterTransfer.find((account) => account.id === bca.id)?.balance, 4_000_000)
+  assert.equal(afterTransfer.find((account) => account.id === gopay.id)?.balance, 975_000)
+  assert.equal(
+    afterTransfer.reduce((sum, account) => sum + account.balance, 0),
+    totalBalance(DEFAULT_ACCOUNTS, transactions),
+  )
+  assert.equal(computeTotals(transactions).income, 5_000_000)
+  assert.equal(computeTotals(transactions).expense, 25_000)
+
+  await assert.rejects(
+    createTransfer({ fromAccountId: bca.id, toAccountId: bca.id, amount: 1, occurredAt: todayISO() }),
+    /tidak boleh sama/,
+  )
+  await assert.rejects(
+    createTransfer({ fromAccountId: bca.id, toAccountId: gopay.id, amount: 0, occurredAt: todayISO() }),
+    /lebih dari 0/,
+  )
+  await assert.rejects(
+    createTransfer({ fromAccountId: bca.id, toAccountId: 'tidak-ada', amount: 1, occurredAt: todayISO() }),
+    /tidak ditemukan/,
+  )
+  assert.equal(await db.transfers.count(), 1)
+
+  await updateTransfer(transfer.id, {
+    fromAccountId: bca.id,
+    toAccountId: gopay.id,
+    amount: 250_000,
+    occurredAt: todayISO(),
+  })
+  assert.equal((await db.transfers.get(transfer.id))?.amount, 250_000)
+  const extra = await createTransfer({
+    fromAccountId: gopay.id,
+    toAccountId: bca.id,
+    amount: 50_000,
+    occurredAt: todayISO(),
+  })
+  await deleteTransfer(extra.id)
+  assert.equal(await db.transfers.count(), 1)
+
   const backup = await buildBackup()
   validateBackup(backup)
   assert.equal(backup.app, 'rf-uangku')
-  assert.equal(backup.version, 2)
+  assert.equal(backup.version, 3)
+  assert.equal(backup.transfers?.length, 1)
+  assert.throws(
+    () =>
+      validateBackup({
+        ...backup,
+        transfers: [{ ...transfer, toAccountId: transfer.fromAccountId }],
+      }),
+    /transfer/i,
+  )
+  assert.throws(
+    () => validateBackup({ ...backup, transfers: [{ ...transfer, toAccountId: 'hilang' }] }),
+    /transfer/i,
+  )
+  assert.throws(
+    () => validateBackup({ ...backup, transfers: [transfer, transfer] }),
+    /ID ganda/,
+  )
   assert.equal(backup.accounts.length, DEFAULT_ACCOUNTS.length)
   assert.equal(backup.transactions.length, 2)
   assert.equal(backup.budgets?.length, 1)
@@ -251,6 +321,8 @@ async function main() {
   assert.equal((await db.transactions.get(expense.id))?.amount, 25_000)
   assert.equal(await db.budgets.count(), 1)
   assert.equal(await db.recurringTransactions.count(), 1)
+  assert.equal(await db.transfers.count(), 1)
+  assert.equal((await db.transfers.get(transfer.id))?.amount, 250_000)
   assert.equal((await db.settings.get('profileName'))?.value, 'Rafi')
   assert.equal((await db.settings.get('profilePhoto'))?.value, 'data:image/png;base64,AAAA')
 
@@ -289,6 +361,7 @@ async function main() {
   const {
     budgets: _budgets,
     recurringTransactions: _recurringTransactions,
+    transfers: _transfers,
     ...legacyV1
   } = backup
   const v1Backup = { ...legacyV1, version: 1 as const }
@@ -296,6 +369,7 @@ async function main() {
   await restoreBackup(v1Backup)
   assert.equal(await db.budgets.count(), 0)
   assert.equal(await db.recurringTransactions.count(), 0)
+  assert.equal(await db.transfers.count(), 0)
   assert.equal(await db.transactions.count(), 2)
 
   await db.delete()

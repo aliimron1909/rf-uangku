@@ -4,6 +4,7 @@ import { useAllAccounts } from './useAccounts'
 import { useAllCategories } from './useCategories'
 import { useBudgets } from './useBudgets'
 import { useTransactions } from './useTransactions'
+import { useTransfers } from './useTransfers'
 import {
   accountsWithBalance,
   categoryBreakdown,
@@ -16,6 +17,7 @@ import { budgetProgress, budgetSummary } from '../lib/budget'
 
 export function useDashboardData() {
   const transactions = useTransactions()
+  const transfers = useTransfers()
   // Use all accounts/categories so archived master data still resolves
   // correctly on historical transactions.
   const accounts = useAllAccounts()
@@ -45,11 +47,11 @@ export function useDashboardData() {
     [transactions, accounts, categories],
   )
   const balances = useMemo(() => {
-    const rows = accountsWithBalance(accounts, transactions)
+    const rows = accountsWithBalance(accounts, transactions, transfers)
     // Keep active accounts first; archived accounts stay visible (and counted)
     // so historical transactions and total balance remain consistent.
     return [...rows].sort((a, b) => Number(a.archived) - Number(b.archived))
-  }, [accounts, transactions])
+  }, [accounts, transactions, transfers])
   const budgetItems = useMemo(
     () => budgetProgress(budgets, monthTransactions, categories, month),
     [budgets, monthTransactions, categories, month],
@@ -61,6 +63,7 @@ export function useDashboardData() {
 
   return {
     transactions,
+    transfers,
     accounts,
     categories,
     granularity,

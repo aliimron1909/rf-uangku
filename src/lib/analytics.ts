@@ -5,6 +5,7 @@ import type {
   CategoryBreakdown,
   Transaction,
   TransactionWithRefs,
+  Transfer,
 } from '../types'
 
 export function computeTotals(transactions: Transaction[]): {
@@ -37,26 +38,38 @@ export function totalBalance(accounts: Account[], transactions: Transaction[]): 
   return opening + net
 }
 
-export function accountBalance(account: Account, transactions: Transaction[]): number {
-  return (
-    (Number(account.openingBalance) || 0) +
-    transactions.reduce(
-      (sum, transaction) =>
-        transaction.accountId === account.id
-          ? sum + (transaction.type === 'income' ? transaction.amount : -transaction.amount)
-          : sum,
-      0,
-    )
+/**
+ * Balance of one account. Transfers move money between accounts, so they change
+ * individual balances but never the total balance, income, or expense.
+ */
+export function accountBalance(
+  account: Account,
+  transactions: Transaction[],
+  transfers: Transfer[] = [],
+): number {
+  const fromTransactions = transactions.reduce(
+    (sum, transaction) =>
+      transaction.accountId === account.id
+        ? sum + (transaction.type === 'income' ? transaction.amount : -transaction.amount)
+        : sum,
+    0,
   )
+  const fromTransfers = transfers.reduce((sum, transfer) => {
+    if (transfer.fromAccountId === account.id) return sum - transfer.amount
+    if (transfer.toAccountId === account.id) return sum + transfer.amount
+    return sum
+  }, 0)
+  return (Number(account.openingBalance) || 0) + fromTransactions + fromTransfers
 }
 
 export function accountsWithBalance(
   accounts: Account[],
   transactions: Transaction[],
+  transfers: Transfer[] = [],
 ): AccountWithBalance[] {
   return accounts.map((account) => ({
     ...account,
-    balance: accountBalance(account, transactions),
+    balance: accountBalance(account, transactions, transfers),
   }))
 }
 

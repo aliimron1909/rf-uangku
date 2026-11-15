@@ -7,6 +7,7 @@ import type {
   ProfileBackup,
   RecurringTransaction,
   Transaction,
+  Transfer,
 } from '../types'
 import { DEFAULT_PROFILE_NAME } from '../lib/constants'
 import { PROFILE_PHOTO_MAX_DATA_URL_LENGTH } from '../lib/profile'
@@ -25,13 +26,14 @@ export async function buildBackup(): Promise<BackupData> {
 
   return {
     app: 'rf-uangku',
-    version: 2,
+    version: 3,
     exportedAt: new Date().toISOString(),
     accounts: await db.accounts.toArray(),
     categories: await db.categories.toArray(),
     transactions: await db.transactions.toArray(),
     budgets: await db.budgets.toArray(),
     recurringTransactions: await db.recurringTransactions.toArray(),
+    transfers: await db.transfers.toArray(),
     ...(profile ? { profile } : {}),
   }
 }
@@ -129,6 +131,22 @@ function isRecurringRow(value: unknown): boolean {
   )
 }
 
+function isTransferRow(value: unknown): boolean {
+  if (!isRecord(value)) return false
+  return (
+    typeof value.id === 'string' &&
+    typeof value.fromAccountId === 'string' &&
+    typeof value.toAccountId === 'string' &&
+    value.fromAccountId !== value.toAccountId &&
+    typeof value.amount === 'number' &&
+    Number.isFinite(value.amount) &&
+    value.amount > 0 &&
+    isDateString(value.occurredAt) &&
+    (value.note === undefined || typeof value.note === 'string') &&
+    typeof value.createdAt === 'string'
+  )
+}
+
 function isProfileRow(value: unknown): value is ProfileBackup {
   if (!isRecord(value)) return false
   if (typeof value.name !== 'string' || !value.name.trim()) return false
@@ -148,7 +166,7 @@ export function validateBackup(value: unknown): asserts value is BackupData {
   if (data.app !== 'rf-uangku') {
     throw new Error('File ini bukan backup RF Uangku.')
   }
-  if (data.version !== 1 && data.version !== 2) {
+  if (data.version !== 1 && data.version !== 2 && data.version !== 3) {
     throw new Error('Versi file backup tidak didukung.')
   }
   if (
@@ -180,11 +198,17 @@ export function validateBackup(value: unknown): asserts value is BackupData {
       throw new Error('Data transaksi berulang di file backup tidak valid.')
     }
   }
+  if (data.transfers !== undefined) {
+    if (!Array.isArray(data.transfers) || !data.transfers.every(isTransferRow)) {
+      throw new Error('Data transfer di file backup tidak valid.')
+    }
+  }
   if (data.profile !== undefined && !isProfileRow(data.profile)) {
     throw new Error('Data profil di file backup tidak valid.')
   }
   const budgets = data.budgets ?? []
   const recurringTransactions = data.recurringTransactions ?? []
+  const transfers = data.transfers ?? []
   if (
     new Set(data.accounts.map((account) => account.id)).size !== data.accounts.length ||
     new Set(data.categories.map((category) => category.id)).size !== data.categories.length ||
@@ -192,7 +216,8 @@ export function validateBackup(value: unknown): asserts value is BackupData {
       data.transactions.length ||
     new Set(budgets.map((budget) => budget.id)).size !== budgets.length ||
     new Set(budgets.map((budget) => budget.categoryId)).size !== budgets.length ||
-    new Set(recurringTransactions.map((rule) => rule.id)).size !== recurringTransactions.length
+    new Set(recurringTransactions.map((rule) => rule.id)).size !== recurringTransactions.length ||
+    new Set(transfers.map((transfer) => transfer.id)).size !== transfers.length
   ) {
     throw new Error('File backup berisi ID ganda.')
   }
@@ -214,6 +239,14 @@ export function validateBackup(value: unknown): asserts value is BackupData {
     )
   ) {
     throw new Error('Transaksi di file backup merujuk rekening atau kategori yang tidak ada.')
+  }
+
+  if (
+    !transfers.every(
+      (transfer) => accountIds.has(transfer.fromAccountId) && accountIds.has(transfer.toAccountId),
+    )
+  ) {
+    throw new Error('Transfer di file backup merujuk rekening yang tidak ada.')
   }
 
   const categoryMap = new Map(data.categories.map((category) => [category.id, category]))
@@ -276,6 +309,13 @@ export async function restoreBackup(data: BackupData): Promise<void> {
     updatedAt: rule.updatedAt || rule.createdAt,
   }))
 
+  const transfers: Transfer[] = (data.transfers ?? []).map((transfer) => ({
+    ...transfer,
+    amount: Number(transfer.amount) || 0,
+    note: transfer.note || '',
+    updatedAt: transfer.updatedAt || transfer.createdAt,
+  }))
+
   await db.transaction(
     'rw',
     [
@@ -284,6 +324,7 @@ export async function restoreBackup(data: BackupData): Promise<void> {
       db.transactions,
       db.budgets,
       db.recurringTransactions,
+      db.transfers,
       db.settings,
     ],
     async () => {
@@ -292,6 +333,7 @@ export async function restoreBackup(data: BackupData): Promise<void> {
       await db.categories.clear()
       await db.budgets.clear()
       await db.recurringTransactions.clear()
+      await db.transfers.clear()
       await db.accounts.bulkAdd(accounts)
       await db.categories.bulkAdd(categories)
       await db.transactions.bulkAdd(transactions)
@@ -299,6 +341,7 @@ export async function restoreBackup(data: BackupData): Promise<void> {
       if (recurringTransactions.length > 0) {
         await db.recurringTransactions.bulkAdd(recurringTransactions)
       }
+      if (transfers.length > 0) await db.transfers.bulkAdd(transfers)
 
       if (data.profile) {
         await db.settings.put({ key: 'profileName', value: data.profile.name.trim() })

@@ -19,7 +19,7 @@ export function AccountBalances({ accounts }: AccountBalancesProps) {
       <div className="border-b border-slate-100 px-4 py-3.5 dark:border-slate-800 sm:px-5">
         <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Saldo Rekening</h2>
         <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-          Saldo awal + seluruh transaksi
+          Saldo awal + transaksi + transfer
         </p>
       </div>
       <div className="grid gap-2 p-4 sm:grid-cols-2 sm:p-5">

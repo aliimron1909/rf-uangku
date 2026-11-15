@@ -46,6 +46,17 @@ export interface TransactionWithRefs extends Transaction {
   categoryColor: string
 }
 
+export interface Transfer {
+  id: string
+  fromAccountId: string
+  toAccountId: string
+  amount: number
+  occurredAt: string
+  note?: string
+  createdAt: string
+  updatedAt: string
+}
+
 export interface Budget {
   id: string
   categoryId: string
@@ -109,13 +120,14 @@ export interface ProfileBackup {
 
 export interface BackupData {
   app: 'rf-uangku'
-  version: 1 | 2
+  version: 1 | 2 | 3
   exportedAt: string
   accounts: Account[]
   categories: Category[]
   transactions: Transaction[]
   budgets?: Budget[]
   recurringTransactions?: RecurringTransaction[]
+  transfers?: Transfer[]
   profile?: ProfileBackup
 }
 

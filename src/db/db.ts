@@ -6,6 +6,7 @@ import type {
   RecurringTransaction,
   SettingRow,
   Transaction,
+  Transfer,
 } from '../types'
 
 class UangkuDB extends Dexie {
@@ -15,6 +16,7 @@ class UangkuDB extends Dexie {
   settings!: Table<SettingRow, string>
   budgets!: Table<Budget, string>
   recurringTransactions!: Table<RecurringTransaction, string>
+  transfers!: Table<Transfer, string>
 
   constructor() {
     super('rf-uangku')
@@ -30,6 +32,9 @@ class UangkuDB extends Dexie {
         'id, occurredAt, type, accountId, categoryId, updatedAt, recurringId, [type+occurredAt], [accountId+occurredAt]',
       budgets: 'id, &categoryId',
       recurringTransactions: 'id, nextRunAt, accountId, categoryId',
+    })
+    this.version(3).stores({
+      transfers: 'id, occurredAt, fromAccountId, toAccountId',
     })
   }
 }

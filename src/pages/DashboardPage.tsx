@@ -10,6 +10,7 @@ import { CategoryDonut } from '../components/charts/CategoryDonut'
 import { RecentTransactions } from '../components/dashboard/RecentTransactions'
 import { AccountBalances } from '../components/dashboard/AccountBalances'
 import { BudgetOverview } from '../components/dashboard/BudgetOverview'
+import { TransferSection } from '../components/transfers/TransferSection'
 
 export function DashboardPage() {
   const {
@@ -120,6 +121,8 @@ export function DashboardPage() {
       </div>
 
       <AccountBalances accounts={balances} />
+
+      <TransferSection />
 
       <p className="pb-2 text-center text-[10px] text-slate-400 dark:text-slate-600">
         RF Uangku · data lokal · dibuat untuk pemakaian pribadi
