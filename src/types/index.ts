@@ -51,6 +51,21 @@ export interface TransactionWithRefs extends Transaction {
   categoryIcon?: string
 }
 
+export interface Favorite {
+  id: string
+  name: string
+  type: TxType
+  amount: number
+  accountId: string
+  categoryId: string
+  note?: string
+  /** Berapa kali dipakai; menentukan urutan (yang sering dipakai di depan). */
+  useCount: number
+  lastUsedAt?: string
+  createdAt: string
+  updatedAt: string
+}
+
 export interface Transfer {
   id: string
   fromAccountId: string
@@ -186,7 +201,7 @@ export interface ProfileBackup {
 
 export interface BackupData {
   app: 'rf-uangku'
-  version: 1 | 2 | 3 | 4 | 5 | 6
+  version: 1 | 2 | 3 | 4 | 5 | 6 | 7
   exportedAt: string
   accounts: Account[]
   categories: Category[]
@@ -198,6 +213,7 @@ export interface BackupData {
   goalContributions?: GoalContribution[]
   debts?: Debt[]
   debtPayments?: DebtPayment[]
+  favorites?: Favorite[]
   profile?: ProfileBackup
 }
 

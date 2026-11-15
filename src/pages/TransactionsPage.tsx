@@ -22,6 +22,7 @@ import { TransactionTable } from '../components/transactions/TransactionTable'
 import { TransactionCard } from '../components/transactions/TransactionCard'
 import { TransactionForm } from '../components/transactions/TransactionForm'
 import { AiChatModal } from '../components/transactions/AiChatModal'
+import { FavoritesBar } from '../components/favorites/FavoritesBar'
 
 const PAGE_SIZE = 15
     
@@ -195,6 +196,8 @@ export function TransactionsPage() {
           </Button>
         </div>
       </div>
+
+      <FavoritesBar onOpenInForm={handleChatApply} />
 
       <TransactionFilters
         filters={filters}

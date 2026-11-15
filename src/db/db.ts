@@ -5,6 +5,7 @@ import type {
   Category,
   Debt,
   DebtPayment,
+  Favorite,
   Goal,
   GoalContribution,
   RecurringTransaction,
@@ -26,6 +27,7 @@ class UangkuDB extends Dexie {
   goalContributions!: Table<GoalContribution, string>
   debts!: Table<Debt, string>
   debtPayments!: Table<DebtPayment, string>
+  favorites!: Table<Favorite, string>
 
   constructor() {
     super('rf-uangku')
@@ -65,6 +67,10 @@ class UangkuDB extends Dexie {
       goalContributions: 'id, goalId, occurredAt',
       debts: 'id, direction, dueDate',
       debtPayments: 'id, debtId, occurredAt',
+    })
+    // v6: template transaksi favorit.
+    this.version(6).stores({
+      favorites: 'id, useCount, lastUsedAt, accountId, categoryId',
     })
   }
 }

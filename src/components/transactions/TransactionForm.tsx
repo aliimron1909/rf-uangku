@@ -6,6 +6,8 @@ import { useBudgets } from '../../hooks/useBudgets'
 import { useCategories, useAllCategories } from '../../hooks/useCategories'
 import { useTransactions } from '../../hooks/useTransactions'
 import { createTransaction, updateTransaction } from '../../db/transactions'
+import { createFavorite } from '../../db/favorites'
+import { FAVORITE_NAME_MAX_LENGTH, suggestFavoriteName } from '../../lib/favorites'
 import { newExpenseBudgetAlert } from '../../lib/budget'
 import { todayISO } from '../../lib/dates'
 import { formatNumberInput, parseNumberInput } from '../../lib/format'
@@ -69,6 +71,8 @@ export function TransactionForm({
   const [note, setNote] = useState(transaction?.note ?? initialDraft?.note ?? '')
   const [errors, setErrors] = useState<FormErrors>({})
   const [saving, setSaving] = useState(false)
+  const [saveAsFavorite, setSaveAsFavorite] = useState(false)
+  const [favoriteName, setFavoriteName] = useState('')
 
   const availableCategories = useMemo(
     () => categories.filter((category) => category.type === type),
@@ -162,6 +166,22 @@ export function TransactionForm({
         toast('Transaksi berhasil disimpan.')
         const alert = newExpenseBudgetAlert(budgets, allTransactions, allCategories, input)
         if (alert) toast(alert.message, alert.type)
+      }
+      if (saveAsFavorite) {
+        try {
+          const categoryName = allCategories.find((item) => item.id === categoryId)?.name ?? ''
+          await createFavorite({
+            name: favoriteName.trim() || suggestFavoriteName(note, categoryName),
+            type,
+            amount,
+            accountId,
+            categoryId,
+            note: note.trim(),
+          })
+          toast('Disimpan juga sebagai favorit.')
+        } catch (caught) {
+          toast(`Transaksi tersimpan, tetapi favorit gagal dibuat: ${errorMessage(caught)}`, 'error')
+        }
       }
       onSaved()
     } catch (caught) {
@@ -264,6 +284,32 @@ export function TransactionForm({
         maxLength={160}
         className="min-h-20"
       />
+
+      <div className="rounded-xl bg-slate-50 px-3 py-2.5 dark:bg-slate-800/60">
+        <label className="flex cursor-pointer items-center gap-2.5 text-sm font-medium text-slate-700 dark:text-slate-300">
+          <input
+            type="checkbox"
+            checked={saveAsFavorite}
+            onChange={(event) => setSaveAsFavorite(event.target.checked)}
+            className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+          />
+          Simpan juga sebagai favorit
+        </label>
+        {saveAsFavorite && (
+          <div className="mt-2.5">
+            <Input
+              label="Nama favorit"
+              value={favoriteName}
+              onChange={(event) => setFavoriteName(event.target.value)}
+              placeholder={suggestFavoriteName(
+                note,
+                allCategories.find((item) => item.id === categoryId)?.name ?? 'Favorit',
+              )}
+              maxLength={FAVORITE_NAME_MAX_LENGTH}
+            />
+          </div>
+        )}
+      </div>
 
       <div className="flex justify-end gap-2 pt-1">
         <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>

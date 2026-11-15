@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import assert from 'node:assert/strict'
 import { db } from '../src/db/db'
-import { DEFAULT_ACCOUNTS, DEFAULT_CATEGORIES, seedIfEmpty } from '../src/db/seed'
+import { DEFAULT_ACCOUNTS, DEFAULT_CATEGORIES, resetMasterData, seedIfEmpty } from '../src/db/seed'
 import { createTransaction, deleteTransaction, updateTransaction } from '../src/db/transactions'
 import { stopBudget, upsertBudget } from '../src/db/budgets'
 import {
@@ -20,6 +20,8 @@ import {
 } from '../src/db/debts'
 import { goalProgress, goalSaved } from '../src/lib/goals'
 import { debtAccountFlows, debtProgress } from '../src/lib/debts'
+import { createFavorite, deleteFavorite, undoFavoriteUse, updateFavorite, useFavorite } from '../src/db/favorites'
+import { favoriteIssue } from '../src/lib/favorites'
 import {
   defaultAccountIconKey,
   defaultCategoryIconKey,
@@ -269,7 +271,7 @@ async function main() {
   const backup = await buildBackup()
   validateBackup(backup)
   assert.equal(backup.app, 'rf-uangku')
-  assert.equal(backup.version, 6)
+  assert.equal(backup.version, 7)
   assert.equal(backup.transfers?.length, 1)
   assert.throws(
     () =>
@@ -502,7 +504,7 @@ async function main() {
   // Backup memuat riwayat budget (v4); file lama tanpa bulan mulai tetap bisa dipulihkan.
   const withHistory = await buildBackup()
   validateBackup(withHistory)
-  assert.equal(withHistory.version, 6)
+  assert.equal(withHistory.version, 7)
   assert.equal(withHistory.budgets?.length, rows.length)
   assert.throws(
     () =>
@@ -734,7 +736,7 @@ async function main() {
   // Backup v5 memuat target tabungan dan hutang/piutang.
   const withPlans = await buildBackup()
   validateBackup(withPlans)
-  assert.equal(withPlans.version, 6)
+  assert.equal(withPlans.version, 7)
   assert.equal(withPlans.goals?.length, 1)
   assert.equal(withPlans.goalContributions?.length, 1)
   assert.equal(withPlans.debts?.length, 1)
@@ -878,6 +880,57 @@ async function main() {
   )
   await assert.rejects(decryptBackup({ ...envelope, iterations: 10 }, 'rahasia-123'), /tidak valid/)
   assert.throws(() => validateBackup(envelope), /terenkripsi/)
+
+
+  // ---- Template favorit ----
+  await resetMasterData()
+  const favAccount = DEFAULT_ACCOUNTS[0]
+  const favCategory = DEFAULT_CATEGORIES.find((item) => item.type === 'expense')!
+  const favorite = await createFavorite({
+    name: '  Kopi pagi  ',
+    type: 'expense',
+    amount: 18000,
+    accountId: favAccount.id,
+    categoryId: favCategory.id,
+    note: '',
+  })
+  assert.equal(favorite.name, 'Kopi pagi')
+  assert.equal(favorite.useCount, 0)
+  const favTx = await useFavorite(favorite.id)
+  assert.equal(favTx.amount, 18000)
+  assert.equal(favTx.note, 'Kopi pagi')
+  assert.equal((await db.favorites.get(favorite.id))?.useCount, 1)
+  await undoFavoriteUse(favorite.id, favTx.id)
+  assert.equal(await db.transactions.get(favTx.id), undefined)
+  assert.equal((await db.favorites.get(favorite.id))?.useCount, 0)
+  await updateFavorite(favorite.id, {
+    name: 'Kopi pagi',
+    type: 'expense',
+    amount: 20000,
+    accountId: favAccount.id,
+    categoryId: favCategory.id,
+  })
+  assert.equal((await db.favorites.get(favorite.id))?.amount, 20000)
+  assert.equal(
+    favoriteIssue(favorite, { ...favAccount, archived: true }, favCategory)?.length ? true : false,
+    true,
+  )
+  const favBackup = await buildBackup()
+  assert.equal(favBackup.favorites?.length, 1)
+  assert.doesNotThrow(() => validateBackup(JSON.parse(JSON.stringify(favBackup))))
+  assert.throws(
+    () =>
+      validateBackup({
+        ...favBackup,
+        favorites: [{ ...favBackup.favorites![0], accountId: 'tidak-ada' }],
+      }),
+    /favorit/i,
+  )
+  await restoreBackup(validateBackup(JSON.parse(JSON.stringify(favBackup))))
+  assert.equal(await db.favorites.count(), 1)
+  await restoreBackup(validateBackup({ ...favBackup, version: 6, favorites: undefined }))
+  assert.equal(await db.favorites.count(), 0)
+  await deleteFavorite(favorite.id)
 
   await db.delete()
   console.log('Semua verifikasi data lulus.')
