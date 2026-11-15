@@ -10,6 +10,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import type { Debt, DebtDirection } from '../../types'
+import { useAllAccounts } from '../../hooks/useAccounts'
 import { useDebts } from '../../hooks/useDebts'
 import { addDebtPayment, deleteDebt, deleteDebtPayment } from '../../db/debts'
 import {
@@ -60,11 +61,16 @@ function statusBadge(item: DebtProgress) {
 
 export function DebtSection() {
   const { debts, payments } = useDebts()
+  const accounts = useAllAccounts()
   const { toast } = useToast()
   const today = todayISO()
 
   const progress = useMemo(() => debtProgress(debts, payments, today), [debts, payments, today])
   const summary = useMemo(() => debtSummary(progress), [progress])
+  const accountNames = useMemo(
+    () => new Map(accounts.map((account) => [account.id, account.name])),
+    [accounts],
+  )
 
   const [filter, setFilter] = useState<Filter>('all')
   const [formOpen, setFormOpen] = useState(false)
@@ -88,6 +94,7 @@ export function DebtSection() {
       amount: values.amount,
       occurredAt: values.occurredAt,
       note: values.note,
+      accountId: values.accountId || undefined,
     })
     toast(
       values.amount >= payFor.remaining ? 'Lunas! Pembayaran dicatat.' : 'Pembayaran dicatat.',
@@ -235,6 +242,9 @@ export function DebtSection() {
                     </div>
                     <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
                       {debtDirectionLabel(debt.direction)}
+                      {debt.accountId
+                        ? ` · ${debt.direction === 'owe' ? 'diterima di' : 'dari'} ${accountNames.get(debt.accountId) ?? 'rekening dihapus'}`
+                        : ''}
                       {debt.dueDate ? ` · jatuh tempo ${formatDate(debt.dueDate)}` : ''}
                     </p>
                     {debt.note && (
@@ -318,8 +328,12 @@ export function DebtSection() {
                             <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
                               {formatDate(row.occurredAt)}
                             </p>
-                            {row.note && (
+                            {(row.accountId || row.note) && (
                               <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">
+                                {row.accountId
+                                  ? (accountNames.get(row.accountId) ?? 'Rekening dihapus')
+                                  : ''}
+                                {row.accountId && row.note ? ' · ' : ''}
                                 {row.note}
                               </p>
                             )}
@@ -377,6 +391,13 @@ export function DebtSection() {
             maxAmount={payFor.remaining}
             maxLabel="Sisa"
             notePlaceholder="Contoh: cicilan ke-1"
+            accountLabel={
+              payFor.debt.direction === 'owe'
+                ? 'Dibayar dari rekening (opsional)'
+                : 'Diterima di rekening (opsional)'
+            }
+            accountHint="Jika dipilih, saldo rekening ikut berubah. Bukan pemasukan/pengeluaran."
+            defaultAccountId={payFor.debt.accountId ?? ''}
             onSubmit={handlePayment}
             onCancel={() => setPayFor(null)}
           />
@@ -386,7 +407,7 @@ export function DebtSection() {
       <ConfirmDialog
         open={Boolean(deleting)}
         title="Hapus catatan?"
-        message="Catatan beserta seluruh riwayat pembayarannya akan dihapus. Saldo rekening tidak terpengaruh."
+        message="Catatan beserta seluruh riwayat pembayarannya akan dihapus. Jika terhubung ke rekening, perubahan saldo dari catatan ini ikut dibatalkan."
         confirmLabel="Hapus"
         danger
         loading={deleteLoading}

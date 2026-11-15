@@ -32,7 +32,7 @@ export async function buildBackup(): Promise<BackupData> {
 
   return {
     app: 'rf-uangku',
-    version: 5,
+    version: 6,
     exportedAt: new Date().toISOString(),
     accounts: await db.accounts.toArray(),
     categories: await db.categories.toArray(),
@@ -201,6 +201,7 @@ function isDebtRow(value: unknown): boolean {
     value.person.trim().length > 0 &&
     isPositive(value.amount) &&
     (value.dueDate === undefined || isIsoDate(value.dueDate)) &&
+    (value.accountId === undefined || typeof value.accountId === 'string') &&
     (value.note === undefined || typeof value.note === 'string') &&
     typeof value.createdAt === 'string'
   )
@@ -212,6 +213,7 @@ function isDebtPaymentRow(value: unknown): boolean {
     typeof value.id === 'string' &&
     typeof value.debtId === 'string' &&
     isPositive(value.amount) &&
+    (value.accountId === undefined || typeof value.accountId === 'string') &&
     isIsoDate(value.occurredAt) &&
     (value.note === undefined || typeof value.note === 'string') &&
     typeof value.createdAt === 'string'
@@ -245,7 +247,8 @@ export function validateBackup(value: unknown): asserts value is BackupData {
     data.version !== 2 &&
     data.version !== 3 &&
     data.version !== 4 &&
-    data.version !== 5
+    data.version !== 5 &&
+    data.version !== 6
   ) {
     throw new Error('Versi file backup tidak didukung.')
   }
@@ -373,6 +376,13 @@ export function validateBackup(value: unknown): asserts value is BackupData {
   }
   if (Array.from(savedByGoal.values()).some((saved) => saved < 0)) {
     throw new Error('Tabungan di file backup bernilai negatif.')
+  }
+
+  if (
+    !debts.every((debt) => !debt.accountId || accountIds.has(debt.accountId)) ||
+    !debtPayments.every((payment) => !payment.accountId || accountIds.has(payment.accountId))
+  ) {
+    throw new Error('Hutang/piutang di file backup merujuk rekening yang tidak ada.')
   }
 
   const debtIds = new Set(debts.map((debt) => debt.id))

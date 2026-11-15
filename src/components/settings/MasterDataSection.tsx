@@ -325,6 +325,16 @@ export function MasterDataSection() {
         setDeletingAccount(null)
         return
       }
+      const usedByDebt =
+        (await db.debts.filter((debt) => debt.accountId === deletingAccount.id).count()) +
+        (await db.debtPayments
+          .filter((payment) => payment.accountId === deletingAccount.id)
+          .count())
+      if (usedByDebt > 0) {
+        toast('Rekening masih dipakai hutang/piutang. Arsipkan saja agar riwayat tetap aman.', 'error')
+        setDeletingAccount(null)
+        return
+      }
       await db.accounts.delete(deletingAccount.id)
       toast('Rekening berhasil dihapus.')
       setDeletingAccount(null)

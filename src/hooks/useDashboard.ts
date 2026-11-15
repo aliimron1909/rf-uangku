@@ -5,6 +5,7 @@ import { useAllCategories } from './useCategories'
 import { useBudgets } from './useBudgets'
 import { useTransactions } from './useTransactions'
 import { useTransfers } from './useTransfers'
+import { useDebts } from './useDebts'
 import {
   accountsWithBalance,
   categoryBreakdown,
@@ -14,10 +15,12 @@ import {
 } from '../lib/analytics'
 import { buildTrend, monthRange } from '../lib/dates'
 import { budgetProgress, budgetSummary } from '../lib/budget'
+import { debtAccountFlows } from '../lib/debts'
 
 export function useDashboardData() {
   const transactions = useTransactions()
   const transfers = useTransfers()
+  const { debts, payments: debtPayments } = useDebts()
   // Use all accounts/categories so archived master data still resolves
   // correctly on historical transactions.
   const accounts = useAllAccounts()
@@ -36,7 +39,11 @@ export function useDashboardData() {
   )
 
   const totals = useMemo(() => computeTotals(monthTransactions), [monthTransactions])
-  const balance = useMemo(() => totalBalance(accounts, transactions), [accounts, transactions])
+  const debtFlows = useMemo(() => debtAccountFlows(debts, debtPayments), [debts, debtPayments])
+  const balance = useMemo(
+    () => totalBalance(accounts, transactions, debtFlows),
+    [accounts, transactions, debtFlows],
+  )
   const trend = useMemo(() => buildTrend(transactions, granularity), [transactions, granularity])
   const breakdown = useMemo(
     () => categoryBreakdown(monthTransactions, categories),
@@ -47,11 +54,11 @@ export function useDashboardData() {
     [transactions, accounts, categories],
   )
   const balances = useMemo(() => {
-    const rows = accountsWithBalance(accounts, transactions, transfers)
+    const rows = accountsWithBalance(accounts, transactions, transfers, debtFlows)
     // Keep active accounts first; archived accounts stay visible (and counted)
     // so historical transactions and total balance remain consistent.
     return [...rows].sort((a, b) => Number(a.archived) - Number(b.archived))
-  }, [accounts, transactions, transfers])
+  }, [accounts, transactions, transfers, debtFlows])
   const budgetItems = useMemo(
     () => budgetProgress(budgets, monthTransactions, categories, month),
     [budgets, monthTransactions, categories, month],

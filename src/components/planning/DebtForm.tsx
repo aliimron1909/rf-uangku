@@ -1,12 +1,14 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ArrowDownLeft, ArrowUpRight, Save } from 'lucide-react'
 import type { Debt, DebtDirection } from '../../types'
+import { useAccounts, useAllAccounts } from '../../hooks/useAccounts'
 import { createDebt, DEBT_PERSON_MAX_LENGTH, updateDebt } from '../../db/debts'
 import { formatNumberInput, parseNumberInput } from '../../lib/format'
 import { cn, errorMessage } from '../../lib/utils'
 import { Button } from '../ui/Button'
 import { CurrencyInput } from '../ui/CurrencyInput'
 import { Input } from '../ui/Input'
+import { Select } from '../ui/Select'
 
 interface DebtFormProps {
   debt?: Debt | null
@@ -28,6 +30,16 @@ export function DebtForm({ debt, defaultDirection = 'owe', onSaved, onCancel }: 
     debt ? formatNumberInput(String(debt.amount)) : '',
   )
   const [dueDate, setDueDate] = useState(debt?.dueDate ?? '')
+  const [accountId, setAccountId] = useState(debt?.accountId ?? '')
+  const activeAccounts = useAccounts()
+  const allAccounts = useAllAccounts()
+  const accountOptions = useMemo(() => {
+    if (!accountId || activeAccounts.some((account) => account.id === accountId)) {
+      return activeAccounts
+    }
+    const selected = allAccounts.find((account) => account.id === accountId)
+    return selected ? [...activeAccounts, selected] : activeAccounts
+  }, [activeAccounts, allAccounts, accountId])
   const [note, setNote] = useState(debt?.note ?? '')
   const [errors, setErrors] = useState<FormErrors>({})
   const [saving, setSaving] = useState(false)
@@ -45,7 +57,14 @@ export function DebtForm({ debt, defaultDirection = 'owe', onSaved, onCancel }: 
 
     setSaving(true)
     try {
-      const input = { direction, person, amount, dueDate: dueDate || undefined, note }
+      const input = {
+        direction,
+        person,
+        amount,
+        dueDate: dueDate || undefined,
+        note,
+        accountId: accountId || undefined,
+      }
       if (debt) await updateDebt(debt.id, input)
       else await createDebt(input)
       onSaved()
@@ -112,6 +131,19 @@ export function DebtForm({ debt, defaultDirection = 'owe', onSaved, onCancel }: 
         onChange={setAmountInput}
         error={errors.amount}
       />
+      <Select
+        label={direction === 'owe' ? 'Uang diterima di rekening (opsional)' : 'Uang diberikan dari rekening (opsional)'}
+        value={accountId}
+        onChange={(event) => setAccountId(event.target.value)}
+      >
+        <option value="">Tidak dicatat ke rekening</option>
+        {accountOptions.map((account) => (
+          <option key={account.id} value={account.id}>
+            {account.name}
+            {account.archived ? ' (arsip)' : ''}
+          </option>
+        ))}
+      </Select>
       <Input
         label="Jatuh tempo (opsional)"
         type="date"
@@ -127,9 +159,10 @@ export function DebtForm({ debt, defaultDirection = 'owe', onSaved, onCancel }: 
       />
 
       <p className="rounded-xl bg-slate-50 px-3 py-2.5 text-[11px] leading-relaxed text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
-        Hutang dan piutang hanya <span className="font-semibold">dicatat sebagai pengingat</span>.
-        Saldo rekening tidak berubah; catat transaksi atau transfer terpisah bila uangnya benar-benar
-        bergerak.
+        Jika rekening dipilih, saldo rekening ikut berubah ({direction === 'owe' ? 'bertambah' : 'berkurang'}{' '}
+        sebesar nominal ini) dan tiap pembayaran bisa mengubah saldo lagi. Ini{' '}
+        <span className="font-semibold">bukan pemasukan atau pengeluaran</span>, jadi laporan dan
+        budget tidak terpengaruh. Kosongkan jika hanya ingin mencatat pengingat.
       </p>
 
       {errors.form && <p className="text-sm text-rose-600 dark:text-rose-400">{errors.form}</p>}

@@ -11,6 +11,14 @@ export interface DebtInput {
   amount: number
   dueDate?: string
   note?: string
+  /** Rekening tempat uang masuk/keluar (opsional). */
+  accountId?: string
+}
+
+async function assertAccountExists(accountId?: string): Promise<void> {
+  if (accountId && !(await db.accounts.get(accountId))) {
+    throw new Error('Rekening tidak ditemukan.')
+  }
 }
 
 function cleanDebt(input: DebtInput): Omit<Debt, 'id' | 'createdAt' | 'updatedAt'> {
@@ -32,6 +40,7 @@ function cleanDebt(input: DebtInput): Omit<Debt, 'id' | 'createdAt' | 'updatedAt
     amount: input.amount,
     dueDate: input.dueDate || undefined,
     note: input.note?.trim() || '',
+    accountId: input.accountId || undefined,
   }
 }
 
@@ -41,16 +50,19 @@ async function paidTotal(debtId: string): Promise<number> {
 }
 
 export async function createDebt(input: DebtInput): Promise<Debt> {
+  const clean = cleanDebt(input)
+  await assertAccountExists(clean.accountId)
   const now = new Date().toISOString()
-  const debt: Debt = { id: createId(), ...cleanDebt(input), createdAt: now, updatedAt: now }
+  const debt: Debt = { id: createId(), ...clean, createdAt: now, updatedAt: now }
   await db.debts.add(debt)
   return debt
 }
 
 export async function updateDebt(id: string, input: DebtInput): Promise<void> {
   const clean = cleanDebt(input)
-  await db.transaction('rw', db.debts, db.debtPayments, async () => {
+  await db.transaction('rw', db.debts, db.debtPayments, db.accounts, async () => {
     if (!(await db.debts.get(id))) throw new Error('Data tidak ditemukan.')
+    await assertAccountExists(clean.accountId)
     if (clean.amount < (await paidTotal(id))) {
       throw new Error('Nominal tidak boleh lebih kecil dari total yang sudah dibayar.')
     }
@@ -70,6 +82,7 @@ export interface DebtPaymentInput {
   amount: number
   occurredAt: string
   note?: string
+  accountId?: string
 }
 
 export async function addDebtPayment(input: DebtPaymentInput): Promise<DebtPayment> {
@@ -78,7 +91,8 @@ export async function addDebtPayment(input: DebtPaymentInput): Promise<DebtPayme
   }
   if (!isIsoDate(input.occurredAt)) throw new Error('Tanggal tidak valid.')
 
-  return db.transaction('rw', db.debts, db.debtPayments, async () => {
+  return db.transaction('rw', db.debts, db.debtPayments, db.accounts, async () => {
+    await assertAccountExists(input.accountId)
     const debt = await db.debts.get(input.debtId)
     if (!debt) throw new Error('Data tidak ditemukan.')
     const remaining = debt.amount - (await paidTotal(input.debtId))
@@ -89,6 +103,7 @@ export async function addDebtPayment(input: DebtPaymentInput): Promise<DebtPayme
       id: createId(),
       debtId: input.debtId,
       amount: input.amount,
+      accountId: input.accountId || undefined,
       occurredAt: input.occurredAt,
       note: input.note?.trim() || '',
       createdAt: new Date().toISOString(),

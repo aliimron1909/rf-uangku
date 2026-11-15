@@ -1,16 +1,21 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Save } from 'lucide-react'
+import type { Account } from '../../types'
+import { useAccounts, useAllAccounts } from '../../hooks/useAccounts'
 import { todayISO } from '../../lib/dates'
 import { formatNumberInput, formatRupiah, parseNumberInput } from '../../lib/format'
 import { errorMessage } from '../../lib/utils'
 import { Button } from '../ui/Button'
 import { CurrencyInput } from '../ui/CurrencyInput'
 import { Input } from '../ui/Input'
+import { Select } from '../ui/Select'
 
 export interface AmountEntryValues {
   amount: number
   occurredAt: string
   note: string
+  /** Rekening terpilih; kosong = tidak dicatat ke rekening. */
+  accountId: string
 }
 
 interface AmountEntryFormProps {
@@ -20,6 +25,10 @@ interface AmountEntryFormProps {
   maxAmount?: number
   maxLabel?: string
   notePlaceholder?: string
+  /** Tampilkan pilihan rekening (opsional) dengan label ini. */
+  accountLabel?: string
+  accountHint?: string
+  defaultAccountId?: string
   onSubmit: (values: AmountEntryValues) => Promise<void>
   onCancel: () => void
 }
@@ -31,9 +40,22 @@ export function AmountEntryForm({
   maxAmount,
   maxLabel = 'Maksimal',
   notePlaceholder,
+  accountLabel,
+  accountHint,
+  defaultAccountId = '',
   onSubmit,
   onCancel,
 }: AmountEntryFormProps) {
+  const activeAccounts = useAccounts()
+  const allAccounts = useAllAccounts()
+  const [accountId, setAccountId] = useState(defaultAccountId)
+  const accountOptions = useMemo<Account[]>(() => {
+    if (!accountId || activeAccounts.some((account) => account.id === accountId)) {
+      return activeAccounts
+    }
+    const selected = allAccounts.find((account) => account.id === accountId)
+    return selected ? [...activeAccounts, selected] : activeAccounts
+  }, [activeAccounts, allAccounts, accountId])
   const [amountInput, setAmountInput] = useState('')
   const [occurredAt, setOccurredAt] = useState(todayISO())
   const [note, setNote] = useState('')
@@ -59,7 +81,7 @@ export function AmountEntryForm({
 
     setSaving(true)
     try {
-      await onSubmit({ amount, occurredAt, note: note.trim() })
+      await onSubmit({ amount, occurredAt, note: note.trim(), accountId })
     } catch (caught) {
       setError(errorMessage(caught))
     } finally {
@@ -84,6 +106,24 @@ export function AmountEntryForm({
         >
           Isi semua ({formatRupiah(maxAmount)})
         </button>
+      )}
+      {accountLabel && (
+        <Select
+          label={accountLabel}
+          value={accountId}
+          onChange={(event) => setAccountId(event.target.value)}
+        >
+          <option value="">Tidak dicatat ke rekening</option>
+          {accountOptions.map((account) => (
+            <option key={account.id} value={account.id}>
+              {account.name}
+              {account.archived ? ' (arsip)' : ''}
+            </option>
+          ))}
+        </Select>
+      )}
+      {accountLabel && accountHint && (
+        <p className="-mt-2 text-[11px] text-slate-500 dark:text-slate-400">{accountHint}</p>
       )}
       <Input
         label="Tanggal"
