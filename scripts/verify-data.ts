@@ -20,6 +20,13 @@ import {
 } from '../src/db/debts'
 import { goalProgress, goalSaved } from '../src/lib/goals'
 import { debtAccountFlows, debtProgress } from '../src/lib/debts'
+import {
+  defaultAccountIconKey,
+  defaultCategoryIconKey,
+  ICON_KEYS,
+  isKnownIcon,
+  resolveIcon,
+} from '../src/lib/icons'
 import { createTransfer, deleteTransfer, updateTransfer } from '../src/db/transfers'
 import {
   createRecurring,
@@ -790,6 +797,61 @@ async function main() {
   await restoreBackup(v4Backup)
   assert.equal(await db.goals.count(), 0)
   assert.equal(await db.debts.count(), 0)
+
+  // Ikon rekening dan kategori
+  assert.equal(defaultAccountIconKey('cash'), 'wallet')
+  assert.equal(defaultAccountIconKey('bank'), 'landmark')
+  assert.equal(defaultAccountIconKey('ewallet'), 'smartphone')
+  assert.equal(defaultCategoryIconKey('Makan / Minum Harian', 'expense'), 'utensils')
+  assert.equal(defaultCategoryIconKey('Pendapatan Ojol / Gojek', 'income'), 'car')
+  assert.equal(defaultCategoryIconKey('Gaji Utama', 'income'), 'banknote')
+  assert.equal(defaultCategoryIconKey('Sedekah', 'expense'), 'hand-heart')
+  assert.equal(defaultCategoryIconKey('Lain-lain', 'income'), 'trending-up')
+  assert.equal(defaultCategoryIconKey('Lain-lain', 'expense'), 'tag')
+  for (const category of DEFAULT_CATEGORIES) {
+    assert.ok(isKnownIcon(defaultCategoryIconKey(category.name, category.type)))
+  }
+  assert.ok(ICON_KEYS.length >= 30)
+  assert.ok(ICON_KEYS.every((key) => isKnownIcon(key)))
+  assert.equal(isKnownIcon('tidak-ada'), false)
+  assert.equal(isKnownIcon(undefined), false)
+  assert.equal(isKnownIcon('constructor'), false) // bukan properti bawaan Object
+  assert.equal(resolveIcon('tidak-ada', 'tag'), resolveIcon(undefined, 'tag'))
+  assert.notEqual(resolveIcon('wallet', 'tag'), resolveIcon(undefined, 'tag'))
+
+  const iconAccount = DEFAULT_ACCOUNTS[0]
+  await db.accounts.update(iconAccount.id, { icon: 'piggy-bank' })
+  await db.categories.update(makan.id, { icon: 'coffee' })
+  const iconBackup = await buildBackup()
+  validateBackup(iconBackup)
+  assert.equal(iconBackup.accounts.find((row) => row.id === iconAccount.id)?.icon, 'piggy-bank')
+  assert.equal(iconBackup.categories.find((row) => row.id === makan.id)?.icon, 'coffee')
+  assert.throws(
+    () =>
+      validateBackup({
+        ...iconBackup,
+        accounts: iconBackup.accounts.map((row, index) =>
+          index === 0 ? { ...row, icon: 'x'.repeat(100) } : row,
+        ),
+      }),
+    /rekening/,
+  )
+  assert.throws(
+    () =>
+      validateBackup({
+        ...iconBackup,
+        categories: iconBackup.categories.map((row, index) =>
+          index === 0 ? { ...row, icon: 5 as never } : row,
+        ),
+      }),
+    /kategori/,
+  )
+  await restoreBackup(iconBackup)
+  assert.equal((await db.accounts.get(iconAccount.id))?.icon, 'piggy-bank')
+  assert.equal((await db.categories.get(makan.id))?.icon, 'coffee')
+  // Backup lama tanpa ikon tetap valid; ikon kosong memakai ikon bawaan.
+  const { icon: _icon, ...accountNoIcon } = iconBackup.accounts[0]
+  validateBackup({ ...iconBackup, accounts: [accountNoIcon, ...iconBackup.accounts.slice(1)] })
 
   // Backup terenkripsi
   const secret = await buildBackup()

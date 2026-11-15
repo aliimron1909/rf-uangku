@@ -81,6 +81,7 @@ export function budgetProgress(
         categoryId: budget.categoryId,
         categoryName: category.name,
         categoryColor: category.color,
+        categoryIcon: category.icon,
         categoryArchived: category.archived,
         limit: budget.amount,
         spent,

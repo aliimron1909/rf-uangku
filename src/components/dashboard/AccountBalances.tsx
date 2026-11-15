@@ -2,6 +2,8 @@ import type { AccountWithBalance } from '../../types'
 import { formatRupiah } from '../../lib/format'
 import { cn } from '../../lib/utils'
 import { Badge } from '../ui/Badge'
+import { EntityIcon } from '../ui/EntityIcon'
+import { defaultAccountIconKey } from '../../lib/icons'
 
 interface AccountBalancesProps {
   accounts: AccountWithBalance[]
@@ -28,9 +30,11 @@ export function AccountBalances({ accounts }: AccountBalancesProps) {
             key={account.id}
             className="flex items-center gap-3 rounded-xl bg-slate-50 px-3 py-2.5 dark:bg-slate-800/60"
           >
-            <span
-              className="h-8 w-8 shrink-0 rounded-lg"
-              style={{ backgroundColor: account.color }}
+            <EntityIcon
+              icon={account.icon}
+              fallback={defaultAccountIconKey(account.kind)}
+              color={account.color}
+              size="sm"
             />
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-1.5">

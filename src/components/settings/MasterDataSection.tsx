@@ -22,6 +22,9 @@ import { Select } from '../ui/Select'
 import { Modal } from '../ui/Modal'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Badge } from '../ui/Badge'
+import { EntityIcon } from '../ui/EntityIcon'
+import { IconPicker } from '../ui/IconPicker'
+import { defaultAccountIconKey, defaultCategoryIconKey } from '../../lib/icons'
 
 const COLOR_PALETTE = [
   '#10b981',
@@ -56,6 +59,7 @@ export function MasterDataSection() {
   const [accountKind, setAccountKind] = useState<AccountKind>('bank')
   const [openingBalance, setOpeningBalance] = useState('')
   const [accountColor, setAccountColor] = useState(COLOR_PALETTE[0])
+  const [accountIcon, setAccountIcon] = useState(defaultAccountIconKey('bank'))
   const [accountError, setAccountError] = useState('')
   const [accountSaving, setAccountSaving] = useState(false)
 
@@ -64,6 +68,7 @@ export function MasterDataSection() {
   const [categoryName, setCategoryName] = useState('')
   const [categoryType, setCategoryType] = useState<TxType>('expense')
   const [categoryColor, setCategoryColor] = useState(COLOR_PALETTE[0])
+  const [categoryIcon, setCategoryIcon] = useState(defaultCategoryIconKey('', 'expense'))
   const [categoryError, setCategoryError] = useState('')
   const [categorySaving, setCategorySaving] = useState(false)
   const [categoryUsage, setCategoryUsage] = useState(0)
@@ -98,6 +103,7 @@ export function MasterDataSection() {
     setAccountKind(account?.kind ?? 'bank')
     setOpeningBalance(account ? formatNumberInput(String(account.openingBalance)) : '')
     setAccountColor(account?.color ?? COLOR_PALETTE[0])
+    setAccountIcon(account?.icon ?? defaultAccountIconKey(account?.kind ?? 'bank'))
     setAccountError('')
     setAccountModalOpen(true)
   }
@@ -107,6 +113,9 @@ export function MasterDataSection() {
     setCategoryName(category?.name ?? '')
     setCategoryType(category?.type ?? 'expense')
     setCategoryColor(category?.color ?? COLOR_PALETTE[0])
+    setCategoryIcon(
+      category?.icon ?? defaultCategoryIconKey(category?.name ?? '', category?.type ?? 'expense'),
+    )
     setCategoryError('')
     if (!category) {
       setCategoryUsage(0)
@@ -145,6 +154,7 @@ export function MasterDataSection() {
           kind: accountKind,
           openingBalance: parseNumberInput(openingBalance),
           color: accountColor,
+          icon: accountIcon,
         })
         toast('Rekening berhasil diperbarui.')
       } else {
@@ -155,6 +165,7 @@ export function MasterDataSection() {
           kind: accountKind,
           openingBalance: parseNumberInput(openingBalance),
           color: accountColor,
+          icon: accountIcon,
           sortOrder: maxOrder + 1,
           archived: false,
           createdAt: new Date().toISOString(),
@@ -199,6 +210,7 @@ export function MasterDataSection() {
             name,
             type: categoryType,
             color: categoryColor,
+            icon: categoryIcon,
           })
           if (typeChanged) {
             await db.budgets.where('categoryId').equals(editingCategory.id).delete()
@@ -222,6 +234,7 @@ export function MasterDataSection() {
           name,
           type: categoryType,
           color: categoryColor,
+          icon: categoryIcon,
           sortOrder: maxOrder + 1,
           archived: false,
           createdAt: new Date().toISOString(),
@@ -451,9 +464,10 @@ export function MasterDataSection() {
           <div className="mt-3 divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-100 dark:divide-slate-800 dark:border-slate-800">
             {sortedAccounts.map((account) => (
               <div key={account.id} className="flex items-center gap-3 bg-white px-3 py-2.5 dark:bg-slate-900">
-                <span
-                  className="h-9 w-9 shrink-0 rounded-xl"
-                  style={{ backgroundColor: account.color }}
+                <EntityIcon
+                  icon={account.icon}
+                  fallback={defaultAccountIconKey(account.kind)}
+                  color={account.color}
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-1.5">
@@ -506,9 +520,10 @@ export function MasterDataSection() {
           <div className="mt-3 divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-100 dark:divide-slate-800 dark:border-slate-800">
             {sortedCategories.map((category) => (
               <div key={category.id} className="flex items-center gap-3 bg-white px-3 py-2.5 dark:bg-slate-900">
-                <span
-                  className="h-9 w-9 shrink-0 rounded-xl"
-                  style={{ backgroundColor: category.color }}
+                <EntityIcon
+                  icon={category.icon}
+                  fallback={defaultCategoryIconKey(category.name, category.type)}
+                  color={category.color}
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-1.5">
@@ -594,6 +609,12 @@ export function MasterDataSection() {
             value={accountColor}
             onChange={setAccountColor}
           />
+          <IconPicker
+            label="Ikon rekening"
+            value={accountIcon}
+            color={accountColor}
+            onChange={setAccountIcon}
+          />
           <div className="flex justify-end gap-2 pt-1">
             <Button type="button" variant="outline" onClick={() => setAccountModalOpen(false)} disabled={accountSaving}>
               Batal
@@ -638,6 +659,12 @@ export function MasterDataSection() {
             label="Warna kategori"
             value={categoryColor}
             onChange={setCategoryColor}
+          />
+          <IconPicker
+            label="Ikon kategori"
+            value={categoryIcon}
+            color={categoryColor}
+            onChange={setCategoryIcon}
           />
           <div className="flex justify-end gap-2 pt-1">
             <Button type="button" variant="outline" onClick={() => setCategoryModalOpen(false)} disabled={categorySaving}>

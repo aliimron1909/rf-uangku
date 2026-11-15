@@ -1,4 +1,6 @@
 import { Pencil, RefreshCw, Trash2 } from 'lucide-react'
+import { EntityIcon } from '../ui/EntityIcon'
+import { defaultCategoryIconKey } from '../../lib/icons'
 import type { TransactionWithRefs } from '../../types'
 import { formatDate } from '../../lib/dates'
 import { formatSignedRupiah } from '../../lib/format'
@@ -17,9 +19,11 @@ export function TransactionCard({ transaction, onEdit, onDelete }: TransactionCa
   return (
     <div className="rounded-xl border border-slate-100 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900">
       <div className="flex items-start gap-3">
-        <span
-          className="mt-0.5 h-9 w-9 shrink-0 rounded-xl"
-          style={{ backgroundColor: transaction.categoryColor }}
+        <EntityIcon
+          icon={transaction.categoryIcon}
+          fallback={defaultCategoryIconKey(transaction.categoryName, transaction.type)}
+          color={transaction.categoryColor}
+          className="mt-0.5"
         />
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
