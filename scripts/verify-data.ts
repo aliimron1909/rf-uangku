@@ -961,9 +961,9 @@ async function main() {
   assert.deepEqual(jump.events.map((e) => e.threshold), [100])
   const dropped = evaluateBudgetAlerts([row('a', 50)], '2026-11', crossed.nextSeen)
   assert.deepEqual(dropped.nextSeen, [])
-  const again = evaluateBudgetAlerts([row('a', 82)], '2026-11', dropped.nextSeen)
-  assert.equal(again.events.length, 1)
-  const newMonth = evaluateBudgetAlerts([row('a', 85)], '2026-12', again.nextSeen)
+  const rearmed = evaluateBudgetAlerts([row('a', 82)], '2026-11', dropped.nextSeen)
+  assert.equal(rearmed.events.length, 1)
+  const newMonth = evaluateBudgetAlerts([row('a', 85)], '2026-12', rearmed.nextSeen)
   assert.equal(newMonth.events.length, 1)
 
   await db.delete()
