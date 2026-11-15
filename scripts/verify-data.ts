@@ -926,9 +926,11 @@ async function main() {
       }),
     /favorit/i,
   )
-  await restoreBackup(validateBackup(JSON.parse(JSON.stringify(favBackup))))
+  await restoreBackup(JSON.parse(JSON.stringify(favBackup)))
   assert.equal(await db.favorites.count(), 1)
-  await restoreBackup(validateBackup({ ...favBackup, version: 6, favorites: undefined }))
+  const noFavBackup = { ...favBackup, version: 6 as const, favorites: undefined }
+  validateBackup(noFavBackup)
+  await restoreBackup(noFavBackup)
   assert.equal(await db.favorites.count(), 0)
   await deleteFavorite(favorite.id)
 
