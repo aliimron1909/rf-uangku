@@ -1136,7 +1136,7 @@ export function SettingsPage() {
       <ConfirmDialog
         open={confirmReset}
         title="Reset ke data awal?"
-        message="Semua transaksi akan dihapus, lalu rekening dan kategori dikembalikan ke daftar bawaan. Tindakan ini tidak bisa dibatalkan."
+        message="Semua transaksi, target tabungan, dan hutang/piutang akan dihapus, lalu rekening dan kategori dikembalikan ke daftar bawaan. Tindakan ini tidak bisa dibatalkan."
         confirmLabel="Reset data"
         danger
         onCancel={() => setConfirmReset(false)}

@@ -13,6 +13,9 @@ Aplikasi PWA keuangan pribadi yang **local-first**: semua data tersimpan di HP, 
 - **Isi cepat AI (Groq)** — tulis “makan siang 25rb pakai Gopay”, AI mengisi form. Tetap bisa diperiksa sebelum disimpan. Model chat aktif bisa dicari langsung dari Groq (butuh internet).
 - **Chat AI transaksi** — ngobrol dengan AI untuk menyiapkan transaksi. AI bisa bertanya balik jika nominal/jenis belum jelas, lalu draft bisa diperiksa di form atau disimpan langsung.
 - **Budget bulanan dengan riwayat** — atur limit per kategori pengeluaran, lihat progres, status aman/hampir penuh/terlampaui, dan ringkasan di dashboard. Limit berlaku mulai bulan dipilih dan berlanjut ke bulan berikutnya; mengubahnya tidak mengubah bulan-bulan lalu. Bisa membuka bulan lain dengan tombol panah.
+- **Transfer antar rekening** — pindahkan saldo antar rekening (misalnya BCA ke e-wallet). Hanya mengubah saldo per rekening; tidak dihitung sebagai pemasukan atau pengeluaran.
+- **Target tabungan** — buat target (nama, nominal, tenggat opsional), catat setoran atau pengambilan dana, lihat progres dan saran setoran per bulan.
+- **Hutang & piutang** — catat hutang saya dan piutang, jatuh tempo, serta cicilan/pembayaran sebagian. Pengingat muncul di dashboard saat jatuh tempo mendekati atau terlewat.
 - **Transaksi berulang** — aturan harian/mingguan/bulanan/tahunan dengan interval, tanggal mulai, dan tanggal selesai opsional. Transaksi otomatis dibuat saat aplikasi dibuka/dilanjutkan.
 - **Laporan** — periode harian/mingguan/bulanan/tahunan/kustom, filter jenis & rekening, ekspor **PDF** dan **CSV**.
 - **Master data** — tambah, edit, arsip, atau hapus rekening dan kategori langsung dari **Pengaturan → Rekening & Kategori**.
@@ -20,7 +23,8 @@ Aplikasi PWA keuangan pribadi yang **local-first**: semua data tersimpan di HP, 
 - **Profil lokal** — ganti nama dan foto profil; dipakai di sapaan dashboard, avatar, dan PDF.
 - **Tema terang/gelap/sistem**.
 - **PWA** — bisa dipasang di layar utama, bekerja offline setelah dibuka pertama kali.
-- **Backup & restore JSON v2** — unduh rekening, kategori, transaksi, budget, aturan berulang, dan profil, lalu pulihkan kapan saja. Backup v1 lama tetap bisa dipulihkan.
+- **Backup & restore JSON** — unduh rekening, kategori, transaksi, transfer, budget (beserta riwayat per bulan), aturan berulang, target tabungan, hutang/piutang, dan profil, lalu pulihkan kapan saja. Backup versi lama tetap bisa dipulihkan.
+- **Backup terenkripsi** — kunci file backup dengan password (AES-256-GCM) sebelum disimpan di cloud atau dikirim lewat chat.
 - **Ekspor CSV** — untuk dibuka di Excel/Google Sheets.
 - **Mobile-first** — navigasi bawah di HP, sidebar di desktop.
 
@@ -151,6 +155,31 @@ Transaksi berulang dibuat otomatis saat aplikasi dibuka atau dilanjutkan. Tidak 
 
 > **Riwayat limit per bulan.** Setiap limit punya bulan mulai berlaku. Saat kamu menyimpan limit di bulan tertentu, limit itu dipakai di bulan tersebut dan bulan-bulan berikutnya sampai kamu mengubahnya lagi; bulan sebelumnya tetap memakai limit lama. Tombol **Hentikan** (ikon tempat sampah) menghentikan budget mulai bulan yang sedang dibuka tanpa menghapus riwayat bulan lalu. Budget dari versi sebelumnya otomatis dianggap berlaku sejak awal, jadi tampilan lama tidak berubah.
 
+### Transfer antar rekening
+
+Di **Dashboard**, tekan **Transfer** (atau gulir ke kartu *Transfer Antar Rekening*). Pilih rekening asal dan tujuan, isi nominal dan tanggal, lalu simpan. Transfer mengubah saldo kedua rekening, tetapi **tidak** masuk ke total pemasukan, pengeluaran, maupun laporan. Transfer bisa diubah atau dihapus dari daftar riwayatnya. Rekening yang sudah dipakai transfer tidak bisa dihapus (arsipkan saja).
+
+### Target tabungan
+
+Buka **Rencana → Tabungan**.
+
+1. Tekan **Tambah target**, isi nama, nominal target, dan tenggat bila ada.
+2. Tekan **Tambah dana** untuk mencatat setoran, atau **Ambil** untuk mengurangi (tidak bisa melebihi dana yang terkumpul).
+3. Kartu menampilkan progres, sisa, hitungan hari ke tenggat, dan **saran setoran per bulan** agar target tepat waktu. Status: berjalan, **Tercapai**, atau **Lewat tenggat**.
+4. **Riwayat** pada tiap kartu menampilkan semua setoran dan pengambilan.
+
+> Target tabungan hanya **mencatat progres**. Saldo rekening tidak berubah saat dana target ditambah atau diambil.
+
+### Hutang & piutang
+
+Buka **Rencana → Hutang**.
+
+- **Hutang saya**: kamu berhutang ke seseorang. **Piutang**: seseorang berhutang kepadamu.
+- Isi nama, nominal, dan jatuh tempo (opsional). Catat cicilan dengan **Bayar** (hutang) atau **Terima pembayaran** (piutang); nominal tidak boleh melebihi sisa. Catatan otomatis **Lunas** saat sisa nol.
+- Status: Berjalan, jatuh tempo dalam 7 hari, Terlambat, atau Lunas. Yang terlambat atau hampir jatuh tempo muncul sebagai pengingat di Dashboard.
+
+> Seperti target tabungan, hutang/piutang hanya **dicatat sebagai pengingat** dan tidak mengubah saldo rekening. Catat transaksi atau transfer terpisah jika uangnya benar-benar bergerak.
+
 ### Laporan PDF/CSV
 
 1. Buka menu **Laporan**.
@@ -171,7 +200,9 @@ Data lokal bisa hilang jika Anda menghapus data browser, memakai mode incognito,
 
 > Restore akan **mengganti rekening, kategori, transaksi, budget, dan aturan berulang lokal** dengan isi file. Profil ikut dipulihkan jika tersedia di file backup. Unduh backup terbaru dulu jika ragu.
 
-Backup JSON v4 berisi rekening, kategori, transaksi, budget (beserta riwayat limit per bulan), aturan berulang, dan profil (nama + foto). Backup v1–v3 dari versi sebelumnya tetap bisa dipulihkan; budget lama otomatis berlaku sejak awal, dan tabel yang belum ada di file lama akan dikosongkan. PIN, fingerprint, tema, dan API key Groq **tidak** ikut ke dalam file backup (agar rahasia perangkat tidak ikut tersebar).
+Backup JSON v5 berisi rekening, kategori, transaksi, transfer, budget (beserta riwayat limit per bulan), aturan berulang, target tabungan beserta setorannya, hutang/piutang beserta pembayarannya, dan profil (nama + foto). Backup v1–v3 dari versi sebelumnya tetap bisa dipulihkan; budget lama otomatis berlaku sejak awal, dan tabel yang belum ada di file lama akan dikosongkan. PIN, fingerprint, tema, dan API key Groq **tidak** ikut ke dalam file backup (agar rahasia perangkat tidak ikut tersebar).
+
+**Backup terenkripsi.** Di **Pengaturan → Backup & Data**, tekan **Backup Terenkripsi**, isi password (minimal 8 karakter), lalu file terkunci diunduh. Saat **Pulihkan dari Backup**, aplikasi mengenali file terenkripsi dan meminta password. Password **tidak disimpan** dan tidak bisa dipulihkan; jika lupa, file tidak bisa dibuka lagi. Enkripsi memakai Web Crypto (butuh HTTPS atau localhost).
 
 **Ekspor CSV** berguna untuk melihat data di Excel/Google Sheets, tetapi CSV bukan backup lengkap. Gunakan JSON untuk backup/restore.
 

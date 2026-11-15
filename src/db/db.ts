@@ -3,6 +3,10 @@ import type {
   Account,
   Budget,
   Category,
+  Debt,
+  DebtPayment,
+  Goal,
+  GoalContribution,
   RecurringTransaction,
   SettingRow,
   Transaction,
@@ -18,6 +22,10 @@ class UangkuDB extends Dexie {
   budgets!: Table<Budget, string>
   recurringTransactions!: Table<RecurringTransaction, string>
   transfers!: Table<Transfer, string>
+  goals!: Table<Goal, string>
+  goalContributions!: Table<GoalContribution, string>
+  debts!: Table<Debt, string>
+  debtPayments!: Table<DebtPayment, string>
 
   constructor() {
     super('rf-uangku')
@@ -51,6 +59,13 @@ class UangkuDB extends Dexie {
             if (!row.effectiveFrom) row.effectiveFrom = BUDGET_LEGACY_MONTH
           }),
       )
+    // v5: target tabungan dan hutang/piutang.
+    this.version(5).stores({
+      goals: 'id, deadline',
+      goalContributions: 'id, goalId, occurredAt',
+      debts: 'id, direction, dueDate',
+      debtPayments: 'id, debtId, occurredAt',
+    })
   }
 }
 

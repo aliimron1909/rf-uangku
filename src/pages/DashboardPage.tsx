@@ -11,6 +11,7 @@ import { RecentTransactions } from '../components/dashboard/RecentTransactions'
 import { AccountBalances } from '../components/dashboard/AccountBalances'
 import { BudgetOverview } from '../components/dashboard/BudgetOverview'
 import { TransferSection } from '../components/transfers/TransferSection'
+import { DebtReminders } from '../components/dashboard/DebtReminders'
 
 export function DashboardPage() {
   const {
@@ -100,6 +101,8 @@ export function DashboardPage() {
           </Link>
         </div>
       )}
+
+      <DebtReminders />
 
       <SummaryCards
         balance={balance}

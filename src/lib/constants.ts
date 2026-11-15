@@ -32,3 +32,5 @@ export const STORAGE_KEYS = {
 
 /** Budget lama (tanpa bulan mulai) dianggap berlaku sejak awal. */
 export const BUDGET_LEGACY_MONTH = '0000-00'
+
+export const GOAL_COLORS = ['#10b981', '#0ea5e9', '#6366f1', '#f59e0b', '#f43f5e', '#8b5cf6']

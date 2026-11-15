@@ -57,6 +57,53 @@ export interface Transfer {
   updatedAt: string
 }
 
+export type GoalContributionKind = 'deposit' | 'withdrawal'
+
+export interface Goal {
+  id: string
+  name: string
+  targetAmount: number
+  /** Tenggat opsional (YYYY-MM-DD). */
+  deadline?: string
+  color: string
+  note?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface GoalContribution {
+  id: string
+  goalId: string
+  kind: GoalContributionKind
+  amount: number
+  occurredAt: string
+  note?: string
+  createdAt: string
+}
+
+/** owe = hutang saya ke orang lain; lent = piutang (orang lain berhutang ke saya). */
+export type DebtDirection = 'owe' | 'lent'
+
+export interface Debt {
+  id: string
+  direction: DebtDirection
+  person: string
+  amount: number
+  dueDate?: string
+  note?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface DebtPayment {
+  id: string
+  debtId: string
+  amount: number
+  occurredAt: string
+  note?: string
+  createdAt: string
+}
+
 export interface Budget {
   id: string
   categoryId: string
@@ -123,7 +170,7 @@ export interface ProfileBackup {
 
 export interface BackupData {
   app: 'rf-uangku'
-  version: 1 | 2 | 3 | 4
+  version: 1 | 2 | 3 | 4 | 5
   exportedAt: string
   accounts: Account[]
   categories: Category[]
@@ -131,6 +178,10 @@ export interface BackupData {
   budgets?: Budget[]
   recurringTransactions?: RecurringTransaction[]
   transfers?: Transfer[]
+  goals?: Goal[]
+  goalContributions?: GoalContribution[]
+  debts?: Debt[]
+  debtPayments?: DebtPayment[]
   profile?: ProfileBackup
 }
 
