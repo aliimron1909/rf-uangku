@@ -31,6 +31,7 @@ import {
 } from '../src/lib/recurrence'
 import { profileInitials } from '../src/lib/profile'
 import { isValidPin, savePin, verifyPin, hasPin } from '../src/lib/pin'
+import { decryptBackup, encryptBackup, isEncryptedBackup } from '../src/lib/backupCrypto'
 
 const store = new Map<string, string>()
 Object.defineProperty(globalThis, 'localStorage', {
@@ -371,6 +372,32 @@ async function main() {
   assert.equal(await db.recurringTransactions.count(), 0)
   assert.equal(await db.transfers.count(), 0)
   assert.equal(await db.transactions.count(), 2)
+
+  // Backup terenkripsi
+  const secret = await buildBackup()
+  assert.equal(secret.profile?.name, 'Rafi')
+  const envelope = await encryptBackup(secret, 'rahasia-123')
+  assert.equal(isEncryptedBackup(envelope), true)
+  assert.equal(isEncryptedBackup(secret), false)
+  const serialized = JSON.stringify(envelope)
+  assert.ok(!serialized.includes('Rafi'))
+  assert.ok(!serialized.includes('transactions'))
+  const decrypted = await decryptBackup(JSON.parse(serialized), 'rahasia-123')
+  validateBackup(decrypted)
+  assert.deepEqual(decrypted, JSON.parse(JSON.stringify(secret)))
+  assert.notEqual((await encryptBackup(secret, 'rahasia-123')).data, envelope.data)
+  await assert.rejects(decryptBackup(envelope, 'salah-total'), /Password salah/)
+  await assert.rejects(encryptBackup(secret, 'pendek'), /minimal 8/)
+  const flipped = envelope.data[10] === 'A' ? 'B' : 'A'
+  await assert.rejects(
+    decryptBackup(
+      { ...envelope, data: envelope.data.slice(0, 10) + flipped + envelope.data.slice(11) },
+      'rahasia-123',
+    ),
+    /Password salah atau file backup rusak/,
+  )
+  await assert.rejects(decryptBackup({ ...envelope, iterations: 10 }, 'rahasia-123'), /tidak valid/)
+  assert.throws(() => validateBackup(envelope), /terenkripsi/)
 
   await db.delete()
   console.log('Semua verifikasi data lulus.')

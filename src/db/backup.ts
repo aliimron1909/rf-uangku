@@ -162,6 +162,9 @@ export function validateBackup(value: unknown): asserts value is BackupData {
   if (!value || typeof value !== 'object') {
     throw new Error('File backup tidak valid.')
   }
+  if ((value as { encrypted?: unknown }).encrypted === true) {
+    throw new Error('File backup ini terenkripsi. Buka dulu dengan password.')
+  }
   const data = value as Partial<BackupData>
   if (data.app !== 'rf-uangku') {
     throw new Error('File ini bukan backup RF Uangku.')
