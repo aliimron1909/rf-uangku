@@ -61,6 +61,8 @@ export interface Budget {
   id: string
   categoryId: string
   amount: number
+  /** Bulan mulai berlaku (YYYY-MM). Amount 0 = budget dihentikan mulai bulan ini. */
+  effectiveFrom: string
   createdAt: string
   updatedAt: string
 }
@@ -96,6 +98,7 @@ export interface BudgetProgress {
   remaining: number
   percentage: number
   status: BudgetStatus
+  effectiveFrom: string
 }
 
 export interface BudgetSummary {
@@ -120,7 +123,7 @@ export interface ProfileBackup {
 
 export interface BackupData {
   app: 'rf-uangku'
-  version: 1 | 2 | 3
+  version: 1 | 2 | 3 | 4
   exportedAt: string
   accounts: Account[]
   categories: Category[]

@@ -1,12 +1,20 @@
 import { useMemo, useState } from 'react'
-import { AlertTriangle, Pencil, Plus, Target, Trash2 } from 'lucide-react'
+import { AlertTriangle, ChevronLeft, ChevronRight, Pencil, Plus, Target, Trash2 } from 'lucide-react'
 import type { Budget, BudgetProgress } from '../../types'
 import { useBudgets } from '../../hooks/useBudgets'
 import { useTransactions } from '../../hooks/useTransactions'
 import { useAllCategories } from '../../hooks/useCategories'
-import { deleteBudget } from '../../db/budgets'
-import { budgetBarClass, budgetProgress, budgetStatusLabel, budgetSummary, budgetTextClass } from '../../lib/budget'
-import { monthRange } from '../../lib/dates'
+import { stopBudget } from '../../db/budgets'
+import {
+  budgetBarClass,
+  budgetProgress,
+  budgetStatusLabel,
+  budgetSummary,
+  budgetTextClass,
+  resolveBudgets,
+} from '../../lib/budget'
+import { BUDGET_LEGACY_MONTH } from '../../lib/constants'
+import { formatDate, monthKey, monthRangeFromKey, shiftMonthKey } from '../../lib/dates'
 import { formatPercent, formatRupiah } from '../../lib/format'
 import { errorMessage } from '../../lib/utils'
 import { useToast } from '../../contexts/ToastContext'
@@ -22,7 +30,23 @@ export function BudgetSection() {
   const transactions = useTransactions()
   const categories = useAllCategories()
   const { toast } = useToast()
-  const month = useMemo(() => monthRange(), [])
+  const currentKey = useMemo(() => monthKey(), [])
+  const [selectedKey, setSelectedKey] = useState(currentKey)
+  const month = useMemo(() => monthRangeFromKey(selectedKey), [selectedKey])
+  const isCurrentMonth = selectedKey === currentKey
+
+  // Bulan paling awal yang bisa dibuka: bulan transaksi tertua (atau bulan ini).
+  const minKey = useMemo(() => {
+    let min = currentKey
+    for (const transaction of transactions) {
+      const key = transaction.occurredAt.slice(0, 7)
+      if (key < min) min = key
+    }
+    return min
+  }, [transactions, currentKey])
+  const maxKey = useMemo(() => shiftMonthKey(currentKey, 12), [currentKey])
+
+  const activeBudgets = useMemo(() => resolveBudgets(budgets, selectedKey), [budgets, selectedKey])
 
   const progress = useMemo(
     () => budgetProgress(budgets, transactions, categories, month),
@@ -42,7 +66,7 @@ export function BudgetSection() {
     (category) =>
       category.type === 'expense' &&
       !category.archived &&
-      !budgets.some((budget) => budget.categoryId === category.id),
+      !activeBudgets.some((budget) => budget.categoryId === category.id),
   ).length
 
   function openCreate() {
@@ -58,15 +82,19 @@ export function BudgetSection() {
   function handleSaved() {
     setModalOpen(false)
     setEditingBudget(null)
-    toast(editingBudget ? 'Budget berhasil diperbarui.' : 'Budget berhasil disimpan.')
+    toast(
+      editingBudget
+        ? `Budget diperbarui mulai ${month.label}.`
+        : `Budget disimpan mulai ${month.label}.`,
+    )
   }
 
   async function handleDelete() {
     if (!deletingBudget) return
     setDeleteLoading(true)
     try {
-      await deleteBudget(deletingBudget.id)
-      toast('Budget dihapus. Transaksi tetap tersimpan.')
+      await stopBudget(deletingBudget.categoryId, selectedKey)
+      toast(`Budget dihentikan mulai ${month.label}. Bulan sebelumnya tidak berubah.`)
       setDeletingBudget(null)
     } catch (caught) {
       toast(errorMessage(caught), 'error')
@@ -80,14 +108,45 @@ export function BudgetSection() {
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
-              Budget {month.label}
-            </p>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setSelectedKey(shiftMonthKey(selectedKey, -1))}
+                disabled={selectedKey <= minKey}
+                aria-label="Bulan sebelumnya"
+                className="-ml-1.5 rounded-lg p-1.5 text-slate-500 transition hover:bg-slate-100 disabled:opacity-30 dark:text-slate-400 dark:hover:bg-slate-800"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <p className="min-w-32 text-center text-xs font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+                Budget {month.label}
+              </p>
+              <button
+                type="button"
+                onClick={() => setSelectedKey(shiftMonthKey(selectedKey, 1))}
+                disabled={selectedKey >= maxKey}
+                aria-label="Bulan berikutnya"
+                className="rounded-lg p-1.5 text-slate-500 transition hover:bg-slate-100 disabled:opacity-30 dark:text-slate-400 dark:hover:bg-slate-800"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+              {!isCurrentMonth && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedKey(currentKey)}
+                  className="ml-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-emerald-600 transition hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/40"
+                >
+                  Bulan ini
+                </button>
+              )}
+            </div>
             <p className="mt-1 text-2xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">
               {formatRupiah(summary.limit)}
             </p>
             <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-              Total batas pengeluaran bulan ini
+              {isCurrentMonth
+                ? 'Total batas pengeluaran bulan ini'
+                : `Total batas pengeluaran ${month.label}`}
             </p>
           </div>
           <Button onClick={openCreate} disabled={availableCount === 0}>
@@ -162,8 +221,8 @@ export function BudgetSection() {
         <section className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <EmptyState
             icon={<Target className="h-7 w-7" />}
-            title="Belum ada budget"
-            description="Tetapkan batas bulanan per kategori pengeluaran agar pengeluaran lebih terkontrol."
+            title={`Belum ada budget di ${month.label}`}
+            description="Tetapkan batas bulanan per kategori pengeluaran. Limit berlaku mulai bulan ini dan berlanjut ke bulan berikutnya."
             action={
               <Button onClick={openCreate} disabled={availableCount === 0}>
                 <Plus className="h-4 w-4" />
@@ -195,13 +254,15 @@ export function BudgetSection() {
           setEditingBudget(null)
         }}
         title={editingBudget ? 'Edit Budget' : 'Tambah Budget'}
-        description="Satu kategori pengeluaran memiliki satu batas budget bulanan."
+        description={`Berlaku mulai ${month.label} sampai ada perubahan berikutnya.`}
         size="sm"
       >
         <BudgetForm
           budget={editingBudget}
           categories={categories}
-          budgets={budgets}
+          budgets={activeBudgets}
+          month={selectedKey}
+          monthLabel={month.label}
           onSaved={handleSaved}
           onCancel={() => {
             setModalOpen(false)
@@ -212,13 +273,13 @@ export function BudgetSection() {
 
       <ConfirmDialog
         open={Boolean(deletingBudget)}
-        title="Hapus budget?"
+        title="Hentikan budget?"
         message={
           deletingBudget
-            ? `Budget untuk kategori ini akan dihapus. Transaksi yang sudah ada tetap tersimpan.`
+            ? `Budget kategori ini dihentikan mulai ${month.label}. Bulan sebelumnya tetap tercatat dan transaksi tidak terhapus.`
             : ''
         }
-        confirmLabel="Hapus budget"
+        confirmLabel="Hentikan budget"
         danger
         loading={deleteLoading}
         onCancel={() => setDeletingBudget(null)}
@@ -264,6 +325,12 @@ function BudgetRow({
           </div>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             {formatRupiah(item.spent)} dari {formatRupiah(item.limit)}
+            {item.effectiveFrom !== BUDGET_LEGACY_MONTH && (
+              <span className="text-slate-400 dark:text-slate-500">
+                {' '}
+                · sejak {formatDate(`${item.effectiveFrom}-01`, 'MMM yyyy')}
+              </span>
+            )}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1">
@@ -280,8 +347,8 @@ function BudgetRow({
             type="button"
             onClick={onDelete}
             className="rounded-lg p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/50 dark:hover:text-rose-400"
-            aria-label="Hapus budget"
-            title="Hapus"
+            aria-label="Hentikan budget"
+            title="Hentikan mulai bulan ini"
           >
             <Trash2 className="h-4 w-4" />
           </button>

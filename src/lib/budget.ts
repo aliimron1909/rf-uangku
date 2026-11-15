@@ -6,6 +6,7 @@ import type {
   Category,
   Transaction,
 } from '../types'
+import { BUDGET_LEGACY_MONTH } from './constants'
 
 interface MonthRange {
   start: string
@@ -25,6 +26,31 @@ function statusRank(status: BudgetStatus): number {
   return 1
 }
 
+/**
+ * Budget yang berlaku untuk bulan tertentu: per kategori dipakai baris dengan
+ * bulan mulai terbaru yang tidak melewati `monthKey`. Baris dengan amount 0
+ * berarti budget dihentikan sejak bulan itu.
+ */
+export function resolveBudgets(budgets: Budget[], monthKey: string): Budget[] {
+  const latest = new Map<string, Budget>()
+
+  for (const budget of budgets) {
+    const from = budget.effectiveFrom || BUDGET_LEGACY_MONTH
+    if (from > monthKey) continue
+    const current = latest.get(budget.categoryId)
+    const currentFrom = current ? current.effectiveFrom || BUDGET_LEGACY_MONTH : ''
+    if (
+      !current ||
+      from > currentFrom ||
+      (from === currentFrom && budget.updatedAt > current.updatedAt)
+    ) {
+      latest.set(budget.categoryId, budget)
+    }
+  }
+
+  return Array.from(latest.values()).filter((budget) => budget.amount > 0)
+}
+
 export function budgetProgress(
   budgets: Budget[],
   transactions: Transaction[],
@@ -42,7 +68,7 @@ export function budgetProgress(
     )
   }
 
-  return budgets
+  return resolveBudgets(budgets, month.start.slice(0, 7))
     .map((budget): BudgetProgress | null => {
       const category = categories.find((item) => item.id === budget.categoryId)
       if (!category || category.type !== 'expense') return null
@@ -61,6 +87,7 @@ export function budgetProgress(
         remaining: budget.amount - spent,
         percentage,
         status: statusFor(percentage),
+        effectiveFrom: budget.effectiveFrom || BUDGET_LEGACY_MONTH,
       }
     })
     .filter((row): row is BudgetProgress => row !== null)
@@ -121,10 +148,12 @@ export function newExpenseBudgetAlert(
   },
 ): BudgetAlert | null {
   if (input.type !== 'expense') return null
-  const budget = budgets.find((item) => item.categoryId === input.categoryId)
+  const monthKey = input.occurredAt.slice(0, 7)
+  const budget = resolveBudgets(budgets, monthKey).find(
+    (item) => item.categoryId === input.categoryId,
+  )
   if (!budget || budget.amount <= 0) return null
 
-  const monthKey = input.occurredAt.slice(0, 7)
   const spentBefore = transactions
     .filter(
       (item) =>

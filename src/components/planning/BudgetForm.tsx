@@ -11,12 +11,24 @@ import { Select } from '../ui/Select'
 interface BudgetFormProps {
   budget?: Budget | null
   categories: Category[]
+  /** Budget yang sudah berlaku pada bulan yang dipilih. */
   budgets: Budget[]
+  /** Bulan yang diatur (YYYY-MM) dan labelnya. */
+  month: string
+  monthLabel: string
   onSaved: () => void
   onCancel: () => void
 }
 
-export function BudgetForm({ budget, categories, budgets, onSaved, onCancel }: BudgetFormProps) {
+export function BudgetForm({
+  budget,
+  categories,
+  budgets,
+  month,
+  monthLabel,
+  onSaved,
+  onCancel,
+}: BudgetFormProps) {
   const [categoryId, setCategoryId] = useState(budget?.categoryId ?? '')
   const [amountInput, setAmountInput] = useState(
     budget ? formatNumberInput(String(budget.amount)) : '',
@@ -56,7 +68,7 @@ export function BudgetForm({ budget, categories, budgets, onSaved, onCancel }: B
 
     setSaving(true)
     try {
-      await upsertBudget({ categoryId, amount })
+      await upsertBudget({ categoryId, amount, month })
       onSaved()
     } catch (caught) {
       setError(errorMessage(caught))
@@ -91,8 +103,11 @@ export function BudgetForm({ budget, categories, budgets, onSaved, onCancel }: B
       />
 
       <p className="rounded-xl bg-slate-50 px-3 py-2.5 text-[11px] leading-relaxed text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
-        Budget berlaku sebagai batas bulanan berulang. Mengubah nominal akan memengaruhi perhitungan
-        semua bulan karena riwayat batas per bulan belum disimpan.
+        Limit ini berlaku mulai <span className="font-semibold">{monthLabel}</span> dan terus
+        dipakai di bulan-bulan berikutnya sampai kamu mengubahnya lagi.
+        {budget && budget.effectiveFrom < month
+          ? ' Bulan sebelumnya tetap memakai limit lama.'
+          : ''}
       </p>
 
       <div className="flex justify-end gap-2 pt-1">

@@ -29,3 +29,6 @@ export const STORAGE_KEYS = {
   installDismissed: 'rf-uangku:install-dismissed',
   biometric: 'rf-uangku:biometric',
 } as const
+
+/** Budget lama (tanpa bulan mulai) dianggap berlaku sejak awal. */
+export const BUDGET_LEGACY_MONTH = '0000-00'

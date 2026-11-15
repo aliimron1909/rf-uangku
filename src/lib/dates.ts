@@ -43,6 +43,28 @@ export function monthRange(date = new Date()): { start: string; end: string; lab
   }
 }
 
+/** Kunci bulan 'YYYY-MM' untuk tanggal tertentu. */
+export function monthKey(date = new Date()): string {
+  return format(date, 'yyyy-MM')
+}
+
+export function isMonthKey(value: unknown): value is string {
+  return typeof value === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(value)
+}
+
+export function shiftMonthKey(key: string, delta: number): string {
+  const [year, month] = key.split('-').map(Number)
+  const index = year * 12 + (month - 1) + delta
+  const nextYear = Math.floor(index / 12)
+  const nextMonth = (index % 12) + 1
+  return `${String(nextYear).padStart(4, '0')}-${String(nextMonth).padStart(2, '0')}`
+}
+
+export function monthRangeFromKey(key: string): { start: string; end: string; label: string } {
+  const [year, month] = key.split('-').map(Number)
+  return monthRange(new Date(year, month - 1, 1))
+}
+
 export function presetRange(
   preset: ReportPreset,
   customStart?: string,

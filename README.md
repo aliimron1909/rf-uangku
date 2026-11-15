@@ -12,7 +12,7 @@ Aplikasi PWA keuangan pribadi yang **local-first**: semua data tersimpan di HP, 
 - **Transaksi** — tambah, edit, hapus, cari, filter jenis/rekening/kategori/tanggal, pagination.
 - **Isi cepat AI (Groq)** — tulis “makan siang 25rb pakai Gopay”, AI mengisi form. Tetap bisa diperiksa sebelum disimpan. Model chat aktif bisa dicari langsung dari Groq (butuh internet).
 - **Chat AI transaksi** — ngobrol dengan AI untuk menyiapkan transaksi. AI bisa bertanya balik jika nominal/jenis belum jelas, lalu draft bisa diperiksa di form atau disimpan langsung.
-- **Budget bulanan** — atur limit per kategori pengeluaran, lihat progres, status aman/hampir penuh/terlampaui, dan ringkasan di dashboard.
+- **Budget bulanan dengan riwayat** — atur limit per kategori pengeluaran, lihat progres, status aman/hampir penuh/terlampaui, dan ringkasan di dashboard. Limit berlaku mulai bulan dipilih dan berlanjut ke bulan berikutnya; mengubahnya tidak mengubah bulan-bulan lalu. Bisa membuka bulan lain dengan tombol panah.
 - **Transaksi berulang** — aturan harian/mingguan/bulanan/tahunan dengan interval, tanggal mulai, dan tanggal selesai opsional. Transaksi otomatis dibuat saat aplikasi dibuka/dilanjutkan.
 - **Laporan** — periode harian/mingguan/bulanan/tahunan/kustom, filter jenis & rekening, ekspor **PDF** dan **CSV**.
 - **Master data** — tambah, edit, arsip, atau hapus rekening dan kategori langsung dari **Pengaturan → Rekening & Kategori**.
@@ -144,12 +144,12 @@ Nama profil dipakai untuk sapaan dashboard, avatar di topbar, dan nama pemilik p
 
 Buka menu **Rencana**:
 
-- Tab **Budget** — pilih kategori pengeluaran, isi limit bulanan, lalu simpan. Progres dihitung dari transaksi bulan berjalan. Status: **Aman** (<80%), **Hampir penuh** (80–99%), **Terlampaui** (≥100%).
+- Tab **Budget** — pilih kategori pengeluaran, isi limit bulanan, lalu simpan. Progres dihitung dari transaksi bulan yang sedang dibuka (gunakan panah **‹ ›** untuk pindah bulan). Status: **Aman** (<80%), **Hampir penuh** (80–99%), **Terlampaui** (≥100%).
 - Tab **Berulang** — buat aturan pemasukan/pengeluaran dengan frekuensi harian, mingguan, bulanan, atau tahunan, interval, tanggal mulai, dan tanggal selesai opsional. Aturan bisa dijeda/dilanjutkan.
 
 Transaksi berulang dibuat otomatis saat aplikasi dibuka atau dilanjutkan. Tidak ada proses background saat aplikasi tertutup, jadi transaksi yang jatuh tempo akan dibuat saat aplikasi dibuka kembali. Transaksi hasil generate tetap bisa diedit/dihapus dan tidak dibuat ulang setelah dihapus.
 
-> Budget v1.1 menyimpan satu limit per kategori untuk semua bulan. Mengubah limit akan memengaruhi tampilan bulan lain karena riwayat limit per bulan belum disimpan.
+> **Riwayat limit per bulan.** Setiap limit punya bulan mulai berlaku. Saat kamu menyimpan limit di bulan tertentu, limit itu dipakai di bulan tersebut dan bulan-bulan berikutnya sampai kamu mengubahnya lagi; bulan sebelumnya tetap memakai limit lama. Tombol **Hentikan** (ikon tempat sampah) menghentikan budget mulai bulan yang sedang dibuka tanpa menghapus riwayat bulan lalu. Budget dari versi sebelumnya otomatis dianggap berlaku sejak awal, jadi tampilan lama tidak berubah.
 
 ### Laporan PDF/CSV
 
@@ -171,7 +171,7 @@ Data lokal bisa hilang jika Anda menghapus data browser, memakai mode incognito,
 
 > Restore akan **mengganti rekening, kategori, transaksi, budget, dan aturan berulang lokal** dengan isi file. Profil ikut dipulihkan jika tersedia di file backup. Unduh backup terbaru dulu jika ragu.
 
-Backup JSON v2 berisi rekening, kategori, transaksi, budget, aturan berulang, dan profil (nama + foto). Backup v1 dari versi sebelumnya tetap bisa dipulihkan; tabel budget/berulang akan dikosongkan. PIN, fingerprint, tema, dan API key Groq **tidak** ikut ke dalam file backup (agar rahasia perangkat tidak ikut tersebar).
+Backup JSON v4 berisi rekening, kategori, transaksi, budget (beserta riwayat limit per bulan), aturan berulang, dan profil (nama + foto). Backup v1–v3 dari versi sebelumnya tetap bisa dipulihkan; budget lama otomatis berlaku sejak awal, dan tabel yang belum ada di file lama akan dikosongkan. PIN, fingerprint, tema, dan API key Groq **tidak** ikut ke dalam file backup (agar rahasia perangkat tidak ikut tersebar).
 
 **Ekspor CSV** berguna untuk melihat data di Excel/Google Sheets, tetapi CSV bukan backup lengkap. Gunakan JSON untuk backup/restore.
 

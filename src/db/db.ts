@@ -8,6 +8,7 @@ import type {
   Transaction,
   Transfer,
 } from '../types'
+import { BUDGET_LEGACY_MONTH } from '../lib/constants'
 
 class UangkuDB extends Dexie {
   accounts!: Table<Account, string>
@@ -36,6 +37,20 @@ class UangkuDB extends Dexie {
     this.version(3).stores({
       transfers: 'id, occurredAt, fromAccountId, toAccountId',
     })
+    // v4: riwayat budget per bulan. categoryId tidak lagi unik; satu kategori
+    // bisa punya beberapa baris dengan bulan mulai berlaku berbeda.
+    this.version(4)
+      .stores({
+        budgets: 'id, categoryId, [categoryId+effectiveFrom]',
+      })
+      .upgrade((tx) =>
+        tx
+          .table('budgets')
+          .toCollection()
+          .modify((row: { effectiveFrom?: string }) => {
+            if (!row.effectiveFrom) row.effectiveFrom = BUDGET_LEGACY_MONTH
+          }),
+      )
   }
 }
 

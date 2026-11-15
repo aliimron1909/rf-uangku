@@ -9,7 +9,8 @@ import type {
   Transaction,
   Transfer,
 } from '../types'
-import { DEFAULT_PROFILE_NAME } from '../lib/constants'
+import { BUDGET_LEGACY_MONTH, DEFAULT_PROFILE_NAME } from '../lib/constants'
+import { isMonthKey } from '../lib/dates'
 import { PROFILE_PHOTO_MAX_DATA_URL_LENGTH } from '../lib/profile'
 
 export async function buildBackup(): Promise<BackupData> {
@@ -26,7 +27,7 @@ export async function buildBackup(): Promise<BackupData> {
 
   return {
     app: 'rf-uangku',
-    version: 3,
+    version: 4,
     exportedAt: new Date().toISOString(),
     accounts: await db.accounts.toArray(),
     categories: await db.categories.toArray(),
@@ -97,7 +98,9 @@ function isBudgetRow(value: unknown): boolean {
     typeof value.categoryId === 'string' &&
     typeof value.amount === 'number' &&
     Number.isFinite(value.amount) &&
-    value.amount > 0 &&
+    // amount 0 = penanda budget dihentikan mulai bulan tertentu
+    value.amount >= 0 &&
+    (value.effectiveFrom === undefined || isMonthKey(value.effectiveFrom)) &&
     typeof value.createdAt === 'string' &&
     typeof value.updatedAt === 'string'
   )
@@ -169,7 +172,12 @@ export function validateBackup(value: unknown): asserts value is BackupData {
   if (data.app !== 'rf-uangku') {
     throw new Error('File ini bukan backup RF Uangku.')
   }
-  if (data.version !== 1 && data.version !== 2 && data.version !== 3) {
+  if (
+    data.version !== 1 &&
+    data.version !== 2 &&
+    data.version !== 3 &&
+    data.version !== 4
+  ) {
     throw new Error('Versi file backup tidak didukung.')
   }
   if (
@@ -218,7 +226,9 @@ export function validateBackup(value: unknown): asserts value is BackupData {
     new Set(data.transactions.map((transaction) => transaction.id)).size !==
       data.transactions.length ||
     new Set(budgets.map((budget) => budget.id)).size !== budgets.length ||
-    new Set(budgets.map((budget) => budget.categoryId)).size !== budgets.length ||
+    new Set(
+      budgets.map((budget) => `${budget.categoryId}|${budget.effectiveFrom ?? BUDGET_LEGACY_MONTH}`),
+    ).size !== budgets.length ||
     new Set(recurringTransactions.map((rule) => rule.id)).size !== recurringTransactions.length ||
     new Set(transfers.map((transfer) => transfer.id)).size !== transfers.length
   ) {
@@ -299,6 +309,8 @@ export async function restoreBackup(data: BackupData): Promise<void> {
   const budgets: Budget[] = (data.budgets ?? []).map((budget) => ({
     ...budget,
     amount: Number(budget.amount) || 0,
+    // Backup lama (v1-v3) tidak punya bulan mulai: berlaku sejak awal.
+    effectiveFrom: budget.effectiveFrom || BUDGET_LEGACY_MONTH,
     updatedAt: budget.updatedAt || budget.createdAt,
   }))
   const recurringTransactions: RecurringTransaction[] = (

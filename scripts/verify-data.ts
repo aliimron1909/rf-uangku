@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { db } from '../src/db/db'
 import { DEFAULT_ACCOUNTS, DEFAULT_CATEGORIES, seedIfEmpty } from '../src/db/seed'
 import { createTransaction, deleteTransaction, updateTransaction } from '../src/db/transactions'
-import { upsertBudget } from '../src/db/budgets'
+import { stopBudget, upsertBudget } from '../src/db/budgets'
 import { createTransfer, deleteTransfer, updateTransfer } from '../src/db/transfers'
 import {
   createRecurring,
@@ -20,9 +20,22 @@ import {
   totalBalance,
   withRefs,
 } from '../src/lib/analytics'
-import { buildTrend, monthRange, presetRange, todayISO } from '../src/lib/dates'
+import {
+  buildTrend,
+  monthKey,
+  monthRange,
+  monthRangeFromKey,
+  presetRange,
+  shiftMonthKey,
+  todayISO,
+} from '../src/lib/dates'
 import { formatNumberInput, formatRupiah, parseNumberInput } from '../src/lib/format'
-import { budgetProgress, budgetSummary } from '../src/lib/budget'
+import {
+  budgetProgress,
+  budgetSummary,
+  newExpenseBudgetAlert,
+  resolveBudgets,
+} from '../src/lib/budget'
 import {
   advanceOccurrence,
   frequencyLabel,
@@ -233,7 +246,7 @@ async function main() {
   const backup = await buildBackup()
   validateBackup(backup)
   assert.equal(backup.app, 'rf-uangku')
-  assert.equal(backup.version, 3)
+  assert.equal(backup.version, 4)
   assert.equal(backup.transfers?.length, 1)
   assert.throws(
     () =>
@@ -372,6 +385,138 @@ async function main() {
   assert.equal(await db.recurringTransactions.count(), 0)
   assert.equal(await db.transfers.count(), 0)
   assert.equal(await db.transactions.count(), 2)
+
+  // Riwayat budget per bulan
+  const nowKey = monthKey()
+  const prevKey = shiftMonthKey(nowKey, -1)
+  assert.equal(shiftMonthKey('2026-01', -1), '2025-12')
+  assert.equal(shiftMonthKey('2026-12', 1), '2027-01')
+  assert.equal(shiftMonthKey('2026-03', 12), '2027-03')
+  assert.equal(await db.budgets.count(), 0)
+
+  // Budget lama (tanpa bulan mulai) otomatis berlaku sejak awal.
+  await db.budgets.add({
+    id: 'legacy-budget',
+    categoryId: makan.id,
+    amount: 100_000,
+    effectiveFrom: '0000-00',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  })
+  const changed = await upsertBudget({ categoryId: makan.id, amount: 200_000 })
+  assert.equal(changed.effectiveFrom, nowKey)
+  const again = await upsertBudget({ categoryId: makan.id, amount: 250_000 })
+  assert.equal(again.id, changed.id)
+  assert.equal(await db.budgets.count(), 2)
+  await assert.rejects(upsertBudget({ categoryId: makan.id, amount: 0 }), /lebih dari 0/)
+  await assert.rejects(
+    upsertBudget({ categoryId: makan.id, amount: 1, month: '2026-13' }),
+    /tidak valid/,
+  )
+
+  let rows = await db.budgets.toArray()
+  assert.equal(resolveBudgets(rows, prevKey)[0].amount, 100_000)
+  assert.equal(resolveBudgets(rows, nowKey)[0].amount, 250_000)
+  assert.equal(resolveBudgets(rows, shiftMonthKey(nowKey, 3))[0].amount, 250_000)
+  assert.equal(resolveBudgets(rows, '2020-01')[0].amount, 100_000)
+
+  // Perubahan bulan ini tidak mengubah progres bulan lalu.
+  const prevProgress = budgetProgress([...rows], [], DEFAULT_CATEGORIES, monthRangeFromKey(prevKey))
+  assert.equal(prevProgress[0].limit, 100_000)
+  const nowProgress = budgetProgress([...rows], [], DEFAULT_CATEGORIES, monthRangeFromKey(nowKey))
+  assert.equal(nowProgress[0].limit, 250_000)
+  assert.equal(
+    newExpenseBudgetAlert(rows, [], DEFAULT_CATEGORIES, {
+      type: 'expense',
+      categoryId: makan.id,
+      amount: 90_000,
+      occurredAt: `${prevKey}-15`,
+    })?.type,
+    'info',
+  )
+  assert.equal(
+    newExpenseBudgetAlert(rows, [], DEFAULT_CATEGORIES, {
+      type: 'expense',
+      categoryId: makan.id,
+      amount: 90_000,
+      occurredAt: `${nowKey}-15`,
+    }),
+    null,
+  )
+
+  // Menghentikan budget mulai bulan ini: bulan lalu tetap, bulan ini dst. kosong.
+  await stopBudget(makan.id, nowKey)
+  rows = await db.budgets.toArray()
+  assert.equal(rows.length, 2)
+  assert.equal(rows.find((row) => row.effectiveFrom === nowKey)?.amount, 0)
+  assert.equal(resolveBudgets(rows, prevKey)[0].amount, 100_000)
+  assert.equal(resolveBudgets(rows, nowKey).length, 0)
+  assert.equal(resolveBudgets(rows, shiftMonthKey(nowKey, 2)).length, 0)
+
+  // Menetapkan lagi setelah dihentikan memakai baris penanda yang sama.
+  const revived = await upsertBudget({ categoryId: makan.id, amount: 80_000 })
+  assert.equal(revived.effectiveFrom, nowKey)
+  assert.equal(await db.budgets.count(), 2)
+  assert.equal(resolveBudgets(await db.budgets.toArray(), nowKey)[0].amount, 80_000)
+
+  // Menghentikan budget tanpa riwayat sebelumnya: baris cukup dihapus.
+  const lain = DEFAULT_CATEGORIES.find(
+    (category) => category.type === 'expense' && category.id !== makan.id,
+  )!
+  await upsertBudget({ categoryId: lain.id, amount: 30_000 })
+  assert.equal(await db.budgets.count(), 3)
+  await stopBudget(lain.id, nowKey)
+  assert.equal(await db.budgets.count(), 2)
+
+  // Menghentikan di bulan lalu: penanda ditambahkan, riwayat lama tetap utuh.
+  await stopBudget(makan.id, prevKey)
+  rows = await db.budgets.toArray()
+  assert.equal(rows.length, 3)
+  assert.equal(resolveBudgets(rows, prevKey).length, 0)
+  assert.equal(resolveBudgets(rows, '2020-01')[0].amount, 100_000)
+  assert.equal(resolveBudgets(rows, nowKey)[0].amount, 80_000)
+
+  // Backup memuat riwayat budget (v4); file lama tanpa bulan mulai tetap bisa dipulihkan.
+  const withHistory = await buildBackup()
+  validateBackup(withHistory)
+  assert.equal(withHistory.version, 4)
+  assert.equal(withHistory.budgets?.length, rows.length)
+  assert.throws(
+    () =>
+      validateBackup({
+        ...withHistory,
+        budgets: [rows[0], { ...rows[0], id: 'dup' }],
+      }),
+    /ID ganda/,
+  )
+  assert.throws(
+    () =>
+      validateBackup({
+        ...withHistory,
+        budgets: [{ ...rows[0], effectiveFrom: '2026-13' }],
+      }),
+    /budget/i,
+  )
+  await restoreBackup(withHistory)
+  assert.equal(await db.budgets.count(), rows.length)
+
+  const oldBudgetBackup: unknown = {
+    ...withHistory,
+    version: 3,
+    budgets: [
+      {
+        id: 'old-budget',
+        categoryId: makan.id,
+        amount: 50_000,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
+    ],
+  }
+  validateBackup(oldBudgetBackup)
+  await restoreBackup(oldBudgetBackup)
+  assert.equal((await db.budgets.get('old-budget'))?.effectiveFrom, '0000-00')
+  assert.equal(resolveBudgets(await db.budgets.toArray(), '2020-01')[0].amount, 50_000)
 
   // Backup terenkripsi
   const secret = await buildBackup()
