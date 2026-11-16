@@ -3,7 +3,7 @@ import { createId } from '../lib/utils'
 import { normalizeTags } from '../lib/tags'
 import { splitIssue, type SplitPart } from '../lib/split'
 import { isReceiptDataUrl } from '../lib/receipts'
-import type { Transaction, TxType } from '../types'
+import type { Transaction, TrashItem, TxType } from '../types'
 
 export interface TransactionInput {
   type: TxType
@@ -147,15 +147,69 @@ export async function saveTransaction(
   })
 }
 
-/** Menghapus transaksi; bila bagian dari split, seluruh pecahan struk ikut terhapus. */
-export async function deleteTransaction(id: string): Promise<void> {
-  await db.transaction('rw', db.transactions, db.receipts, async () => {
+export const TRASH_RETENTION_DAYS = 30
+
+/**
+ * Memindahkan transaksi ke tempat sampah; bila bagian dari split, seluruh pecahan struk ikut.
+ * Mengembalikan ID item sampah (null bila transaksi tidak ditemukan).
+ */
+export async function deleteTransaction(id: string): Promise<string | null> {
+  return db.transaction('rw', db.transactions, db.receipts, db.trash, async () => {
     const current = await db.transactions.get(id)
-    if (!current) return
+    if (!current) return null
     const members = current.splitGroupId
       ? await db.transactions.where('splitGroupId').equals(current.splitGroupId).toArray()
       : [current]
+    const receiptId = members.find((member) => member.receiptId)?.receiptId
+    const receipt = receiptId ? await db.receipts.get(receiptId) : undefined
+    const item: TrashItem = {
+      id: createId(),
+      transactions: members,
+      ...(receipt ? { receipt } : {}),
+      deletedAt: new Date().toISOString(),
+    }
+    await db.trash.add(item)
     await db.transactions.bulkDelete(members.map((member) => member.id))
     await deleteOrphanReceipts(members.map((member) => member.receiptId))
+    return item.id
   })
+}
+
+/** Memulihkan item sampah. Gagal bila rekening/kategori transaksinya sudah dihapus permanen. */
+export async function restoreFromTrash(trashId: string): Promise<number> {
+  return db.transaction(
+    'rw',
+    [db.transactions, db.receipts, db.trash, db.accounts, db.categories],
+    async () => {
+      const item = await db.trash.get(trashId)
+      if (!item) throw new Error('Item sampah tidak ditemukan.')
+      for (const transaction of item.transactions) {
+        const [account, category] = await Promise.all([
+          db.accounts.get(transaction.accountId),
+          db.categories.get(transaction.categoryId),
+        ])
+        if (!account || !category) {
+          throw new Error('Tidak bisa dipulihkan: rekening atau kategori transaksi ini sudah dihapus.')
+        }
+      }
+      if (item.receipt) await db.receipts.put(item.receipt)
+      await db.transactions.bulkPut(item.transactions)
+      await db.trash.delete(trashId)
+      return item.transactions.length
+    },
+  )
+}
+
+export async function deleteTrashItem(trashId: string): Promise<void> {
+  await db.trash.delete(trashId)
+}
+
+export async function emptyTrash(): Promise<void> {
+  await db.trash.clear()
+}
+
+/** Menghapus permanen item yang lebih lama dari masa simpan. Mengembalikan jumlah yang dihapus. */
+export async function purgeExpiredTrash(now: Date = new Date()): Promise<number> {
+  const cutoff = new Date(now.getTime() - TRASH_RETENTION_DAYS * 86_400_000).toISOString()
+  return db.trash.where('deletedAt').below(cutoff).delete()
 }

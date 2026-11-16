@@ -9,12 +9,14 @@ import { OfflineBanner } from '../pwa/OfflineBanner'
 import { useRecurringRunner } from '../../hooks/useRecurringRunner'
 import { useBudgetAlerts } from '../../hooks/useBudgetAlerts'
 import { startAutoSync } from '../../lib/sync/controller'
+import { purgeExpiredTrash } from '../../db/transactions'
 
 export function AppShell() {
   useRecurringRunner()
   useBudgetAlerts()
   useEffect(() => {
     void startAutoSync()
+    void purgeExpiredTrash().catch(() => undefined)
   }, [])
 
   return (

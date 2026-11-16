@@ -60,6 +60,14 @@ export interface SyncStateRow {
   deleted: boolean
 }
 
+/** Transaksi yang dihapus, disimpan sementara agar bisa dipulihkan (satu item = satu transaksi atau satu struk split). */
+export interface TrashItem {
+  id: string
+  transactions: Transaction[]
+  receipt?: Receipt
+  deletedAt: string
+}
+
 export interface Receipt {
   id: string
   /** Gambar terkompres sebagai data URL (JPEG/WebP). */

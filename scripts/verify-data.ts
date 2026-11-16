@@ -5,6 +5,9 @@ import { DEFAULT_ACCOUNTS, DEFAULT_CATEGORIES, resetMasterData, seedIfEmpty } fr
 import {
   createTransaction,
   deleteTransaction,
+  emptyTrash,
+  purgeExpiredTrash,
+  restoreFromTrash,
   saveTransaction,
   updateTransaction,
 } from '../src/db/transactions'
@@ -1138,8 +1141,9 @@ async function main() {
   assert.equal((await db.receipts.toArray())[0].dataUrl.endsWith('BBBB'), true)
 
   // Menghapus transaksi terakhir ikut menghapus struknya.
-  await deleteTransaction(merged[0].id)
+  const trashedMerged = await deleteTransaction(merged[0].id)
   assert.equal(await db.receipts.count(), 0)
+  assert.ok(trashedMerged)
 
   // Menghapus satu bagian split menghapus seluruh grup.
   const again2 = await saveTransaction(null, {
@@ -1153,7 +1157,29 @@ async function main() {
       { categoryId: sCats[1].id, amount: 50 },
     ],
   })
-  await deleteTransaction(again2[0].id)
+  const trashedGroup = await deleteTransaction(again2[0].id)
+  assert.equal(await db.transactions.count(), 0)
+
+  // Tempat sampah: pulihkan transaksi + struk, pulihkan grup split, masa simpan, dan penjaga referensi.
+  assert.equal(await db.trash.count(), 2)
+  assert.equal(await restoreFromTrash(trashedMerged!), 1)
+  assert.equal(await db.receipts.count(), 1)
+  assert.equal(await db.transactions.count(), 1)
+  assert.equal(await restoreFromTrash(trashedGroup!), 2)
+  assert.equal(await db.transactions.count(), 3)
+  assert.equal(await db.trash.count(), 0)
+  assert.equal(new Set((await db.transactions.toArray()).map((row) => row.splitGroupId).filter(Boolean)).size, 1)
+  const trashedAgain = await deleteTransaction(again2[0].id)
+  await assert.rejects(restoreFromTrash('tidak-ada'), /tidak ditemukan/)
+  await db.trash.update(trashedAgain!, { deletedAt: '2020-01-01T00:00:00.000Z' })
+  assert.equal(await purgeExpiredTrash(new Date('2026-11-16T00:00:00.000Z')), 1)
+  const trashedLast = await deleteTransaction((await db.transactions.toArray())[0].id)
+  await db.categories.delete((await db.trash.get(trashedLast!))!.transactions[0].categoryId)
+  await assert.rejects(restoreFromTrash(trashedLast!), /sudah dihapus/)
+  assert.equal(await db.trash.count(), 1)
+  await emptyTrash()
+  assert.equal(await db.trash.count(), 0)
+  await resetMasterData()
   assert.equal(await db.transactions.count(), 0)
 
   // Restore backup dengan struk & split.
