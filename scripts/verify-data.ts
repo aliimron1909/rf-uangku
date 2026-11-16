@@ -1427,13 +1427,13 @@ async function main() {
   assert.equal(signed.rows[0].duplicate, true)
   assert.equal(signed.rows[1].duplicate, false)
   assert.equal(signed.rows[1].type, 'income')
-  const flipped = buildImportRows(
+  const csvFlipped = buildImportRows(
     [['Tanggal', 'Keterangan', 'Jumlah'], ['2026-10-02', 'Belanja', '100.000']],
     { mapping: signedMapping, headerRow: 0, positiveIsExpense: true, accountId: impAccount.id },
     impCats,
     [],
   )
-  assert.equal(flipped.rows[0].type, 'expense')
+  assert.equal(csvFlipped.rows[0].type, 'expense')
 
   await db.delete()
   console.log('Semua verifikasi data lulus.')
