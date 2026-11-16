@@ -10,7 +10,6 @@ import {
   accountsWithBalance,
   categoryBreakdown,
   computeTotals,
-  totalBalance,
   withRefs,
 } from '../lib/analytics'
 import { buildTrend, monthRange } from '../lib/dates'
@@ -40,25 +39,30 @@ export function useDashboardData() {
 
   const totals = useMemo(() => computeTotals(monthTransactions), [monthTransactions])
   const debtFlows = useMemo(() => debtAccountFlows(debts, debtPayments), [debts, debtPayments])
-  const balance = useMemo(
-    () => totalBalance(accounts, transactions, debtFlows),
-    [accounts, transactions, debtFlows],
-  )
   const trend = useMemo(() => buildTrend(transactions, granularity), [transactions, granularity])
   const breakdown = useMemo(
     () => categoryBreakdown(monthTransactions, categories),
     [monthTransactions, categories],
   )
   const recent = useMemo(
-    () => withRefs(transactions.slice(0, 5), accounts, categories),
+    () => withRefs(transactions.slice(0, 4), accounts, categories),
     [transactions, accounts, categories],
   )
-  const balances = useMemo(() => {
-    const rows = accountsWithBalance(accounts, transactions, transfers, debtFlows)
-    // Keep active accounts first; archived accounts stay visible (and counted)
-    // so historical transactions and total balance remain consistent.
-    return [...rows].sort((a, b) => Number(a.archived) - Number(b.archived))
-  }, [accounts, transactions, transfers, debtFlows])
+  // Rekening arsip tidak tampil di dashboard dan tidak dihitung dalam saldo total,
+  // supaya total selalu sama dengan jumlah daftar rekening. Urutan mengikuti Pengaturan.
+  const activeAccounts = useMemo(
+    () => accounts.filter((account) => !account.archived),
+    [accounts],
+  )
+  const archivedCount = accounts.length - activeAccounts.length
+  const balances = useMemo(
+    () => accountsWithBalance(activeAccounts, transactions, transfers, debtFlows),
+    [activeAccounts, transactions, transfers, debtFlows],
+  )
+  const balance = useMemo(
+    () => balances.reduce((sum, account) => sum + account.balance, 0),
+    [balances],
+  )
   const budgetItems = useMemo(
     () => budgetProgress(budgets, monthTransactions, categories, month),
     [budgets, monthTransactions, categories, month],
@@ -70,8 +74,12 @@ export function useDashboardData() {
 
   return {
     transactions,
-    transfers,
+    debts,
+    debtPayments,
     accounts,
+    activeAccounts,
+    archivedCount,
+    transfers,
     categories,
     granularity,
     setGranularity,

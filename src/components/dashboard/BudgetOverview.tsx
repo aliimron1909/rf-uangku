@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, ArrowRight, Target } from 'lucide-react'
+import { AlertTriangle, ArrowRight, ChevronDown, Target } from 'lucide-react'
 import type { BudgetProgress, BudgetSummary } from '../../types'
 import { budgetBarClass, budgetStatusLabel, budgetTextClass } from '../../lib/budget'
 import { formatPercent, formatRupiah } from '../../lib/format'
@@ -11,6 +12,8 @@ interface BudgetOverviewProps {
 }
 
 export function BudgetOverview({ progress, summary }: BudgetOverviewProps) {
+  const [open, setOpen] = useState(false)
+
   if (progress.length === 0) {
     return (
       <section className="rounded-2xl border border-dashed border-slate-300 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
@@ -91,6 +94,24 @@ export function BudgetOverview({ progress, summary }: BudgetOverviewProps) {
         </span>
       </div>
 
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        className="mt-3 flex w-full items-center justify-between rounded-lg text-[11px] font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+      >
+        <span>
+          {progress.length} kategori
+          {summary.overCount > 0 ? ` · ${summary.overCount} melewati budget` : ''}
+        </span>
+        <span className="inline-flex items-center gap-1">
+          {open ? 'Sembunyikan' : 'Detail'}
+          <ChevronDown className={`h-3.5 w-3.5 transition ${open ? 'rotate-180' : ''}`} />
+        </span>
+      </button>
+
+      {open && (
+        <>
       <div className="mt-3 space-y-2">
         {progress.slice(0, 3).map((item) => (
           <div key={item.budgetId} className="flex items-center gap-2.5">
@@ -130,6 +151,8 @@ export function BudgetOverview({ progress, summary }: BudgetOverviewProps) {
           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           {summary.overCount} kategori melewati budget bulan ini.
         </p>
+      )}
+        </>
       )}
     </section>
   )

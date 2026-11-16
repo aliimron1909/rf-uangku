@@ -106,6 +106,8 @@ import {
   evaluateBillReminders,
   upcomingBills,
 } from '../src/lib/billReminders'
+import { moveAccount } from '../src/db/accounts'
+import { moveInOrder } from '../src/lib/accountOrder'
 import { netWorthSeries, trimLeadingEmpty } from '../src/lib/networth'
 import { profileInitials } from '../src/lib/profile'
 import { isValidPin, savePin, verifyPin, hasPin } from '../src/lib/pin'
@@ -1527,6 +1529,41 @@ async function main() {
     // Kunci tagihan yang tak relevan lagi dibuang
     assert.deepEqual(evaluateBillReminders([], first.nextSeen, true).nextSeen, [])
     assert.ok(billReminderMessage(bills[0]).body.includes('hari ini'))
+  }
+
+
+  // --- Urutan rekening & saldo hanya rekening aktif ---
+  {
+    assert.deepEqual(moveInOrder(['a', 'b', 'c'], 'b', 'up'), ['b', 'a', 'c'])
+    assert.deepEqual(moveInOrder(['a', 'b', 'c'], 'b', 'down'), ['a', 'c', 'b'])
+    assert.equal(moveInOrder(['a', 'b', 'c'], 'a', 'up'), null)
+    assert.equal(moveInOrder(['a', 'b', 'c'], 'c', 'down'), null)
+    assert.equal(moveInOrder(['a', 'b'], 'zzz', 'up'), null)
+
+    await db.accounts.clear()
+    const mkAcc = (id: string, sortOrder: number, archived = false, openingBalance = 0) =>
+      ({ id, name: id, kind: 'bank', openingBalance, color: '#000', sortOrder, archived, createdAt: '2026-01-01T00:00:00.000Z' }) as Account
+    await db.accounts.bulkAdd([mkAcc('o-a', 1), mkAcc('o-arsip', 2, true), mkAcc('o-b', 3), mkAcc('o-c', 4)])
+    assert.equal(await moveAccount('o-c', 'up'), true)
+    let order = (await db.accounts.orderBy('sortOrder').toArray()).map((x) => x.id)
+    // Aktif berurutan dulu (a, c, b), arsip selalu di bawah
+    assert.deepEqual(order, ['o-a', 'o-c', 'o-b', 'o-arsip'])
+    assert.equal(await moveAccount('o-a', 'up'), false)
+    assert.equal(await moveAccount('o-arsip', 'up'), false)
+    assert.equal(await moveAccount('o-b', 'down'), false)
+    assert.equal(await moveAccount('o-b', 'up'), true)
+    order = (await db.accounts.orderBy('sortOrder').toArray()).map((x) => x.id)
+    assert.deepEqual(order, ['o-a', 'o-b', 'o-c', 'o-arsip'])
+
+    // Kekayaan bersih hanya menghitung rekening yang diberikan; transfer ke arsip mengurangi kas aktif
+    const act = [mkAcc('n-a', 1, false, 1000)]
+    const trf = [
+      { id: 't1', fromAccountId: 'n-a', toAccountId: 'n-arsip', amount: 300, occurredAt: '2026-11-05', createdAt: '', updatedAt: '' },
+    ] as import('../src/types').Transfer[]
+    const nwPoint = netWorthSeries(act, [], [], [], '2026-11-16', 2, trf)
+    assert.equal(nwPoint[0].cash, 1000)
+    assert.equal(nwPoint[1].cash, 700)
+    await db.accounts.clear()
   }
 
   await db.delete()
