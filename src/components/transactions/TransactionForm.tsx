@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowDownLeft, ArrowUpRight, Save } from 'lucide-react'
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Save } from 'lucide-react'
 import type { Transaction, TxType } from '../../types'
 import { useAccounts, useAllAccounts } from '../../hooks/useAccounts'
 import { useCategories, useAllCategories } from '../../hooks/useCategories'
@@ -11,7 +11,7 @@ import { createFavorite } from '../../db/favorites'
 import { FAVORITE_NAME_MAX_LENGTH, suggestFavoriteName } from '../../lib/favorites'
 import { todayISO } from '../../lib/dates'
 import { formatNumberInput, parseNumberInput } from '../../lib/format'
-import type { ResolvedAiDraft } from '../../lib/groq'
+import type { ResolvedAiDraft, ResolvedAiTransfer } from '../../lib/groq'
 import { createId, errorMessage } from '../../lib/utils'
 import { useToast } from '../../contexts/ToastContext'
 import { Button } from '../ui/Button'
@@ -19,6 +19,7 @@ import { CurrencyInput } from '../ui/CurrencyInput'
 import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
 import { Textarea } from '../ui/Textarea'
+import { TransferForm, type TransferInitial } from '../transfers/TransferForm'
 import { AiQuickAdd } from './AiQuickAdd'
 import { ReceiptField } from './ReceiptField'
 import { SplitEditor, type SplitPartDraft } from './SplitEditor'
@@ -27,6 +28,8 @@ import { TagInput } from './TagInput'
 interface TransactionFormProps {
   transaction?: Transaction | null
   initialDraft?: ResolvedAiDraft | null
+  /** Hasil AI berupa transfer: form langsung dibuka pada mode Transfer. */
+  initialTransfer?: ResolvedAiTransfer | null
   onSaved: () => void
   onCancel: () => void
 }
@@ -42,6 +45,7 @@ interface FormErrors {
 export function TransactionForm({
   transaction,
   initialDraft,
+  initialTransfer,
   onSaved,
   onCancel,
 }: TransactionFormProps) {
@@ -57,6 +61,11 @@ export function TransactionForm({
   const [type, setType] = useState<TxType>(
     transaction?.type ?? initialDraft?.type ?? 'expense',
   )
+  const [isTransfer, setIsTransfer] = useState(Boolean(initialTransfer) && !transaction)
+  const [transferInitial, setTransferInitial] = useState<TransferInitial | null>(
+    initialTransfer ?? null,
+  )
+  const [transferNonce, setTransferNonce] = useState(0)
   const [amountInput, setAmountInput] = useState(
     transaction
       ? formatNumberInput(String(initialTotal || transaction.amount))
@@ -147,7 +156,27 @@ export function TransactionForm({
     }
   }, [availableCategories, categoryId])
 
+  function openTransfer() {
+    // Bawa nominal, tanggal, dan catatan yang sudah diisi ke form transfer.
+    setTransferInitial({
+      fromAccountId: accountId,
+      toAccountId: '',
+      amount: parseNumberInput(amountInput),
+      occurredAt: occurredAt || todayISO(),
+      note,
+    })
+    setTransferNonce((value) => value + 1)
+    setIsTransfer(true)
+  }
+
+  function applyAiTransfer(transfer: ResolvedAiTransfer) {
+    setTransferInitial(transfer)
+    setTransferNonce((value) => value + 1)
+    setIsTransfer(true)
+  }
+
   function changeType(nextType: TxType) {
+    if (isTransfer) setIsTransfer(false)
     if (nextType === type) return
     setType(nextType)
     if (splitMode) setParts((current) => current.map((part) => ({ ...part, categoryId: '' })))
@@ -165,6 +194,7 @@ export function TransactionForm({
     occurredAt: string
     note: string
   }) {
+    setIsTransfer(false)
     setType(draft.type)
     setAmountInput(formatNumberInput(String(draft.amount)))
     setAccountId(draft.accountId)
@@ -239,22 +269,41 @@ export function TransactionForm({
     }
   }
 
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+  const topSection = (
+    <>
       {!transaction && (
-        <AiQuickAdd accounts={accounts} categories={categories} onApply={applyAiDraft} />
+        <AiQuickAdd
+          accounts={accounts}
+          categories={categories}
+          onApply={applyAiDraft}
+          onApplyTransfer={applyAiTransfer}
+        />
       )}
 
       <div>
         <p className="mb-1.5 text-sm font-medium text-slate-700 dark:text-slate-300">
           Jenis transaksi
         </p>
-        <div className="grid grid-cols-2 gap-2">
+        <div className={transaction ? 'grid grid-cols-2 gap-2' : 'grid grid-cols-3 gap-2'}>
+          {!transaction && (
+            <button
+              type="button"
+              onClick={openTransfer}
+              className={`flex h-11 items-center justify-center gap-1.5 rounded-xl border text-sm font-semibold transition ${
+                isTransfer
+                  ? 'border-sky-500 bg-sky-50 text-sky-700 ring-2 ring-sky-500/20 dark:border-sky-500 dark:bg-sky-950/50 dark:text-sky-300'
+                  : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800'
+              }`}
+            >
+              <ArrowLeftRight className="h-4 w-4" />
+              Transfer
+            </button>
+          )}
           <button
             type="button"
             onClick={() => changeType('income')}
-            className={`flex h-11 items-center justify-center gap-2 rounded-xl border text-sm font-semibold transition ${
-              type === 'income'
+            className={`flex h-11 items-center justify-center gap-1.5 rounded-xl border text-sm font-semibold transition ${
+              !isTransfer && type === 'income'
                 ? 'border-emerald-500 bg-emerald-50 text-emerald-700 ring-2 ring-emerald-500/20 dark:border-emerald-500 dark:bg-emerald-950/50 dark:text-emerald-300'
                 : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800'
             }`}
@@ -265,8 +314,8 @@ export function TransactionForm({
           <button
             type="button"
             onClick={() => changeType('expense')}
-            className={`flex h-11 items-center justify-center gap-2 rounded-xl border text-sm font-semibold transition ${
-              type === 'expense'
+            className={`flex h-11 items-center justify-center gap-1.5 rounded-xl border text-sm font-semibold transition ${
+              !isTransfer && type === 'expense'
                 ? 'border-rose-500 bg-rose-50 text-rose-700 ring-2 ring-rose-500/20 dark:border-rose-500 dark:bg-rose-950/50 dark:text-rose-300'
                 : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800'
             }`}
@@ -276,6 +325,26 @@ export function TransactionForm({
           </button>
         </div>
       </div>
+    </>
+  )
+
+  if (isTransfer && !transaction) {
+    return (
+      <div className="space-y-4">
+        {topSection}
+        <TransferForm
+          key={transferNonce}
+          initial={transferInitial}
+          onSaved={onSaved}
+          onCancel={onCancel}
+        />
+      </div>
+    )
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {topSection}
 
       <CurrencyInput
         value={amountInput}

@@ -106,6 +106,7 @@ import {
   evaluateBillReminders,
   upcomingBills,
 } from '../src/lib/billReminders'
+import { matchAccountName, readAiEntry, resolveAiTransfer } from '../src/lib/groq'
 import { moveAccount } from '../src/db/accounts'
 import { moveInOrder } from '../src/lib/accountOrder'
 import { netWorthSeries, trimLeadingEmpty } from '../src/lib/networth'
@@ -1564,6 +1565,45 @@ async function main() {
     assert.equal(nwPoint[0].cash, 1000)
     assert.equal(nwPoint[1].cash, 700)
     await db.accounts.clear()
+  }
+
+
+  // --- AI memahami transfer ---
+  {
+    const mk = (id: string, name: string, archived = false) =>
+      ({ id, name, kind: 'bank', openingBalance: 0, color: '#000', sortOrder: 1, archived, createdAt: '' }) as Account
+    const accs = [mk('a-tunai', 'Tunai'), mk('a-bca', 'BCA'), mk('a-gopay', 'Gopay'), mk('a-lama', 'Mandiri', true)]
+
+    const t = readAiEntry(
+      { type: 'transfer', amount: 50000.4, fromAccountName: 'BCA', toAccountName: 'Gopay', occurredAt: '2026-11-17', note: 'Top up Gopay' },
+      '2026-11-16',
+    )
+    assert.equal(t?.kind, 'transfer')
+    if (t?.kind === 'transfer') {
+      assert.equal(t.transfer.amount, 50000)
+      const resolved = resolveAiTransfer(t.transfer, accs)
+      assert.ok(resolved)
+      assert.equal(resolved?.fromAccountId, 'a-bca')
+      assert.equal(resolved?.toAccountId, 'a-gopay')
+    }
+    // tanggal tidak valid -> hari ini; jenis biasa tetap terbaca
+    const e = readAiEntry({ type: 'pengeluaran', amount: 25000, categoryName: 'Makan', accountName: 'Gopay', occurredAt: 'kemarin' }, '2026-11-16')
+    assert.equal(e?.kind, 'transaction')
+    if (e?.kind === 'transaction') {
+      assert.equal(e.draft.type, 'expense')
+      assert.equal(e.draft.occurredAt, '2026-11-16')
+    }
+    assert.equal(readAiEntry({ type: 'transfer', amount: 0 }, '2026-11-16'), null)
+    assert.equal(readAiEntry({ type: 'lainnya', amount: 100 }, '2026-11-16'), null)
+
+    // pencocokan nama: huruf besar/kecil, saling mengandung, arsip diabaikan
+    assert.equal(matchAccountName('bca', accs)?.id, 'a-bca')
+    assert.equal(matchAccountName('GoPay wallet', accs)?.id, 'a-gopay')
+    assert.equal(matchAccountName('Mandiri', accs), null)
+    assert.equal(matchAccountName('', accs), null)
+    // asal = tujuan atau rekening tak dikenal -> null
+    assert.equal(resolveAiTransfer({ amount: 1, fromAccountName: 'BCA', toAccountName: 'bca', occurredAt: '2026-11-16', note: '' }, accs), null)
+    assert.equal(resolveAiTransfer({ amount: 1, fromAccountName: 'BCA', toAccountName: 'OVO', occurredAt: '2026-11-16', note: '' }, accs), null)
   }
 
   await db.delete()

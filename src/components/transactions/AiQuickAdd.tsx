@@ -4,7 +4,12 @@ import { Sparkles, Wand2 } from 'lucide-react'
 import type { Account, Category, TxType } from '../../types'
 import { useSetting } from '../../hooks/useSetting'
 import { DEFAULT_GROQ_MODEL } from '../../lib/constants'
-import { parseTransactionWithGroq, resolveAiDraft } from '../../lib/groq'
+import {
+  parseTransactionWithGroq,
+  resolveAiDraft,
+  resolveAiTransfer,
+  type ResolvedAiTransfer,
+} from '../../lib/groq'
 import { errorMessage } from '../../lib/utils'
 import { Button } from '../ui/Button'
 
@@ -19,11 +24,16 @@ interface AiQuickAddProps {
     occurredAt: string
     note: string
   }) => void
+  onApplyTransfer: (transfer: ResolvedAiTransfer) => void
 }
 
-const examples = ['Makan siang 25rb pakai Gopay', 'Gaji 5jt masuk BCA', 'Bensin 50rb Tunai']
+const examples = [
+  'Makan siang 25rb pakai Gopay',
+  'Gaji 5jt masuk BCA',
+  'Top up Gopay 50rb dari BCA',
+]
 
-export function AiQuickAdd({ accounts, categories, onApply }: AiQuickAddProps) {
+export function AiQuickAdd({ accounts, categories, onApply, onApplyTransfer }: AiQuickAddProps) {
   const apiKey = useSetting<string>('groqKey', '')
   const model = useSetting<string>('groqModel', DEFAULT_GROQ_MODEL)
   const [text, setText] = useState('')
@@ -60,12 +70,27 @@ export function AiQuickAdd({ accounts, categories, onApply }: AiQuickAddProps) {
     }
     setLoading(true)
     try {
-      const draft = await parseTransactionWithGroq(text, {
+      const entry = await parseTransactionWithGroq(text, {
         apiKey,
         model,
         categories,
         accounts,
       })
+
+      if (entry.kind === 'transfer') {
+        const resolved = resolveAiTransfer(entry.transfer, accounts)
+        if (!resolved) {
+          throw new Error(
+            'AI mengenali transfer, tetapi rekening asal atau tujuannya tidak cocok. Sebutkan nama rekening dengan jelas.',
+          )
+        }
+        onApplyTransfer({ ...resolved, note: entry.transfer.note || text.trim() })
+        setSuccess('Transfer diterapkan. Periksa lagi sebelum menyimpan.')
+        setText('')
+        return
+      }
+
+      const draft = entry.draft
       const resolved = resolveAiDraft(draft, accounts, categories)
       if (!resolved) {
         throw new Error('Master rekening atau kategori belum tersedia.')

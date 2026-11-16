@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
-import { ArrowLeftRight, ChevronLeft, ChevronRight, MessageCircle, Plus, FileUp, SearchX, Trash2 } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
+import { ChevronLeft, ChevronRight, MessageCircle, Plus, FileUp, SearchX, Trash2 } from 'lucide-react'
 import type { Transaction, TransactionWithRefs } from '../types'
 import { useTransactions } from '../hooks/useTransactions'
 import { useAllAccounts } from '../hooks/useAccounts'
@@ -9,10 +9,11 @@ import { computeTotals, withRefs } from '../lib/analytics'
 import { collectTags } from '../lib/tags'
 import { splitMembers } from '../lib/split'
 import { createTransaction, deleteTransaction, restoreFromTrash } from '../db/transactions'
+import { createTransfer } from '../db/transfers'
 import { useTrash } from '../hooks/useTrash'
 import { TrashModal } from '../components/transactions/TrashModal'
 import { ImportCsvModal } from '../components/transactions/ImportCsvModal'
-import type { ResolvedAiDraft } from '../lib/groq'
+import type { ResolvedAiDraft, ResolvedAiTransfer } from '../lib/groq'
 import { errorMessage } from '../lib/utils'
 import { formatRupiah } from '../lib/format'
 import { useToast } from '../contexts/ToastContext'
@@ -53,6 +54,7 @@ export function TransactionsPage() {
   const [chatOpen, setChatOpen] = useState(false)
   const [editing, setEditing] = useState<Transaction | null>(null)
   const [chatDraft, setChatDraft] = useState<ResolvedAiDraft | null>(null)
+  const [chatTransfer, setChatTransfer] = useState<ResolvedAiTransfer | null>(null)
   const [deleting, setDeleting] = useState<TransactionWithRefs | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [trashOpen, setTrashOpen] = useState(false)
@@ -63,6 +65,7 @@ export function TransactionsPage() {
     if (searchParams.get('new') === '1') {
       setEditing(null)
       setChatDraft(null)
+      setChatTransfer(null)
       setFormOpen(true)
     }
   }, [searchParams])
@@ -131,6 +134,7 @@ export function TransactionsPage() {
   function openEdit(transaction: TransactionWithRefs) {
     setEditing(transaction)
     setChatDraft(null)
+    setChatTransfer(null)
     setFormOpen(true)
   }
 
@@ -141,8 +145,23 @@ export function TransactionsPage() {
   function handleChatApply(draft: ResolvedAiDraft) {
     setChatOpen(false)
     setEditing(null)
+    setChatTransfer(null)
     setChatDraft(draft)
     setFormOpen(true)
+  }
+
+  function handleChatApplyTransfer(transfer: ResolvedAiTransfer) {
+    setChatOpen(false)
+    setEditing(null)
+    setChatDraft(null)
+    setChatTransfer(transfer)
+    setFormOpen(true)
+  }
+
+  async function handleChatSaveTransfer(transfer: ResolvedAiTransfer) {
+    await createTransfer({ ...transfer, note: transfer.note.trim() })
+    toast('Transfer berhasil disimpan.')
+    setChatOpen(false)
   }
 
   async function handleChatSave(draft: ResolvedAiDraft) {
@@ -341,6 +360,7 @@ export function TransactionsPage() {
         <TransactionForm
           transaction={editing}
           initialDraft={chatDraft}
+          initialTransfer={chatTransfer}
           onSaved={closeForm}
           onCancel={closeForm}
         />
@@ -353,6 +373,8 @@ export function TransactionsPage() {
         categories={categories}
         onApplyDraft={handleChatApply}
         onSaveDraft={handleChatSave}
+        onApplyTransfer={handleChatApplyTransfer}
+        onSaveTransfer={handleChatSaveTransfer}
       />
 
       <ImportCsvModal open={importOpen} existing={transactions} onClose={() => setImportOpen(false)} />
@@ -382,15 +404,6 @@ export function TransactionsPage() {
       />
 
       <TransferSection />
-
-      <Link
-        to="/transactions?transfer=1"
-        className="fixed bottom-20 left-4 z-40 inline-flex h-12 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-lg transition hover:bg-slate-50 active:scale-95 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 lg:bottom-6 lg:left-[17rem]"
-        aria-label="Transfer antar rekening"
-      >
-        <ArrowLeftRight className="h-5 w-5 text-sky-600 dark:text-sky-400" />
-        Transfer
-      </Link>
     </div>
   )
 }
