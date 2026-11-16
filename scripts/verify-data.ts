@@ -23,6 +23,7 @@ import { debtAccountFlows, debtProgress } from '../src/lib/debts'
 import { createFavorite, deleteFavorite, undoFavoriteUse, updateFavorite, useFavorite } from '../src/db/favorites'
 import { favoriteIssue } from '../src/lib/favorites'
 import { evaluateBudgetAlerts } from '../src/lib/budgetAlerts'
+import { factsSignature, monthlyInsights } from '../src/lib/insights'
 import type { BudgetProgress } from '../src/types'
 import {
   defaultAccountIconKey,
@@ -965,6 +966,39 @@ async function main() {
   assert.equal(rearmed.events.length, 1)
   const newMonth = evaluateBudgetAlerts([row('a', 85)], '2026-12', rearmed.nextSeen)
   assert.equal(newMonth.events.length, 1)
+
+
+  // ---- Insight bulanan ----
+  const insCats = [
+    { id: 'c-makan', name: 'Makan', type: 'expense' as const, color: '#000', createdAt: '' },
+    { id: 'c-gaji', name: 'Gaji', type: 'income' as const, color: '#000', createdAt: '' },
+  ]
+  const insTx = (id: string, categoryId: string, type: 'income' | 'expense', amount: number, occurredAt: string) => ({
+    id,
+    type,
+    amount,
+    accountId: 'x',
+    categoryId,
+    occurredAt,
+    note: '',
+    createdAt: '',
+    updatedAt: '',
+  })
+  const insData = [
+    insTx('1', 'c-makan', 'expense', 1_000_000, '2026-10-05'),
+    insTx('2', 'c-makan', 'expense', 900_000, '2026-10-25'), // di luar rentang hari yang sama
+    insTx('3', 'c-makan', 'expense', 1_300_000, '2026-11-08'),
+    insTx('4', 'c-gaji', 'income', 5_000_000, '2026-11-01'),
+  ]
+  const ins = monthlyInsights(insData, insCats, '2026-11', '2026-11-15', 'November 2026')
+  const up = ins.insights.find((item) => item.id === 'up-c-makan')
+  assert.ok(up, 'insight kenaikan kategori harus ada')
+  assert.match(up!.text, /naik 30%/)
+  assert.equal(ins.facts.previousExpenseSamePeriod, 1_000_000)
+  assert.ok(ins.insights.some((item) => item.id === 'saving-rate'))
+  assert.equal(monthlyInsights([], insCats, '2026-11', '2026-11-15').insights.length, 0)
+  assert.equal(factsSignature(ins.facts), factsSignature(structuredClone(ins.facts)))
+  assert.notEqual(factsSignature(ins.facts), factsSignature({ ...ins.facts, expense: 1 }))
 
   await db.delete()
   console.log('Semua verifikasi data lulus.')
