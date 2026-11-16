@@ -55,7 +55,7 @@ import {
   type SyncRemote,
 } from '../src/lib/sync/engine'
 import { hashRecord, stableStringify } from '../src/lib/sync/stable'
-import type { BudgetProgress } from '../src/types'
+import type { Account, BudgetProgress, Debt, DebtPayment, Transaction } from '../src/types'
 import {
   defaultAccountIconKey,
   defaultCategoryIconKey,
@@ -101,6 +101,7 @@ import {
   nextOccurrenceAfter,
   nextOccurrenceOnOrAfter,
 } from '../src/lib/recurrence'
+import { netWorthSeries, trimLeadingEmpty } from '../src/lib/networth'
 import { profileInitials } from '../src/lib/profile'
 import { isValidPin, savePin, verifyPin, hasPin } from '../src/lib/pin'
 import { decryptBackup, encryptBackup, isEncryptedBackup } from '../src/lib/backupCrypto'
@@ -1453,6 +1454,39 @@ async function main() {
   assert.equal(tagRowsSummary[1].income, 70)
   assert.equal(tagsLabel(['a', 'b']), '#a #b')
   assert.equal(tagsLabel(undefined), '')
+
+
+  // --- Kekayaan bersih bulanan ---
+  {
+    const nwAccounts = [
+      { id: 'nw-a', name: 'Kas', kind: 'cash', openingBalance: 1000, color: '#000', sortOrder: 0, archived: false, createdAt: '2026-01-01T00:00:00.000Z' },
+    ] as Account[]
+    const nwTx = [
+      { id: 'nw-1', type: 'income', amount: 500, accountId: 'nw-a', categoryId: 'c', occurredAt: '2026-09-10' },
+      { id: 'nw-2', type: 'expense', amount: 200, accountId: 'nw-a', categoryId: 'c', occurredAt: '2026-10-05' },
+    ] as Transaction[]
+    const nwDebts = [
+      { id: 'nw-d1', direction: 'owe', person: 'A', amount: 300, accountId: 'nw-a', createdAt: '2026-10-02T00:00:00.000Z', updatedAt: '' },
+      { id: 'nw-d2', direction: 'lent', person: 'B', amount: 400, createdAt: '2026-10-03T00:00:00.000Z', updatedAt: '' },
+    ] as Debt[]
+    const nwPays = [
+      { id: 'nw-p1', debtId: 'nw-d1', amount: 100, accountId: 'nw-a', occurredAt: '2026-11-02', createdAt: '' },
+    ] as DebtPayment[]
+    const series = netWorthSeries(nwAccounts, nwTx, nwDebts, nwPays, '2026-11-16', 4)
+    assert.equal(series.length, 4)
+    assert.deepEqual(series.map((p) => p.key), ['2026-08', '2026-09', '2026-10', '2026-11'])
+    assert.equal(series[0].netWorth, 1000)
+    assert.equal(series[1].netWorth, 1500)
+    // Okt: kas 1000+500-200+300(pinjaman masuk)=1600; piutang 400; hutang 300
+    assert.equal(series[2].cash, 1600)
+    assert.equal(series[2].netWorth, 1700)
+    // Nov: bayar 100 -> kas 1500, hutang 200
+    assert.equal(series[3].cash, 1500)
+    assert.equal(series[3].payable, 200)
+    assert.equal(series[3].netWorth, 1500 + 400 - 200)
+    assert.equal(series[3].asOf, '2026-11-16')
+    assert.equal(trimLeadingEmpty(netWorthSeries([], [], [], [], '2026-11-16', 3)).length, 3)
+  }
 
   await db.delete()
   console.log('Semua verifikasi data lulus.')

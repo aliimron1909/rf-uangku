@@ -12,8 +12,10 @@ import { AccountBalances } from '../components/dashboard/AccountBalances'
 import { BudgetOverview } from '../components/dashboard/BudgetOverview'
 import { TransferSection } from '../components/transfers/TransferSection'
 import { DebtReminders } from '../components/dashboard/DebtReminders'
+import { NetWorthCard } from '../components/dashboard/NetWorthCard'
 import { InsightsCard } from '../components/dashboard/InsightsCard'
 import { useAllCategories } from '../hooks/useCategories'
+import { useDebts } from '../hooks/useDebts'
 
 export function DashboardPage() {
   const {
@@ -29,7 +31,9 @@ export function DashboardPage() {
     balances,
     budgetItems,
     budget,
+    accounts,
   } = useDashboardData()
+  const { debts, payments: debtPayments } = useDebts()
   const { name: profileName } = useProfile()
   const allCategories = useAllCategories()
   const lastBackupAt = useSetting<string>('lastBackupAt', '')
@@ -118,6 +122,13 @@ export function DashboardPage() {
       <BudgetOverview progress={budgetItems} summary={budget} />
 
       <InsightsCard transactions={transactions} categories={allCategories} monthLabel={month.label} />
+
+      <NetWorthCard
+        accounts={accounts}
+        transactions={transactions}
+        debts={debts}
+        payments={debtPayments}
+      />
 
       <CashflowChart
         data={trend.data}
