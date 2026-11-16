@@ -78,6 +78,7 @@ import { Modal } from '../components/ui/Modal'
 import { MasterDataSection } from '../components/settings/MasterDataSection'
 import { BudgetAlertSettings } from '../components/settings/BudgetAlertSettings'
 import { SyncSection } from '../components/settings/SyncSection'
+import { SettingsShell, type SettingsGroup } from '../components/settings/SettingsShell'
 
 export function SettingsPage() {
   const location = useLocation()
@@ -152,15 +153,6 @@ export function SettingsPage() {
   useEffect(() => setModelInput(groqModel), [groqModel])
   useEffect(() => setProfileNameInput(profileName), [profileName])
   useEffect(() => setProfilePhotoInput(profilePhoto), [profilePhoto])
-
-  useEffect(() => {
-    if (!location.hash) return
-    const id = location.hash.slice(1)
-    const timer = window.setTimeout(() => {
-      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }, 150)
-    return () => window.clearTimeout(timer)
-  }, [location.hash])
 
   async function handleProfilePhotoChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
@@ -465,26 +457,7 @@ export function SettingsPage() {
     models.length > 0 && !models.some((model) => model.id === modelInput.trim())
   const modelsFetchedLabel = modelsFetchedAt ? formatDateTime(new Date(modelsFetchedAt)) : ''
 
-  return (
-    <div className="space-y-4">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
-          Preferensi & Data
-        </p>
-        <h2 className="mt-1 text-xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 sm:text-2xl">
-          Pengaturan
-        </h2>
-        <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
-          Semua pengaturan dan data disimpan di perangkat ini.
-        </p>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-3">
-        <MiniStat label="Transaksi" value={String(transactions.length)} icon={<HardDrive className="h-4 w-4" />} />
-        <MiniStat label="Rekening aktif" value={String(accounts.length)} icon={<DatabaseBackup className="h-4 w-4" />} />
-        <MiniStat label="Kategori aktif" value={String(categories.length)} icon={<Sparkles className="h-4 w-4" />} />
-      </div>
-
+  const secProfil = (
       <Section
         id="profil"
         icon={<UserRound className="h-5 w-5" />}
@@ -570,8 +543,11 @@ export function SettingsPage() {
           </div>
         </div>
       </Section>
+  )
 
+  const secKeamanan = (
       <Section
+        id="keamanan"
         icon={<ShieldCheck className="h-5 w-5" />}
         title="Keamanan"
         description="PIN 4–6 digit untuk mengunci tampilan aplikasi."
@@ -661,8 +637,11 @@ export function SettingsPage() {
           database. Credential fingerprint tidak ikut backup JSON.
         </p>
       </Section>
+  )
 
+  const secTampilan = (
       <Section
+        id="tampilan"
         icon={<Palette className="h-5 w-5" />}
         title="Tampilan"
         description="Pilih tema yang paling nyaman untuk mata."
@@ -688,7 +667,9 @@ export function SettingsPage() {
           />
         </div>
       </Section>
+  )
 
+  const secSinkron = (
       <Section
         id="sinkronisasi"
         icon={<Cloud className="h-5 w-5" />}
@@ -697,16 +678,22 @@ export function SettingsPage() {
       >
         <SyncSection />
       </Section>
+  )
 
+  const secNotif = (
       <Section
+        id="notifikasi"
         icon={<BellRing className="h-5 w-5" />}
         title="Notifikasi"
         description="Peringatan budget (80% dan 100%) dan pengingat tagihan berulang."
       >
         <BudgetAlertSettings />
       </Section>
+  )
 
+  const secAi = (
       <Section
+        id="ai"
         icon={<Sparkles className="h-5 w-5" />}
         title="AI Groq"
         description="Isi cepat dan chat transaksi dengan bahasa sehari-hari. API key disimpan lokal di perangkat."
@@ -919,7 +906,9 @@ export function SettingsPage() {
           </div>
         </div>
       </Section>
+  )
 
+  const secBackup = (
       <Section
         id="backup"
         icon={<DatabaseBackup className="h-5 w-5" />}
@@ -997,10 +986,13 @@ export function SettingsPage() {
           </Button>
         </div>
       </Section>
+  )
 
-      <MasterDataSection />
+  const secMaster = (<div id="master"><MasterDataSection /></div>)
 
+  const secAplikasi = (
       <Section
+        id="aplikasi"
         icon={<Smartphone className="h-5 w-5" />}
         title="Aplikasi"
         description="Pasang RF Uangku di layar utama HP agar seperti aplikasi biasa."
@@ -1040,8 +1032,11 @@ export function SettingsPage() {
           </div>
         </div>
       </Section>
+  )
 
+  const secTentang = (
       <Section
+        id="tentang"
         icon={<Info className="h-5 w-5" />}
         title="Tentang RF Uangku"
         description="Aplikasi keuangan pribadi yang sederhana, lokal, dan privat."
@@ -1061,6 +1056,116 @@ export function SettingsPage() {
           </p>
         </div>
       </Section>
+  )
+
+  const themeLabel = theme === 'dark' ? 'Gelap' : theme === 'light' ? 'Terang' : 'Ikuti sistem'
+  const settingsGroups: SettingsGroup[] = [
+    {
+      id: 'akun',
+      title: 'Akun & Keamanan',
+      icon: <UserRound className="h-5 w-5" />,
+      summary: `${profileName} · PIN ${hasPinConfigured ? 'aktif' : 'belum diatur'}`,
+      sections: [
+        { id: 'profil', title: 'Profil', description: 'Nama dan foto profil', keywords: 'nama foto avatar' },
+        { id: 'keamanan', title: 'Keamanan', description: 'PIN, kunci aplikasi, sidik jari', keywords: 'pin kunci biometrik fingerprint lock password' },
+      ],
+      content: (
+        <>
+          {secProfil}
+          {secKeamanan}
+        </>
+      ),
+    },
+    {
+      id: 'tampilan-notifikasi',
+      title: 'Tampilan & Notifikasi',
+      icon: <Palette className="h-5 w-5" />,
+      summary: `Tema ${themeLabel}`,
+      sections: [
+        { id: 'tampilan', title: 'Tampilan', description: 'Tema terang, gelap, atau ikuti sistem', keywords: 'tema gelap terang dark light mode' },
+        { id: 'notifikasi', title: 'Notifikasi', description: 'Peringatan budget dan pengingat tagihan', keywords: 'budget tagihan pengingat peringatan alert' },
+      ],
+      content: (
+        <>
+          {secTampilan}
+          {secNotif}
+        </>
+      ),
+    },
+    {
+      id: 'data',
+      title: 'Data & Sinkronisasi',
+      icon: <DatabaseBackup className="h-5 w-5" />,
+      summary: `Backup: ${lastBackupLabel}`,
+      sections: [
+        { id: 'sinkronisasi', title: 'Sinkronisasi cloud', description: 'Samakan data antar perangkat lewat Supabase', keywords: 'supabase google login sync enkripsi cloud' },
+        { id: 'backup', title: 'Backup & Data', description: 'Unduh, pulihkan, ekspor CSV, dan reset data', keywords: 'backup restore pulihkan ekspor csv json reset hapus impor' },
+        { id: 'master', title: 'Rekening & Kategori', description: 'Kelola rekening dan kategori', keywords: 'rekening kategori akun master ikon warna' },
+      ],
+      content: (
+        <>
+          {secSinkron}
+          {secBackup}
+          {secMaster}
+        </>
+      ),
+    },
+    {
+      id: 'ai-group',
+      title: 'AI Groq',
+      icon: <Sparkles className="h-5 w-5" />,
+      summary: groqKey ? 'API key tersimpan' : 'Belum diatur',
+      sections: [
+        { id: 'ai', title: 'AI Groq', description: 'API key dan model untuk isi cepat dan chat', keywords: 'groq api key model chat ai kecerdasan' },
+      ],
+      content: <>{secAi}</>,
+    },
+    {
+      id: 'aplikasi-group',
+      title: 'Aplikasi',
+      icon: <Smartphone className="h-5 w-5" />,
+      summary: installed ? 'Sudah terpasang' : `Versi ${APP_VERSION}`,
+      sections: [
+        { id: 'aplikasi', title: 'Pasang aplikasi', description: 'Pasang di layar utama HP', keywords: 'install pwa pasang layar utama' },
+        { id: 'tentang', title: 'Tentang RF Uangku', description: 'Versi dan informasi aplikasi', keywords: 'versi tentang info' },
+      ],
+      content: (
+        <>
+          {secAplikasi}
+          {secTentang}
+        </>
+      ),
+    },
+  ]
+
+  return (
+    <div className="space-y-4">
+      <SettingsShell
+        groups={settingsGroups}
+        targetId={location.hash.slice(1)}
+        top={
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+                Preferensi & Data
+              </p>
+              <h2 className="mt-1 text-xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 sm:text-2xl">
+                Pengaturan
+              </h2>
+              <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+                Semua pengaturan dan data disimpan di perangkat ini.
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <MiniStat label="Transaksi" value={String(transactions.length)} icon={<HardDrive className="h-4 w-4" />} />
+              <MiniStat label="Rekening aktif" value={String(accounts.length)} icon={<DatabaseBackup className="h-4 w-4" />} />
+              <MiniStat label="Kategori aktif" value={String(categories.length)} icon={<Sparkles className="h-4 w-4" />} />
+            </div>
+
+          </div>
+        }
+      />
 
       <Modal
         open={pinModalOpen}
