@@ -561,7 +561,7 @@ export async function restoreBackup(data: BackupData): Promise<void> {
     note: payment.note || '',
   }))
 
-  const receiptRows: Receipt[] = receipts.map((receipt) => ({ ...receipt }))
+  const receiptRows: Receipt[] = (data.receipts ?? []).map((receipt) => ({ ...receipt }))
   const favoriteRows: Favorite[] = (data.favorites ?? []).map((favorite) => ({
     ...favorite,
     name: favorite.name.trim().slice(0, FAVORITE_NAME_MAX_LENGTH),
