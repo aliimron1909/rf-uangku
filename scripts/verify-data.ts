@@ -5,10 +5,14 @@ import { DEFAULT_ACCOUNTS, DEFAULT_CATEGORIES, resetMasterData, seedIfEmpty } fr
 import {
   createTransaction,
   deleteTransaction,
+  emptyTrash,
+  importTransactions,
+  purgeExpiredTrash,
+  restoreFromTrash,
   saveTransaction,
   updateTransaction,
 } from '../src/db/transactions'
-import { collectTags, normalizeTag, parseTagInput } from '../src/lib/tags'
+import { collectTags, normalizeTag, parseTagInput, tagSummary, tagsLabel } from '../src/lib/tags'
 import { splitIssue } from '../src/lib/split'
 import { stopBudget, upsertBudget } from '../src/db/budgets'
 import {
@@ -29,6 +33,15 @@ import { goalProgress, goalSaved } from '../src/lib/goals'
 import { debtAccountFlows, debtProgress } from '../src/lib/debts'
 import { createFavorite, deleteFavorite, undoFavoriteUse, updateFavorite, useFavorite } from '../src/db/favorites'
 import { favoriteIssue } from '../src/lib/favorites'
+import {
+  buildImportRows,
+  detectDelimiter,
+  detectHeaderRow,
+  guessMapping,
+  parseAmount,
+  parseCsv,
+  parseDate,
+} from '../src/lib/csvImport'
 import { evaluateBudgetAlerts } from '../src/lib/budgetAlerts'
 import { factsSignature, monthlyInsights } from '../src/lib/insights'
 import { deriveSyncKey, randomSalt, createSyncProfile, unlockSyncProfile } from '../src/lib/sync/crypto'
@@ -42,7 +55,7 @@ import {
   type SyncRemote,
 } from '../src/lib/sync/engine'
 import { hashRecord, stableStringify } from '../src/lib/sync/stable'
-import type { BudgetProgress } from '../src/types'
+import type { Account, BudgetProgress, Debt, DebtPayment, Transaction } from '../src/types'
 import {
   defaultAccountIconKey,
   defaultCategoryIconKey,
@@ -88,6 +101,12 @@ import {
   nextOccurrenceAfter,
   nextOccurrenceOnOrAfter,
 } from '../src/lib/recurrence'
+import {
+  billReminderMessage,
+  evaluateBillReminders,
+  upcomingBills,
+} from '../src/lib/billReminders'
+import { netWorthSeries, trimLeadingEmpty } from '../src/lib/networth'
 import { profileInitials } from '../src/lib/profile'
 import { isValidPin, savePin, verifyPin, hasPin } from '../src/lib/pin'
 import { decryptBackup, encryptBackup, isEncryptedBackup } from '../src/lib/backupCrypto'
@@ -1138,8 +1157,9 @@ async function main() {
   assert.equal((await db.receipts.toArray())[0].dataUrl.endsWith('BBBB'), true)
 
   // Menghapus transaksi terakhir ikut menghapus struknya.
-  await deleteTransaction(merged[0].id)
+  const trashedMerged = await deleteTransaction(merged[0].id)
   assert.equal(await db.receipts.count(), 0)
+  assert.ok(trashedMerged)
 
   // Menghapus satu bagian split menghapus seluruh grup.
   const again2 = await saveTransaction(null, {
@@ -1153,7 +1173,29 @@ async function main() {
       { categoryId: sCats[1].id, amount: 50 },
     ],
   })
-  await deleteTransaction(again2[0].id)
+  const trashedGroup = await deleteTransaction(again2[0].id)
+  assert.equal(await db.transactions.count(), 0)
+
+  // Tempat sampah: pulihkan transaksi + struk, pulihkan grup split, masa simpan, dan penjaga referensi.
+  assert.equal(await db.trash.count(), 2)
+  assert.equal(await restoreFromTrash(trashedMerged!), 1)
+  assert.equal(await db.receipts.count(), 1)
+  assert.equal(await db.transactions.count(), 1)
+  assert.equal(await restoreFromTrash(trashedGroup!), 2)
+  assert.equal(await db.transactions.count(), 3)
+  assert.equal(await db.trash.count(), 0)
+  assert.equal(new Set((await db.transactions.toArray()).map((row) => row.splitGroupId).filter(Boolean)).size, 1)
+  const trashedAgain = await deleteTransaction(again2[0].id)
+  await assert.rejects(restoreFromTrash('tidak-ada'), /tidak ditemukan/)
+  await db.trash.update(trashedAgain!, { deletedAt: '2020-01-01T00:00:00.000Z' })
+  assert.equal(await purgeExpiredTrash(new Date('2026-11-16T00:00:00.000Z')), 1)
+  const trashedLast = await deleteTransaction((await db.transactions.toArray())[0].id)
+  await db.categories.delete((await db.trash.get(trashedLast!))!.transactions[0].categoryId)
+  await assert.rejects(restoreFromTrash(trashedLast!), /sudah dihapus/)
+  assert.equal(await db.trash.count(), 1)
+  await emptyTrash()
+  assert.equal(await db.trash.count(), 0)
+  await resetMasterData()
   assert.equal(await db.transactions.count(), 0)
 
   // Restore backup dengan struk & split.
@@ -1298,6 +1340,194 @@ async function main() {
   await seedIfEmpty()
   const wrongKey = await deriveSyncKey('frasa-lain-12345', randomSalt())
   await assert.rejects(doSync(wrongKey), /Frasa sandi salah/)
+
+
+  // ---- Impor CSV ----
+  assert.equal(detectDelimiter('a;b;c\n1;2;3'), ';')
+  assert.deepEqual(parseCsv('a,b\n"x, y","say ""hi"""\r\n\r\n1,2'), [
+    ['a', 'b'],
+    ['x, y', 'say "hi"'],
+    ['1', '2'],
+  ])
+  assert.equal(parseDate('2026-11-05'), '2026-11-05')
+  assert.equal(parseDate('05/11/2026 13:45'), '2026-11-05')
+  assert.equal(parseDate('5-11-26'), '2026-11-05')
+  assert.equal(parseDate('5 Agu 2026'), '2026-08-05')
+  assert.equal(parseDate('12 December 2026'), '2026-12-12')
+  assert.equal(parseDate('31/02/2026'), null)
+  assert.equal(parseDate('abc'), null)
+  assert.equal(parseAmount('Rp 1.234.567'), 1234567)
+  assert.equal(parseAmount('1.234.567,89'), 1234568)
+  assert.equal(parseAmount('1,234,567.00'), 1234567)
+  assert.equal(parseAmount('-50.000'), -50000)
+  assert.equal(parseAmount('(25.000)'), -25000)
+  assert.equal(parseAmount('75.000 DB'), -75000)
+  assert.equal(parseAmount('150000'), 150000)
+  assert.equal(parseAmount('12,50'), 13)
+  assert.equal(parseAmount(''), null)
+  assert.equal(parseAmount('n/a'), null)
+
+  await resetMasterData()
+  const impAccount = DEFAULT_ACCOUNTS[0]
+  const impCats = DEFAULT_CATEGORIES
+  const impExpense = impCats.find((item) => item.type === 'expense' && /makan/i.test(item.name))!
+  const csvText = [
+    'Laporan Mutasi Rekening',
+    'Periode;Nov 2026;;',
+    'Tanggal;Keterangan;Debit;Kredit',
+    '05/11/2026;Makan siang warung;35.000;',
+    '06/11/2026;Gaji November;;5.000.000',
+    '07/11/2026;;;',
+    'tanggal rusak;Salah;10.000;',
+  ].join('\n')
+  const csvTable = parseCsv(csvText)
+  const csvHeader = detectHeaderRow(csvTable)
+  assert.equal(csvHeader, 2)
+  const csvMapping = guessMapping(csvTable[csvHeader])
+  assert.equal(csvMapping.date, 0)
+  assert.equal(csvMapping.description, 1)
+  assert.equal(csvMapping.debit, 2)
+  assert.equal(csvMapping.credit, 3)
+  await createTransaction({
+    type: 'expense',
+    amount: 20_000,
+    accountId: impAccount.id,
+    categoryId: impExpense.id,
+    occurredAt: '2026-10-01',
+    note: 'Makan siang warung',
+  })
+  const imported = buildImportRows(
+    csvTable,
+    { mapping: csvMapping, headerRow: csvHeader, positiveIsExpense: false, accountId: impAccount.id },
+    impCats,
+    await db.transactions.toArray(),
+  )
+  assert.equal(imported.rows.length, 2)
+  assert.equal(imported.skipped.length, 2)
+  assert.equal(imported.rows[0].type, 'expense')
+  assert.equal(imported.rows[0].amount, 35_000)
+  assert.equal(imported.rows[0].categoryId, impExpense.id) // dipelajari dari riwayat
+  assert.equal(imported.rows[1].type, 'income')
+  assert.equal(imported.rows[1].amount, 5_000_000)
+  assert.equal(imported.rows[0].duplicate, false)
+  const importedCount = await importTransactions(imported.rows, impAccount.id)
+  assert.equal(importedCount, 2)
+  assert.equal(await db.transactions.where('tags').equals('impor').count(), 2)
+  await assert.rejects(
+    importTransactions([{ ...imported.rows[0], categoryId: 'tidak-ada' }], impAccount.id),
+    /kategori/,
+  )
+  assert.equal(await db.transactions.where('tags').equals('impor').count(), 2)
+
+  const signedMapping = { date: 0, description: 1, amount: 2, debit: null, credit: null, type: null }
+  const signed = buildImportRows(
+    [
+      ['Tanggal', 'Keterangan', 'Jumlah'],
+      ['2026-10-01', 'Makan siang warung', '-20.000'],
+      ['2026-10-02', 'Transfer masuk', '100.000'],
+    ],
+    { mapping: signedMapping, headerRow: 0, positiveIsExpense: false, accountId: impAccount.id },
+    impCats,
+    await db.transactions.toArray(),
+  )
+  assert.equal(signed.rows[0].duplicate, true)
+  assert.equal(signed.rows[1].duplicate, false)
+  assert.equal(signed.rows[1].type, 'income')
+  const csvFlipped = buildImportRows(
+    [['Tanggal', 'Keterangan', 'Jumlah'], ['2026-10-02', 'Belanja', '100.000']],
+    { mapping: signedMapping, headerRow: 0, positiveIsExpense: true, accountId: impAccount.id },
+    impCats,
+    [],
+  )
+  assert.equal(csvFlipped.rows[0].type, 'expense')
+
+
+  // ---- Ringkasan per tag ----
+  const tagTx = (id: string, type: 'income' | 'expense', amount: number, tags?: string[]) => ({
+    id, type, amount, accountId: 'x', categoryId: 'y', occurredAt: '2026-11-01', createdAt: '', updatedAt: '', tags,
+  })
+  const tagRowsSummary = tagSummary([
+    tagTx('1', 'expense', 100, ['bali', 'liburan']),
+    tagTx('2', 'expense', 50, ['bali']),
+    tagTx('3', 'income', 70, ['liburan']),
+    tagTx('4', 'expense', 999),
+  ])
+  assert.deepEqual(tagRowsSummary.map((row) => row.tag), ['bali', 'liburan'])
+  assert.equal(tagRowsSummary[0].expense, 150)
+  assert.equal(tagRowsSummary[0].count, 2)
+  assert.equal(tagRowsSummary[1].expense, 100)
+  assert.equal(tagRowsSummary[1].income, 70)
+  assert.equal(tagsLabel(['a', 'b']), '#a #b')
+  assert.equal(tagsLabel(undefined), '')
+
+
+  // --- Kekayaan bersih bulanan ---
+  {
+    const nwAccounts = [
+      { id: 'nw-a', name: 'Kas', kind: 'cash', openingBalance: 1000, color: '#000', sortOrder: 0, archived: false, createdAt: '2026-01-01T00:00:00.000Z' },
+    ] as Account[]
+    const nwTx = [
+      { id: 'nw-1', type: 'income', amount: 500, accountId: 'nw-a', categoryId: 'c', occurredAt: '2026-09-10' },
+      { id: 'nw-2', type: 'expense', amount: 200, accountId: 'nw-a', categoryId: 'c', occurredAt: '2026-10-05' },
+    ] as Transaction[]
+    const nwDebts = [
+      { id: 'nw-d1', direction: 'owe', person: 'A', amount: 300, accountId: 'nw-a', createdAt: '2026-10-02T00:00:00.000Z', updatedAt: '' },
+      { id: 'nw-d2', direction: 'lent', person: 'B', amount: 400, createdAt: '2026-10-03T00:00:00.000Z', updatedAt: '' },
+    ] as Debt[]
+    const nwPays = [
+      { id: 'nw-p1', debtId: 'nw-d1', amount: 100, accountId: 'nw-a', occurredAt: '2026-11-02', createdAt: '' },
+    ] as DebtPayment[]
+    const series = netWorthSeries(nwAccounts, nwTx, nwDebts, nwPays, '2026-11-16', 4)
+    assert.equal(series.length, 4)
+    assert.deepEqual(series.map((p) => p.key), ['2026-08', '2026-09', '2026-10', '2026-11'])
+    assert.equal(series[0].netWorth, 1000)
+    assert.equal(series[1].netWorth, 1500)
+    // Okt: kas 1000+500-200+300(pinjaman masuk)=1600; piutang 400; hutang 300
+    assert.equal(series[2].cash, 1600)
+    assert.equal(series[2].netWorth, 1700)
+    // Nov: bayar 100 -> kas 1500, hutang 200
+    assert.equal(series[3].cash, 1500)
+    assert.equal(series[3].payable, 200)
+    assert.equal(series[3].netWorth, 1500 + 400 - 200)
+    assert.equal(series[3].asOf, '2026-11-16')
+    assert.equal(trimLeadingEmpty(netWorthSeries([], [], [], [], '2026-11-16', 3)).length, 3)
+  }
+
+
+  // --- Pengingat tagihan ---
+  {
+    const mk = (id: string, nextRunAt: string, extra: Record<string, unknown> = {}) =>
+      ({
+        id, type: 'expense', amount: 100000, accountId: 'a', categoryId: 'c', note: id,
+        frequency: 'monthly', interval: 1, startDate: '2026-01-01', nextRunAt,
+        active: true, createdAt: '', updatedAt: '', ...extra,
+      }) as unknown as import('../src/types').RecurringTransaction
+    const rules = [
+      mk('hari-ini', '2026-11-16'),
+      mk('lusa', '2026-11-18'),
+      mk('jauh', '2026-11-30'),
+      mk('nonaktif', '2026-11-17', { active: false }),
+      mk('pemasukan', '2026-11-17', { type: 'income' }),
+      mk('selesai', '2026-11-17', { endDate: '2026-11-10' }),
+    ]
+    const bills = upcomingBills(rules, '2026-11-16')
+    assert.deepEqual(bills.map((b) => b.rule.id), ['hari-ini', 'lusa'])
+    assert.equal(bills[1].daysUntil, 2)
+    const first = evaluateBillReminders(bills, undefined, true)
+    assert.equal(first.events.length, 2)
+    const second = evaluateBillReminders(bills, first.nextSeen, true)
+    assert.equal(second.events.length, 0)
+    // Setelah dijalankan, tanggal berikutnya berbeda -> pengingat baru
+    const advanced = upcomingBills([mk('hari-ini', '2026-11-20')], '2026-11-16')
+    assert.equal(evaluateBillReminders(advanced, first.nextSeen, true).events.length, 1)
+    // Notifikasi mati: tidak ada event, tapi tercatat sebagai sudah dilihat
+    const muted = evaluateBillReminders(bills, undefined, false)
+    assert.equal(muted.events.length, 0)
+    assert.equal(evaluateBillReminders(bills, muted.nextSeen, true).events.length, 0)
+    // Kunci tagihan yang tak relevan lagi dibuang
+    assert.deepEqual(evaluateBillReminders([], first.nextSeen, true).nextSeen, [])
+    assert.ok(billReminderMessage(bills[0]).body.includes('hari ini'))
+  }
 
   await db.delete()
   console.log('Semua verifikasi data lulus.')

@@ -54,3 +54,34 @@ export function isValidTagList(value: unknown): value is string[] {
     value.every((item) => typeof item === 'string' && item.length > 0 && item.length <= TAG_MAX_LENGTH)
   )
 }
+
+export interface TagSummary {
+  tag: string
+  income: number
+  expense: number
+  count: number
+}
+
+/**
+ * Ringkasan per tag. Transaksi dengan beberapa tag dihitung di setiap tagnya, jadi jumlah
+ * antar tag boleh lebih besar dari total laporan. Pecahan split dihitung per bagiannya.
+ */
+export function tagSummary(transactions: readonly Transaction[]): TagSummary[] {
+  const map = new Map<string, TagSummary>()
+  for (const transaction of transactions) {
+    for (const tag of transaction.tags ?? []) {
+      const row = map.get(tag) ?? { tag, income: 0, expense: 0, count: 0 }
+      if (transaction.type === 'income') row.income += transaction.amount
+      else row.expense += transaction.amount
+      row.count += 1
+      map.set(tag, row)
+    }
+  }
+  return Array.from(map.values()).sort(
+    (a, b) => b.expense - a.expense || b.income - a.income || a.tag.localeCompare(b.tag),
+  )
+}
+
+export function tagsLabel(tags: readonly string[] | undefined): string {
+  return (tags ?? []).map((tag) => `#${tag}`).join(' ')
+}

@@ -426,8 +426,9 @@ export function SettingsPage() {
 
   async function handleClearTransactions() {
     try {
-      await db.transaction('rw', db.transactions, db.transfers, db.receipts, async () => {
+      await db.transaction('rw', db.transactions, db.transfers, db.receipts, db.trash, async () => {
         await db.receipts.clear()
+        await db.trash.clear()
         await db.transactions.clear()
         await db.transfers.clear()
       })
@@ -699,8 +700,8 @@ export function SettingsPage() {
 
       <Section
         icon={<BellRing className="h-5 w-5" />}
-        title="Notifikasi budget"
-        description="Peringatan saat pemakaian budget kategori mencapai 80% dan 100%."
+        title="Notifikasi"
+        description="Peringatan budget (80% dan 100%) dan pengingat tagihan berulang."
       >
         <BudgetAlertSettings />
       </Section>

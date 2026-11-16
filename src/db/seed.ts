@@ -230,6 +230,7 @@ export async function resetMasterData(): Promise<void> {
       db.debtPayments,
       db.favorites,
       db.receipts,
+      db.trash,
     ],
     async () => {
       await db.transactions.clear()
@@ -240,6 +241,7 @@ export async function resetMasterData(): Promise<void> {
       await db.debts.clear()
       await db.favorites.clear()
       await db.receipts.clear()
+      await db.trash.clear()
       await db.budgets.clear()
       await db.recurringTransactions.clear()
       await db.accounts.clear()

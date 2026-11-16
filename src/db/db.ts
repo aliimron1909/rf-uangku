@@ -12,6 +12,7 @@ import type {
   RecurringTransaction,
   SettingRow,
   SyncStateRow,
+  TrashItem,
   Transaction,
   Transfer,
 } from '../types'
@@ -32,6 +33,7 @@ class UangkuDB extends Dexie {
   favorites!: Table<Favorite, string>
   receipts!: Table<Receipt, string>
   syncState!: Table<SyncStateRow, string>
+  trash!: Table<TrashItem, string>
 
   constructor() {
     super('rf-uangku')
@@ -85,6 +87,10 @@ class UangkuDB extends Dexie {
     // v8: catatan status sinkronisasi cloud per record (hash terakhir, waktu versi, sudah terkirim).
     this.version(8).stores({
       syncState: 'key',
+    })
+    // v9: tempat sampah transaksi.
+    this.version(9).stores({
+      trash: 'id, deletedAt',
     })
   }
 }

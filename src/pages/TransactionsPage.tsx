@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, MessageCircle, Plus, SearchX } from 'lucide-react'
+import { ChevronLeft, ChevronRight, MessageCircle, Plus, FileUp, SearchX, Trash2 } from 'lucide-react'
 import type { Transaction, TransactionWithRefs } from '../types'
 import { useTransactions } from '../hooks/useTransactions'
 import { useAllAccounts } from '../hooks/useAccounts'
@@ -8,7 +8,10 @@ import { useAllCategories } from '../hooks/useCategories'
 import { computeTotals, withRefs } from '../lib/analytics'
 import { collectTags } from '../lib/tags'
 import { splitMembers } from '../lib/split'
-import { createTransaction, deleteTransaction } from '../db/transactions'
+import { createTransaction, deleteTransaction, restoreFromTrash } from '../db/transactions'
+import { useTrash } from '../hooks/useTrash'
+import { TrashModal } from '../components/transactions/TrashModal'
+import { ImportCsvModal } from '../components/transactions/ImportCsvModal'
 import type { ResolvedAiDraft } from '../lib/groq'
 import { errorMessage } from '../lib/utils'
 import { formatRupiah } from '../lib/format'
@@ -51,6 +54,9 @@ export function TransactionsPage() {
   const [chatDraft, setChatDraft] = useState<ResolvedAiDraft | null>(null)
   const [deleting, setDeleting] = useState<TransactionWithRefs | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const [trashOpen, setTrashOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
+  const trashItems = useTrash()
 
   useEffect(() => {
     if (searchParams.get('new') === '1') {
@@ -162,8 +168,19 @@ export function TransactionsPage() {
     if (!deleting) return
     setDeleteLoading(true)
     try {
-      await deleteTransaction(deleting.id)
-      toast('Transaksi berhasil dihapus.')
+      const trashId = await deleteTransaction(deleting.id)
+      toast('Transaksi dipindahkan ke sampah.', 'success', {
+        action: trashId
+          ? {
+              label: 'Urungkan',
+              onClick: () => {
+                void restoreFromTrash(trashId)
+                  .then(() => toast('Transaksi dipulihkan.'))
+                  .catch((caught) => toast(errorMessage(caught), 'error'))
+              },
+            }
+          : undefined,
+      })
       setDeleting(null)
     } catch (caught) {
       toast(errorMessage(caught), 'error')
@@ -187,6 +204,14 @@ export function TransactionsPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => setImportOpen(true)}>
+            <FileUp className="h-4 w-4" />
+            Impor
+          </Button>
+          <Button variant="outline" onClick={() => setTrashOpen(true)}>
+            <Trash2 className="h-4 w-4" />
+            Sampah{trashItems.length > 0 ? ` (${trashItems.length})` : ''}
+          </Button>
           <Button variant="outline" onClick={openChat}>
             <MessageCircle className="h-4 w-4" />
             Chat AI
@@ -329,6 +354,9 @@ export function TransactionsPage() {
         onSaveDraft={handleChatSave}
       />
 
+      <ImportCsvModal open={importOpen} existing={transactions} onClose={() => setImportOpen(false)} />
+      <TrashModal open={trashOpen} items={trashItems} onClose={() => setTrashOpen(false)} />
+
       <ConfirmDialog
         open={Boolean(deleting)}
         title="Hapus transaksi?"
@@ -336,11 +364,11 @@ export function TransactionsPage() {
           deleting
             ? `Transaksi "${deleting.note || deleting.categoryName}" sebesar ${formatRupiah(
                 deleting.amount,
-              )} akan dihapus permanen dari perangkat ini.${
+              )} akan dipindahkan ke Sampah dan bisa dipulihkan selama 30 hari.${
                 deleting.splitGroupId
                   ? ` Transaksi ini bagian dari struk yang dipecah, jadi ${
                       splitMembers(deleting, transactions).length
-                    } pecahannya ikut dihapus.`
+                    } pecahannya ikut dipindahkan.`
                   : ''
               }`
             : ''

@@ -18,6 +18,7 @@ export const SYNC_TABLE_NAMES = [
   'debtPayments',
   'favorites',
   'receipts',
+  'trash',
 ] as const
 
 export type SyncTableName = (typeof SYNC_TABLE_NAMES)[number]

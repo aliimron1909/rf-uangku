@@ -8,6 +8,7 @@ import { useLock } from '../../contexts/LockContext'
 import { useProfile } from '../../hooks/useProfile'
 import { profileInitials } from '../../lib/profile'
 import { assetUrl } from '../../lib/utils'
+import { SyncIndicator } from './SyncIndicator'
 
 export function Topbar() {
   const location = useLocation()
@@ -37,6 +38,7 @@ export function Topbar() {
         </div>
 
         <div className="flex items-center gap-1.5">
+          <SyncIndicator />
           <button
             type="button"
             onClick={toggleTheme}

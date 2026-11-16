@@ -101,7 +101,7 @@ export async function downloadReportPdf(options: ReportPdfOptions): Promise<void
       transaction.type === 'income' ? 'Masuk' : 'Keluar',
       categoryMap.get(transaction.categoryId) ?? '-',
       accountMap.get(transaction.accountId) ?? '-',
-      pdfSafe(transaction.note || '-'),
+      pdfSafe([transaction.note || '-', ...(transaction.tags ?? []).map((tag) => `#${tag}`)].join(' ')),
       `${transaction.type === 'income' ? '+' : '-'} ${formatRupiahForPdf(transaction.amount)}`,
     ]),
     foot: [

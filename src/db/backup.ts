@@ -586,6 +586,7 @@ export async function restoreBackup(data: BackupData): Promise<void> {
       db.debtPayments,
       db.favorites,
       db.receipts,
+      db.trash,
       db.settings,
     ],
     async () => {
@@ -601,6 +602,7 @@ export async function restoreBackup(data: BackupData): Promise<void> {
       await db.debts.clear()
       await db.favorites.clear()
       await db.receipts.clear()
+      await db.trash.clear()
       await db.accounts.bulkAdd(accounts)
       await db.categories.bulkAdd(categories)
       await db.transactions.bulkAdd(transactions)
