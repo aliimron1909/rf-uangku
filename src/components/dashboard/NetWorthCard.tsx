@@ -9,7 +9,7 @@ import {
   YAxis,
 } from 'recharts'
 import { TrendingUp } from 'lucide-react'
-import type { Account, DebtPayment, Debt, Transaction } from '../../types'
+import type { Account, DebtPayment, Debt, Transaction, Transfer } from '../../types'
 import { useTheme } from '../../contexts/ThemeContext'
 import { CHART_COLORS } from '../../lib/constants'
 import { todayISO } from '../../lib/dates'
@@ -22,18 +22,25 @@ interface NetWorthCardProps {
   transactions: Transaction[]
   debts: Debt[]
   payments: DebtPayment[]
+  transfers: Transfer[]
 }
 
-export function NetWorthCard({ accounts, transactions, debts, payments }: NetWorthCardProps) {
+export function NetWorthCard({ accounts, transactions, debts, payments, transfers }: NetWorthCardProps) {
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === 'dark'
   const today = todayISO()
   const data = useMemo(
-    () => trimLeadingEmpty(netWorthSeries(accounts, transactions, debts, payments, today, 12)),
-    [accounts, transactions, debts, payments, today],
+    () => trimLeadingEmpty(netWorthSeries(accounts, transactions, debts, payments, today, 12, transfers)),
+    [accounts, transactions, debts, payments, transfers, today],
   )
 
-  if (data.length < 2) return null
+  if (data.length < 2) {
+    return (
+      <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+        Grafik kekayaan bersih muncul setelah ada data minimal dua bulan.
+      </div>
+    )
+  }
   const last = data[data.length - 1]
   const prev = data[data.length - 2]
   const change = last.netWorth - prev.netWorth

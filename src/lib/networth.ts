@@ -1,4 +1,4 @@
-import type { Account, Debt, DebtPayment, Transaction } from '../types'
+import type { Account, Debt, DebtPayment, Transaction, Transfer } from '../types'
 import { monthRangeFromKey, shiftMonthKey } from './dates'
 import { format } from 'date-fns'
 import { id as localeId } from 'date-fns/locale'
@@ -20,7 +20,8 @@ export interface NetWorthPoint {
 
 /**
  * Kekayaan bersih di akhir tiap bulan: saldo rekening + piutang - hutang.
- * Setoran tujuan tabungan tidak ikut dihitung karena tidak memindahkan saldo rekening.
+ * Hanya rekening di `accounts` yang dihitung (mis. tanpa rekening arsip); transfer ke/dari rekening lain
+ * ikut memengaruhi kas. Setoran tujuan tabungan tidak ikut dihitung karena tidak memindahkan saldo rekening.
  */
 export function netWorthSeries(
   accounts: Account[],
@@ -29,7 +30,9 @@ export function netWorthSeries(
   payments: DebtPayment[],
   today: string,
   months = 12,
+  transfers: Transfer[] = [],
 ): NetWorthPoint[] {
+  const accountIds = new Set(accounts.map((a) => a.id))
   const opening = accounts.reduce((sum, a) => sum + (Number(a.openingBalance) || 0), 0)
   const debtById = new Map(debts.map((debt) => [debt.id, debt]))
   const currentKey = today.slice(0, 7)
@@ -42,14 +45,20 @@ export function netWorthSeries(
 
     let cash = opening
     for (const tx of transactions) {
-      if (tx.occurredAt <= asOf) cash += tx.type === 'income' ? tx.amount : -tx.amount
+      if (tx.occurredAt <= asOf && accountIds.has(tx.accountId)) cash += tx.type === 'income' ? tx.amount : -tx.amount
+    }
+
+    for (const transfer of transfers) {
+      if (transfer.occurredAt > asOf) continue
+      if (accountIds.has(transfer.fromAccountId)) cash -= transfer.amount
+      if (accountIds.has(transfer.toAccountId)) cash += transfer.amount
     }
 
     let receivable = 0
     let payable = 0
     for (const debt of debts) {
       if (debt.createdAt.slice(0, 10) > asOf) continue
-      if (debt.accountId) cash += debt.direction === 'owe' ? debt.amount : -debt.amount
+      if (debt.accountId && accountIds.has(debt.accountId)) cash += debt.direction === 'owe' ? debt.amount : -debt.amount
       if (debt.direction === 'owe') payable += debt.amount
       else receivable += debt.amount
     }
@@ -59,10 +68,10 @@ export function netWorthSeries(
       if (!debt || debt.createdAt.slice(0, 10) > asOf) continue
       if (debt.direction === 'owe') {
         payable -= payment.amount
-        if (payment.accountId) cash -= payment.amount
+        if (payment.accountId && accountIds.has(payment.accountId)) cash -= payment.amount
       } else {
         receivable -= payment.amount
-        if (payment.accountId) cash += payment.amount
+        if (payment.accountId && accountIds.has(payment.accountId)) cash += payment.amount
       }
     }
     payable = Math.max(0, payable)

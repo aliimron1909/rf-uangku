@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, MessageCircle, Plus, FileUp, SearchX, Trash2 } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { ArrowLeftRight, ChevronLeft, ChevronRight, MessageCircle, Plus, FileUp, SearchX, Trash2 } from 'lucide-react'
 import type { Transaction, TransactionWithRefs } from '../types'
 import { useTransactions } from '../hooks/useTransactions'
 import { useAllAccounts } from '../hooks/useAccounts'
@@ -25,6 +25,7 @@ import { TransactionTable } from '../components/transactions/TransactionTable'
 import { TransactionCard } from '../components/transactions/TransactionCard'
 import { TransactionForm } from '../components/transactions/TransactionForm'
 import { AiChatModal } from '../components/transactions/AiChatModal'
+import { TransferSection } from '../components/transfers/TransferSection'
 import { FavoritesBar } from '../components/favorites/FavoritesBar'
 
 const PAGE_SIZE = 15
@@ -379,6 +380,17 @@ export function TransactionsPage() {
         onCancel={() => setDeleting(null)}
         onConfirm={() => void handleDelete()}
       />
+
+      <TransferSection />
+
+      <Link
+        to="/transactions?transfer=1"
+        className="fixed bottom-20 left-4 z-40 inline-flex h-12 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-lg transition hover:bg-slate-50 active:scale-95 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 lg:bottom-6 lg:left-[17rem]"
+        aria-label="Transfer antar rekening"
+      >
+        <ArrowLeftRight className="h-5 w-5 text-sky-600 dark:text-sky-400" />
+        Transfer
+      </Link>
     </div>
   )
 }

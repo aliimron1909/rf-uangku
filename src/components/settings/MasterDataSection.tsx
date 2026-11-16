@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import {
   Archive,
   ArchiveRestore,
+  ChevronDown,
+  ChevronUp,
   Landmark,
   Pencil,
   Plus,
@@ -10,6 +12,7 @@ import {
 } from 'lucide-react'
 import type { Account, AccountKind, Category, TxType } from '../../types'
 import { db } from '../../db/db'
+import { moveAccount } from '../../db/accounts'
 import { useAllAccounts } from '../../hooks/useAccounts'
 import { useAllCategories } from '../../hooks/useCategories'
 import { useToast } from '../../contexts/ToastContext'
@@ -96,6 +99,14 @@ export function MasterDataSection() {
   )
 
   const activeAccounts = accounts.filter((account) => !account.archived)
+
+  async function handleMove(account: Account, direction: 'up' | 'down') {
+    try {
+      await moveAccount(account.id, direction)
+    } catch (caught) {
+      toast(errorMessage(caught), 'error')
+    }
+  }
 
   function openAccountModal(account?: Account) {
     setEditingAccount(account ?? null)
@@ -485,7 +496,9 @@ export function MasterDataSection() {
 
         {tab === 'accounts' ? (
           <div className="mt-3 divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-100 dark:divide-slate-800 dark:border-slate-800">
-            {sortedAccounts.map((account) => (
+            {sortedAccounts.map((account) => {
+              const activeIndex = activeAccounts.findIndex((item) => item.id === account.id)
+              return (
               <div key={account.id} className="flex items-center gap-3 bg-white px-3 py-2.5 dark:bg-slate-900">
                 <EntityIcon
                   icon={account.icon}
@@ -504,6 +517,30 @@ export function MasterDataSection() {
                   </p>
                 </div>
                 <div className="flex shrink-0 gap-0.5">
+                  {!account.archived && activeAccounts.length > 1 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => void handleMove(account, 'up')}
+                        disabled={activeIndex <= 0}
+                        className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 disabled:hover:bg-transparent dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                        aria-label="Naikkan rekening"
+                        title="Naikkan"
+                      >
+                        <ChevronUp className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleMove(account, 'down')}
+                        disabled={activeIndex === activeAccounts.length - 1}
+                        className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 disabled:hover:bg-transparent dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                        aria-label="Turunkan rekening"
+                        title="Turunkan"
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </button>
+                    </>
+                  )}
                   <button
                     type="button"
                     onClick={() => void toggleArchiveAccount(account)}
@@ -537,7 +574,8 @@ export function MasterDataSection() {
                   </button>
                 </div>
               </div>
-            ))}
+              )
+            })}
           </div>
         ) : (
           <div className="mt-3 divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-100 dark:divide-slate-800 dark:border-slate-800">

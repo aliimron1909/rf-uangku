@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Lightbulb, RefreshCw, Sparkles, TrendingDown, TrendingUp } from 'lucide-react'
+import { ChevronDown, Lightbulb, RefreshCw, Sparkles, TrendingDown, TrendingUp } from 'lucide-react'
 import type { Category, Transaction } from '../../types'
 import { setSetting } from '../../db/db'
 import { useSetting } from '../../hooks/useSetting'
@@ -38,6 +38,7 @@ export function InsightsCard({ transactions, categories, monthLabel }: InsightsC
   const model = useSetting<string>('groqModel', DEFAULT_GROQ_MODEL)
   const cached = useSetting<CachedSummary | null>(SUMMARY_KEY, null)
   const [loading, setLoading] = useState(false)
+  const [open, setOpen] = useState(false)
 
   const result = useMemo(
     () => monthlyInsights(transactions, categories, monthKey(), todayISO(), monthLabel),
@@ -67,13 +68,30 @@ export function InsightsCard({ transactions, categories, monthLabel }: InsightsC
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
-      <div className="mb-3 flex items-center gap-2">
-        <Lightbulb className="h-5 w-5 text-amber-500" />
-        <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-          Insight {monthLabel}
-        </h3>
-      </div>
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 text-left"
+      >
+        <Lightbulb className="h-5 w-5 shrink-0 text-amber-500" />
+        <span className="min-w-0 flex-1">
+          <span className="block text-base font-bold text-slate-900 dark:text-slate-100">
+            Insight {monthLabel}
+          </span>
+          {!open && (
+            <span className="block truncate text-xs text-slate-500 dark:text-slate-400">
+              {result.insights[0].text}
+            </span>
+          )}
+        </span>
+        <ChevronDown
+          className={cn('h-4 w-4 shrink-0 text-slate-400 transition', open && 'rotate-180')}
+        />
+      </button>
 
+      {open && (
+        <div className="mt-3">
       <ul className="space-y-2">
         {result.insights.map((item) => (
           <li key={item.id} className="flex items-start gap-2.5">
@@ -123,6 +141,8 @@ export function InsightsCard({ transactions, categories, monthLabel }: InsightsC
           </p>
         )}
       </div>
+        </div>
+      )}
     </section>
   )
 }
