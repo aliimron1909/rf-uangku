@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto'
 import assert from 'node:assert/strict'
-import { db } from '../src/db/db'
+import { db, getSetting, setSetting } from '../src/db/db'
 import { DEFAULT_ACCOUNTS, DEFAULT_CATEGORIES, resetMasterData, seedIfEmpty } from '../src/db/seed'
 import {
   createTransaction,
@@ -31,6 +31,17 @@ import { createFavorite, deleteFavorite, undoFavoriteUse, updateFavorite, useFav
 import { favoriteIssue } from '../src/lib/favorites'
 import { evaluateBudgetAlerts } from '../src/lib/budgetAlerts'
 import { factsSignature, monthlyInsights } from '../src/lib/insights'
+import { deriveSyncKey, randomSalt, createSyncProfile, unlockSyncProfile } from '../src/lib/sync/crypto'
+import {
+  SYNC_CURSOR_KEY,
+  SYNC_TABLE_NAMES,
+  markLocalChanges,
+  syncOnce,
+  type PushRow,
+  type RemoteRow,
+  type SyncRemote,
+} from '../src/lib/sync/engine'
+import { hashRecord, stableStringify } from '../src/lib/sync/stable'
 import type { BudgetProgress } from '../src/types'
 import {
   defaultAccountIconKey,
@@ -1153,6 +1164,140 @@ async function main() {
   validateBackup(oldBackup)
   await restoreBackup(oldBackup)
   assert.equal(await db.receipts.count(), 0)
+
+
+  // ---- Sinkronisasi cloud (server palsu di memori, dua "perangkat") ----
+  assert.equal(stableStringify({ b: 1, a: [2, undefined], c: undefined }), '{"a":[2,null],"b":1}')
+  assert.equal(hashRecord({ a: 1, b: 2 }), hashRecord({ b: 2, a: 1 }))
+  assert.notEqual(hashRecord({ a: 1 }), hashRecord({ a: 2 }))
+
+  const created = await createSyncProfile('frasa-rahasia-1')
+  await assert.rejects(unlockSyncProfile('frasa-salah-99', created.profile), /salah/i)
+  await unlockSyncProfile('frasa-rahasia-1', created.profile)
+
+  class MemoryRemote implements SyncRemote {
+    rows = new Map<string, RemoteRow>()
+    counter = 0
+    async pull(since: string | null): Promise<RemoteRow[]> {
+      return Array.from(this.rows.values())
+        .filter((row) => !since || row.serverTs >= since)
+        .sort((a, b) => a.serverTs.localeCompare(b.serverTs))
+    }
+    async push(rows: PushRow[]): Promise<void> {
+      for (const row of rows) {
+        const existing = this.rows.get(row.key)
+        if (existing && row.clientTs < existing.clientTs) continue
+        this.counter += 1
+        this.rows.set(row.key, { ...row, serverTs: String(this.counter).padStart(10, '0') })
+      }
+    }
+  }
+  const remote = new MemoryRemote()
+  const syncKey = await deriveSyncKey('frasa-rahasia-1', randomSalt())
+  let clock = 5_000_000_000_000
+  const now = () => (clock += 1000)
+  const doSync = (key = syncKey) => syncOnce({ remote, key, now })
+
+  async function saveDevice() {
+    const data: Record<string, unknown[]> = {}
+    for (const name of [...SYNC_TABLE_NAMES, 'syncState'] as string[]) {
+      data[name] = await db.table(name).toArray()
+    }
+    return { data, cursor: await getSetting<string | null>(SYNC_CURSOR_KEY, null) }
+  }
+  async function wipeDevice() {
+    for (const name of [...SYNC_TABLE_NAMES, 'syncState'] as string[]) await db.table(name).clear()
+    await db.settings.delete(SYNC_CURSOR_KEY)
+  }
+  async function loadDevice(saved: Awaited<ReturnType<typeof saveDevice>>) {
+    await wipeDevice()
+    for (const [name, rows] of Object.entries(saved.data)) {
+      if (rows.length > 0) await db.table(name).bulkAdd(rows)
+    }
+    if (saved.cursor !== null) await setSetting(SYNC_CURSOR_KEY, saved.cursor)
+  }
+
+  // Perangkat A: data awal + satu transaksi, lalu sinkron pertama.
+  await resetMasterData()
+  await wipeDevice()
+  await seedIfEmpty()
+  const syncTx = await createTransaction({
+    type: 'expense',
+    amount: 12_345,
+    accountId: 'acc-tunai',
+    categoryId: DEFAULT_CATEGORIES.find((item) => item.type === 'expense')!.id,
+    occurredAt: '2026-11-10',
+    note: 'Rahasia nasi goreng',
+  })
+  const firstA = await doSync()
+  assert.equal(firstA.firstSync, true)
+  assert.ok(firstA.pushed >= 1)
+  assert.ok(remote.rows.has(`transactions|${syncTx.id}`))
+  for (const row of remote.rows.values()) {
+    assert.ok(!(row.payload ?? '').includes('nasi goreng'))
+    assert.ok(!atob(row.payload ?? '').includes('nasi goreng'))
+  }
+  const secondA = await doSync()
+  assert.equal(secondA.pushed, 0)
+  assert.equal(secondA.applied, 0)
+  const deviceA = await saveDevice()
+
+  // Perangkat B baru (data bawaan saja) menerima data A.
+  await wipeDevice()
+  await seedIfEmpty()
+  const firstB = await doSync()
+  assert.equal(firstB.firstSync, true)
+  assert.equal((await db.transactions.get(syncTx.id))?.note, 'Rahasia nasi goreng')
+  assert.equal(await db.accounts.count(), DEFAULT_ACCOUNTS.length)
+
+  // B mengubah rekening dan menambah transaksi; A menerimanya.
+  await db.accounts.update('acc-tunai', { name: 'Dompet B' })
+  const txB = await createTransaction({
+    type: 'income',
+    amount: 77_000,
+    accountId: 'acc-tunai',
+    categoryId: DEFAULT_CATEGORIES.find((item) => item.type === 'income')!.id,
+    occurredAt: '2026-11-11',
+    note: 'dari B',
+  })
+  await doSync()
+  const deviceB = await saveDevice()
+  await loadDevice(deviceA)
+  await doSync()
+  assert.equal((await db.accounts.get('acc-tunai'))?.name, 'Dompet B')
+  assert.equal((await db.transactions.get(txB.id))?.note, 'dari B')
+
+  // Konflik: B mengedit lebih dulu, A mengedit belakangan -> A menang.
+  await loadDevice(deviceB)
+  await db.accounts.update('acc-bca', { name: 'Edit B' })
+  await doSync() // memberi B waktu versi lebih awal, tetapi belum sempat diterima A
+  await db.accounts.update('acc-bca', { name: 'Edit B2' }) // perubahan B yang belum terkirim
+  await markLocalChanges(now) // mencatat waktu edit walau tanpa jaringan
+
+  const deviceB2 = await saveDevice()
+  await loadDevice(deviceA)
+  await doSync() // A menerima 'Edit B'
+  await db.accounts.update('acc-bca', { name: 'Edit A' })
+  await markLocalChanges(now)
+  await doSync() // A lebih baru
+  await loadDevice(deviceB2)
+  await doSync()
+  assert.equal((await db.accounts.get('acc-bca'))?.name, 'Edit A')
+
+  // Penghapusan menyebar sebagai tombstone.
+  await db.transactions.delete(txB.id)
+  await doSync()
+  const deviceBdel = await saveDevice()
+  await loadDevice(deviceA)
+  await doSync()
+  assert.equal(await db.transactions.get(txB.id), undefined)
+  await loadDevice(deviceBdel)
+
+  // Kunci yang salah ditolak tanpa mengubah data lokal.
+  await wipeDevice()
+  await seedIfEmpty()
+  const wrongKey = await deriveSyncKey('frasa-lain-12345', randomSalt())
+  await assert.rejects(doSync(wrongKey), /Frasa sandi salah/)
 
   await db.delete()
   console.log('Semua verifikasi data lulus.')

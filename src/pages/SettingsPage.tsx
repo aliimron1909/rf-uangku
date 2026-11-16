@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom'
 import {
   AlertTriangle,
   BellRing,
+  Cloud,
   Camera,
   CheckCircle2,
   DatabaseBackup,
@@ -76,6 +77,7 @@ import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { MasterDataSection } from '../components/settings/MasterDataSection'
 import { BudgetAlertSettings } from '../components/settings/BudgetAlertSettings'
+import { SyncSection } from '../components/settings/SyncSection'
 
 export function SettingsPage() {
   const location = useLocation()
@@ -684,6 +686,15 @@ export function SettingsPage() {
             onClick={() => setTheme('system' as ThemeMode)}
           />
         </div>
+      </Section>
+
+      <Section
+        id="sinkronisasi"
+        icon={<Cloud className="h-5 w-5" />}
+        title="Sinkronisasi cloud"
+        description="Samakan data di beberapa perangkat lewat Supabase. Data dienkripsi di perangkat sebelum dikirim."
+      >
+        <SyncSection />
       </Section>
 
       <Section

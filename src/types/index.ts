@@ -50,6 +50,16 @@ export interface Transaction {
   updatedAt: string
 }
 
+/** Status sinkronisasi satu record: `table|id`. Tidak ikut backup. */
+export interface SyncStateRow {
+  key: string
+  hash: string
+  /** Waktu versi (ms) yang dipakai untuk menyelesaikan konflik; terbaru menang. */
+  ts: number
+  pushed: boolean
+  deleted: boolean
+}
+
 export interface Receipt {
   id: string
   /** Gambar terkompres sebagai data URL (JPEG/WebP). */
