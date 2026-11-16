@@ -73,6 +73,8 @@ export default defineConfig({
       },
     }),
   ],
+  // Hanya variabel publik Supabase dari integrasi Vercel yang ikut ke browser; service_role tidak berawalan ini.
+  envPrefix: ['VITE_', 'NEXT_PUBLIC_SUPABASE_'],
   server: {
     host: true,
     port: 5173,
