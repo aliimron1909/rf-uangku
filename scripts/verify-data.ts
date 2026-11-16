@@ -1195,7 +1195,7 @@ async function main() {
   const syncKey = await deriveSyncKey('frasa-rahasia-1', randomSalt())
   let clock = 5_000_000_000_000
   const now = () => (clock += 1000)
-  const run = (key = syncKey) => syncOnce({ remote, key, now })
+  const doSync = (key = syncKey) => syncOnce({ remote, key, now })
 
   async function saveDevice() {
     const data: Record<string, unknown[]> = {}
@@ -1228,7 +1228,7 @@ async function main() {
     occurredAt: '2026-11-10',
     note: 'Rahasia nasi goreng',
   })
-  const firstA = await run()
+  const firstA = await doSync()
   assert.equal(firstA.firstSync, true)
   assert.ok(firstA.pushed >= 1)
   assert.ok(remote.rows.has(`transactions|${syncTx.id}`))
@@ -1236,15 +1236,15 @@ async function main() {
     assert.ok(!(row.payload ?? '').includes('nasi goreng'))
     assert.ok(!atob(row.payload ?? '').includes('nasi goreng'))
   }
-  const again = await run()
-  assert.equal(again.pushed, 0)
-  assert.equal(again.applied, 0)
+  const secondA = await doSync()
+  assert.equal(secondA.pushed, 0)
+  assert.equal(secondA.applied, 0)
   const deviceA = await saveDevice()
 
   // Perangkat B baru (data bawaan saja) menerima data A.
   await wipeDevice()
   await seedIfEmpty()
-  const firstB = await run()
+  const firstB = await doSync()
   assert.equal(firstB.firstSync, true)
   assert.equal((await db.transactions.get(syncTx.id))?.note, 'Rahasia nasi goreng')
   assert.equal(await db.accounts.count(), DEFAULT_ACCOUNTS.length)
@@ -1259,34 +1259,34 @@ async function main() {
     occurredAt: '2026-11-11',
     note: 'dari B',
   })
-  await run()
+  await doSync()
   const deviceB = await saveDevice()
   await loadDevice(deviceA)
-  await run()
+  await doSync()
   assert.equal((await db.accounts.get('acc-tunai'))?.name, 'Dompet B')
   assert.equal((await db.transactions.get(txB.id))?.note, 'dari B')
 
   // Konflik: B mengedit lebih dulu, A mengedit belakangan -> A menang.
   await loadDevice(deviceB)
   await db.accounts.update('acc-bca', { name: 'Edit B' })
-  await run() // memberi B waktu versi lebih awal, tetapi belum sempat diterima A
+  await doSync() // memberi B waktu versi lebih awal, tetapi belum sempat diterima A
   await db.accounts.update('acc-bca', { name: 'Edit B2' }) // perubahan B yang belum terkirim
 
   const deviceB2 = await saveDevice()
   await loadDevice(deviceA)
-  await run() // A menerima 'Edit B'
+  await doSync() // A menerima 'Edit B'
   await db.accounts.update('acc-bca', { name: 'Edit A' })
-  await run() // A lebih baru
+  await doSync() // A lebih baru
   await loadDevice(deviceB2)
-  await run()
+  await doSync()
   assert.equal((await db.accounts.get('acc-bca'))?.name, 'Edit A')
 
   // Penghapusan menyebar sebagai tombstone.
   await db.transactions.delete(txB.id)
-  await run()
+  await doSync()
   const deviceBdel = await saveDevice()
   await loadDevice(deviceA)
-  await run()
+  await doSync()
   assert.equal(await db.transactions.get(txB.id), undefined)
   await loadDevice(deviceBdel)
 
@@ -1294,7 +1294,7 @@ async function main() {
   await wipeDevice()
   await seedIfEmpty()
   const wrongKey = await deriveSyncKey('frasa-lain-12345', randomSalt())
-  await assert.rejects(run(wrongKey), /Frasa sandi salah/)
+  await assert.rejects(doSync(wrongKey), /Frasa sandi salah/)
 
   await db.delete()
   console.log('Semua verifikasi data lulus.')
