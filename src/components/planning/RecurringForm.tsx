@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowDownLeft, ArrowUpRight, Save } from 'lucide-react'
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Save } from 'lucide-react'
 import type {
   RecurrenceFrequency,
   RecurringTransaction,
@@ -27,6 +27,8 @@ interface RecurringFormProps {
 interface FormErrors {
   amount?: string
   accountId?: string
+  toAccountId?: string
+  fee?: string
   categoryId?: string
   interval?: string
   startDate?: string
@@ -45,7 +47,14 @@ export function RecurringForm({ rule, onSaved, onCancel }: RecurringFormProps) {
   const allCategories = useAllCategories()
   const { toast } = useToast()
 
-  const [type, setType] = useState<TxType>(rule?.type ?? 'expense')
+  const [kind, setKind] = useState<TxType | 'transfer'>(
+    rule?.toAccountId ? 'transfer' : (rule?.type ?? 'expense'),
+  )
+  const isTransfer = kind === 'transfer'
+  // Jenis untuk kategori; saat transfer, daftar kategori tidak dipakai.
+  const type: TxType = kind === 'transfer' ? 'expense' : kind
+  const [toAccountId, setToAccountId] = useState(rule?.toAccountId ?? '')
+  const [feeInput, setFeeInput] = useState(rule?.fee ? formatNumberInput(String(rule.fee)) : '')
   const [amountInput, setAmountInput] = useState(
     rule ? formatNumberInput(String(rule.amount)) : '',
   )
@@ -78,12 +87,14 @@ export function RecurringForm({ rule, onSaved, onCancel }: RecurringFormProps) {
   }, [accountId, accountOptions])
 
   useEffect(() => {
+    if (isTransfer) return
     if (!categoryId && categoryOptions.length > 0) setCategoryId(categoryOptions[0].id)
-  }, [categoryId, categoryOptions])
+  }, [categoryId, categoryOptions, isTransfer])
 
-  function changeType(nextType: TxType) {
-    if (nextType === type) return
-    setType(nextType)
+  function changeType(nextType: TxType | 'transfer') {
+    if (nextType === kind) return
+    setKind(nextType)
+    if (nextType === 'transfer') return
     const nextCategories = allCategories.filter(
       (category) => category.type === nextType && !category.archived,
     )
@@ -100,7 +111,17 @@ export function RecurringForm({ rule, onSaved, onCancel }: RecurringFormProps) {
 
     if (!amount || amount <= 0) nextErrors.amount = 'Nominal harus lebih dari 0.'
     if (!accountId) nextErrors.accountId = 'Pilih rekening.'
-    if (!categoryId) nextErrors.categoryId = 'Pilih kategori.'
+    if (!isTransfer && !categoryId) nextErrors.categoryId = 'Pilih kategori.'
+    if (isTransfer) {
+      if (!toAccountId) nextErrors.toAccountId = 'Pilih rekening tujuan.'
+      else if (toAccountId === accountId) {
+        nextErrors.toAccountId = 'Rekening tujuan harus berbeda dari rekening asal.'
+      }
+    }
+    const fee = isTransfer && feeInput.trim() ? parseNumberInput(feeInput) : 0
+    if (isTransfer && feeInput.trim() && (!Number.isFinite(fee) || fee < 0)) {
+      nextErrors.fee = 'Biaya admin tidak valid.'
+    }
     if (interval < 1 || interval > 365) nextErrors.interval = 'Interval harus 1–365.'
     if (!startDate) nextErrors.startDate = 'Pilih tanggal mulai.'
     if (endDate && endDate < startDate) nextErrors.endDate = 'Tanggal selesai harus setelah mulai.'
@@ -116,7 +137,9 @@ export function RecurringForm({ rule, onSaved, onCancel }: RecurringFormProps) {
         type,
         amount,
         accountId,
-        categoryId,
+        categoryId: isTransfer ? '' : categoryId,
+        toAccountId: isTransfer ? toAccountId : undefined,
+        fee: isTransfer && fee > 0 ? fee : undefined,
         note: note.trim(),
         frequency,
         interval,
@@ -153,12 +176,24 @@ export function RecurringForm({ rule, onSaved, onCancel }: RecurringFormProps) {
         <p className="mb-1.5 text-sm font-medium text-slate-700 dark:text-slate-300">
           Jenis transaksi
         </p>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2">
+          <button
+            type="button"
+            onClick={() => changeType('transfer')}
+            className={`flex h-11 items-center justify-center gap-1.5 rounded-xl border text-sm font-semibold transition ${
+              isTransfer
+                ? 'border-sky-500 bg-sky-50 text-sky-700 ring-2 ring-sky-500/20 dark:border-sky-500 dark:bg-sky-950/50 dark:text-sky-300'
+                : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800'
+            }`}
+          >
+            <ArrowLeftRight className="h-4 w-4" />
+            Transfer
+          </button>
           <button
             type="button"
             onClick={() => changeType('income')}
-            className={`flex h-11 items-center justify-center gap-2 rounded-xl border text-sm font-semibold transition ${
-              type === 'income'
+            className={`flex h-11 items-center justify-center gap-1.5 rounded-xl border text-sm font-semibold transition ${
+              kind === 'income'
                 ? 'border-emerald-500 bg-emerald-50 text-emerald-700 ring-2 ring-emerald-500/20 dark:border-emerald-500 dark:bg-emerald-950/50 dark:text-emerald-300'
                 : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800'
             }`}
@@ -169,8 +204,8 @@ export function RecurringForm({ rule, onSaved, onCancel }: RecurringFormProps) {
           <button
             type="button"
             onClick={() => changeType('expense')}
-            className={`flex h-11 items-center justify-center gap-2 rounded-xl border text-sm font-semibold transition ${
-              type === 'expense'
+            className={`flex h-11 items-center justify-center gap-1.5 rounded-xl border text-sm font-semibold transition ${
+              kind === 'expense'
                 ? 'border-rose-500 bg-rose-50 text-rose-700 ring-2 ring-rose-500/20 dark:border-rose-500 dark:bg-rose-950/50 dark:text-rose-300'
                 : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800'
             }`}
@@ -190,7 +225,7 @@ export function RecurringForm({ rule, onSaved, onCancel }: RecurringFormProps) {
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Select
-          label="Rekening"
+          label={isTransfer ? 'Dari rekening' : 'Rekening'}
           value={accountId}
           onChange={(event) => setAccountId(event.target.value)}
           error={errors.accountId}
@@ -203,21 +238,49 @@ export function RecurringForm({ rule, onSaved, onCancel }: RecurringFormProps) {
             </option>
           ))}
         </Select>
+        {isTransfer ? (
+          <Select
+            label="Ke rekening"
+            value={toAccountId}
+            onChange={(event) => setToAccountId(event.target.value)}
+            error={errors.toAccountId}
+          >
+            <option value="">Pilih rekening tujuan</option>
+            {accountOptions
+              .filter((account) => account.id !== accountId)
+              .map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.name}
+                  {account.archived ? ' (arsip)' : ''}
+                </option>
+              ))}
+          </Select>
+        ) : (
         <Select
-          label="Kategori"
-          value={categoryId}
-          onChange={(event) => setCategoryId(event.target.value)}
-          error={errors.categoryId}
-        >
-          <option value="">Pilih kategori</option>
-          {categoryOptions.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-              {category.archived ? ' (arsip)' : ''}
-            </option>
-          ))}
-        </Select>
+            label="Kategori"
+            value={categoryId}
+            onChange={(event) => setCategoryId(event.target.value)}
+            error={errors.categoryId}
+          >
+            <option value="">Pilih kategori</option>
+            {categoryOptions.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+                {category.archived ? ' (arsip)' : ''}
+              </option>
+            ))}
+          </Select>
+        )}
       </div>
+
+      {isTransfer && (
+        <CurrencyInput
+          label="Biaya admin per transfer (opsional)"
+          value={feeInput}
+          onChange={setFeeInput}
+          error={errors.fee}
+        />
+      )}
 
       <div className="rounded-2xl border border-slate-200 p-3 dark:border-slate-700">
         <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">

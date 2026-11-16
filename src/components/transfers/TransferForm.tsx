@@ -19,6 +19,7 @@ export interface TransferInitial {
   amount: number
   occurredAt: string
   note: string
+  fee?: number
 }
 
 interface TransferFormProps {
@@ -31,6 +32,7 @@ interface TransferFormProps {
 
 interface FormErrors {
   amount?: string
+  fee?: string
   fromAccountId?: string
   toAccountId?: string
   occurredAt?: string
@@ -49,6 +51,11 @@ export function TransferForm({ transfer, initial, onSaved, onCancel }: TransferF
       : initial && initial.amount > 0
         ? formatNumberInput(String(initial.amount))
         : '',
+  )
+  const [feeInput, setFeeInput] = useState(
+    (transfer?.fee ?? initial?.fee)
+      ? formatNumberInput(String(transfer?.fee ?? initial?.fee))
+      : '',
   )
   const [occurredAt, setOccurredAt] = useState(transfer?.occurredAt ?? initial?.occurredAt ?? todayISO())
   const [note, setNote] = useState(transfer?.note ?? initial?.note ?? '')
@@ -79,8 +86,10 @@ export function TransferForm({ transfer, initial, onSaved, onCancel }: TransferF
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const amount = parseNumberInput(amountInput)
+    const fee = feeInput.trim() ? parseNumberInput(feeInput) : 0
     const nextErrors: FormErrors = {}
 
+    if (feeInput.trim() && (!Number.isFinite(fee) || fee < 0)) nextErrors.fee = 'Biaya admin tidak valid.'
     if (!amount || amount <= 0) nextErrors.amount = 'Nominal harus lebih dari 0.'
     if (!fromAccountId) nextErrors.fromAccountId = 'Pilih rekening asal.'
     if (!toAccountId) nextErrors.toAccountId = 'Pilih rekening tujuan.'
@@ -96,7 +105,7 @@ export function TransferForm({ transfer, initial, onSaved, onCancel }: TransferF
 
     setSaving(true)
     try {
-      const input = { fromAccountId, toAccountId, amount, occurredAt, note: note.trim() }
+      const input = { fromAccountId, toAccountId, amount, occurredAt, note: note.trim(), fee }
       if (transfer) {
         await updateTransfer(transfer.id, input)
         toast('Transfer berhasil diperbarui.')
@@ -178,6 +187,17 @@ export function TransferForm({ transfer, initial, onSaved, onCancel }: TransferF
         </Select>
       </div>
 
+      <CurrencyInput
+        label="Biaya admin (opsional)"
+        value={feeInput}
+        onChange={setFeeInput}
+        error={errors.fee}
+      />
+      <p className="-mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+        Mis. biaya top up atau transfer antar bank. Dicatat sebagai pengeluaran (kategori Biaya Admin)
+        dari rekening asal.
+      </p>
+
       <Input
         label="Tanggal"
         type="date"
@@ -197,8 +217,8 @@ export function TransferForm({ transfer, initial, onSaved, onCancel }: TransferF
       />
 
       <p className="text-xs text-slate-500 dark:text-slate-400">
-        Transfer hanya memindahkan saldo antar rekening. Tidak dihitung sebagai pemasukan atau
-        pengeluaran.
+        Nominal transfer hanya memindahkan saldo antar rekening dan tidak dihitung sebagai pemasukan
+        atau pengeluaran. Hanya biaya admin yang masuk sebagai pengeluaran.
       </p>
 
       <div className="flex justify-end gap-2 pt-1">

@@ -450,6 +450,14 @@ export function AiChatModal({
                       {formatDate(transferDraft.occurredAt)}
                     </dd>
                   </div>
+                  {transferDraft.fee ? (
+                    <div>
+                      <dt className="text-slate-500 dark:text-slate-400">Biaya admin</dt>
+                      <dd className="font-semibold text-slate-800 dark:text-slate-200">
+                        {formatRupiah(transferDraft.fee)}
+                      </dd>
+                    </div>
+                  ) : null}
                   <div>
                     <dt className="text-slate-500 dark:text-slate-400">Catatan</dt>
                     <dd className="font-semibold text-slate-800 dark:text-slate-200">

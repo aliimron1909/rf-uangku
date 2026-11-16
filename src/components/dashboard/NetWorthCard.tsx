@@ -9,7 +9,7 @@ import {
   YAxis,
 } from 'recharts'
 import { TrendingUp } from 'lucide-react'
-import type { Account, DebtPayment, Debt, Transaction, Transfer } from '../../types'
+import type { Account, DebtPayment, Debt, GoalContribution, Transaction, Transfer } from '../../types'
 import { useTheme } from '../../contexts/ThemeContext'
 import { CHART_COLORS } from '../../lib/constants'
 import { todayISO } from '../../lib/dates'
@@ -23,15 +23,23 @@ interface NetWorthCardProps {
   debts: Debt[]
   payments: DebtPayment[]
   transfers: Transfer[]
+  goalContributions: GoalContribution[]
 }
 
-export function NetWorthCard({ accounts, transactions, debts, payments, transfers }: NetWorthCardProps) {
+export function NetWorthCard({
+  accounts,
+  transactions,
+  debts,
+  payments,
+  transfers,
+  goalContributions,
+}: NetWorthCardProps) {
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === 'dark'
   const today = todayISO()
   const data = useMemo(
-    () => trimLeadingEmpty(netWorthSeries(accounts, transactions, debts, payments, today, 12, transfers)),
-    [accounts, transactions, debts, payments, transfers, today],
+    () => trimLeadingEmpty(netWorthSeries(accounts, transactions, debts, payments, today, 12, transfers, goalContributions)),
+    [accounts, transactions, debts, payments, transfers, goalContributions, today],
   )
 
   if (data.length < 2) {
@@ -54,7 +62,7 @@ export function NetWorthCard({ accounts, transactions, debts, payments, transfer
             Kekayaan Bersih
           </h2>
           <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-            Saldo rekening + piutang − hutang, akhir tiap bulan
+            Saldo rekening + tabungan tujuan + piutang − hutang, akhir tiap bulan
           </p>
         </div>
         <div className="shrink-0 text-right">

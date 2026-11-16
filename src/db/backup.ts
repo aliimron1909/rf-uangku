@@ -154,6 +154,8 @@ function isRecurringRow(value: unknown): boolean {
     value.amount > 0 &&
     typeof value.accountId === 'string' &&
     typeof value.categoryId === 'string' &&
+    (value.toAccountId === undefined || typeof value.toAccountId === 'string') &&
+    (value.fee === undefined || (typeof value.fee === 'number' && Number.isFinite(value.fee) && value.fee >= 0)) &&
     (value.note === undefined || typeof value.note === 'string') &&
     (value.frequency === 'daily' ||
       value.frequency === 'weekly' ||
@@ -183,6 +185,9 @@ function isTransferRow(value: unknown): boolean {
     Number.isFinite(value.amount) &&
     value.amount > 0 &&
     isDateString(value.occurredAt) &&
+    (value.fee === undefined || (typeof value.fee === 'number' && Number.isFinite(value.fee) && value.fee >= 0)) &&
+    (value.feeTransactionId === undefined || typeof value.feeTransactionId === 'string') &&
+    (value.recurringId === undefined || typeof value.recurringId === 'string') &&
     (value.note === undefined || typeof value.note === 'string') &&
     typeof value.createdAt === 'string'
   )
@@ -213,6 +218,7 @@ function isGoalContributionRow(value: unknown): boolean {
     typeof value.goalId === 'string' &&
     (value.kind === 'deposit' || value.kind === 'withdrawal') &&
     isPositive(value.amount) &&
+    (value.accountId === undefined || typeof value.accountId === 'string') &&
     isIsoDate(value.occurredAt) &&
     (value.note === undefined || typeof value.note === 'string') &&
     typeof value.createdAt === 'string'
@@ -432,6 +438,9 @@ export function validateBackup(value: unknown): asserts value is BackupData {
   }
 
   const goalIds = new Set(goals.map((goal) => goal.id))
+  if (!goalContributions.every((item) => !item.accountId || accountIds.has(item.accountId))) {
+    throw new Error('Setoran tabungan di file backup merujuk rekening yang tidak ada.')
+  }
   if (!goalContributions.every((item) => goalIds.has(item.goalId))) {
     throw new Error('Setoran tabungan di file backup merujuk target yang tidak ada.')
   }
@@ -483,6 +492,16 @@ export function validateBackup(value: unknown): asserts value is BackupData {
 
   if (
     !recurringTransactions.every((rule) => {
+      if (rule.toAccountId) {
+        // Aturan transfer: tidak memakai kategori.
+        return (
+          accountIds.has(rule.accountId) &&
+          accountIds.has(rule.toAccountId) &&
+          rule.toAccountId !== rule.accountId &&
+          (!rule.endDate || rule.endDate >= rule.startDate) &&
+          rule.nextRunAt >= rule.startDate
+        )
+      }
       const category = categoryMap.get(rule.categoryId)
       return (
         accountIds.has(rule.accountId) &&

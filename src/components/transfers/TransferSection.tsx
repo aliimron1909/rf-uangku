@@ -120,6 +120,7 @@ export function TransferSection() {
                 <p className="truncate text-xs text-slate-500 dark:text-slate-400">
                   {formatDate(transfer.occurredAt)}
                   {transfer.note ? ` · ${transfer.note}` : ''}
+                  {transfer.fee ? ` · biaya admin ${formatRupiah(transfer.fee)}` : ''}
                 </p>
               </div>
               <p className="shrink-0 text-sm font-bold text-slate-700 dark:text-slate-200">
@@ -170,7 +171,7 @@ export function TransferSection() {
       <ConfirmDialog
         open={Boolean(deleting)}
         title="Hapus transfer?"
-        message="Saldo kedua rekening akan kembali seperti sebelum transfer ini dicatat."
+        message="Saldo kedua rekening akan kembali seperti sebelum transfer ini dicatat. Biaya admin yang menyertainya (jika ada) ikut dihapus."
         confirmLabel="Hapus"
         danger
         loading={deleteLoading}

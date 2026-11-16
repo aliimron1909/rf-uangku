@@ -1,4 +1,4 @@
-import type { Goal, GoalContribution } from '../types'
+import type { AccountFlow, Goal, GoalContribution } from '../types'
 import { daysBetween } from './dateMath'
 
 export type GoalStatus = 'active' | 'late' | 'done'
@@ -82,4 +82,20 @@ export function goalSummary(progress: GoalProgress[]): {
     activeCount: progress.filter((item) => item.status !== 'done').length,
     doneCount: progress.filter((item) => item.status === 'done').length,
   }
+}
+
+/**
+ * Perubahan saldo rekening akibat setoran/pengambilan tabungan yang dikaitkan ke rekening:
+ * setor = uang keluar dari rekening (-), ambil = uang kembali ke rekening (+).
+ */
+export function goalAccountFlows(contributions: GoalContribution[]): AccountFlow[] {
+  const flows: AccountFlow[] = []
+  for (const item of contributions) {
+    if (!item.accountId) continue
+    flows.push({
+      accountId: item.accountId,
+      amount: item.kind === 'deposit' ? -item.amount : item.amount,
+    })
+  }
+  return flows
 }

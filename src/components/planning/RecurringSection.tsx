@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import {
   AlertTriangle,
   ArrowDownLeft,
+  ArrowLeftRight,
   ArrowUpRight,
   CalendarClock,
   Pause,
@@ -142,13 +143,16 @@ export function RecurringSection() {
           {rules.map((rule) => {
             const account = accountMap.get(rule.accountId)
             const category = categoryMap.get(rule.categoryId)
-            const missingMaster =
-              !account ||
-              account.archived ||
-              !category ||
-              category.archived ||
-              category.type !== rule.type
-            const isIncome = rule.type === 'income'
+            const toAccount = rule.toAccountId ? accountMap.get(rule.toAccountId) : undefined
+            const isTransferRule = Boolean(rule.toAccountId)
+            const missingMaster = isTransferRule
+              ? !account || account.archived || !toAccount || toAccount.archived
+              : !account ||
+                account.archived ||
+                !category ||
+                category.archived ||
+                category.type !== rule.type
+            const isIncome = !isTransferRule && rule.type === 'income'
 
             return (
               <div
@@ -158,12 +162,16 @@ export function RecurringSection() {
                 <div className="flex items-start gap-3">
                   <div
                     className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
-                      isIncome
-                        ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-300'
-                        : 'bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-300'
+                      isTransferRule
+                        ? 'bg-sky-50 text-sky-600 dark:bg-sky-950/60 dark:text-sky-300'
+                        : isIncome
+                          ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-300'
+                          : 'bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-300'
                     }`}
                   >
-                    {isIncome ? (
+                    {isTransferRule ? (
+                      <ArrowLeftRight className="h-5 w-5" />
+                    ) : isIncome ? (
                       <ArrowDownLeft className="h-5 w-5" />
                     ) : (
                       <ArrowUpRight className="h-5 w-5" />
@@ -172,7 +180,7 @@ export function RecurringSection() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="truncate text-sm font-bold text-slate-800 dark:text-slate-100">
-                        {rule.note?.trim() || category?.name || 'Transaksi berulang'}
+                        {rule.note?.trim() || (isTransferRule ? 'Transfer berulang' : category?.name) || 'Transaksi berulang'}
                       </p>
                       <Badge variant={rule.active ? 'success' : 'neutral'}>
                         {rule.active ? 'Aktif' : 'Dijeda'}
@@ -185,7 +193,9 @@ export function RecurringSection() {
                       )}
                     </div>
                     <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                      {category?.name ?? 'Kategori hilang'} · {account?.name ?? 'Rekening hilang'}
+                      {isTransferRule
+                        ? `${account?.name ?? 'Rekening hilang'} → ${toAccount?.name ?? 'Rekening hilang'}${rule.fee ? ` · biaya admin ${formatRupiah(rule.fee)}` : ''}`
+                        : `${category?.name ?? 'Kategori hilang'} · ${account?.name ?? 'Rekening hilang'}`}
                     </p>
                     <p className="mt-1 text-sm font-bold text-slate-900 dark:text-slate-100">
                       {formatRupiah(rule.amount)}

@@ -1,4 +1,4 @@
-import type { Account, Debt, DebtPayment, Transaction, Transfer } from '../types'
+import type { Account, Debt, DebtPayment, GoalContribution, Transaction, Transfer } from '../types'
 import { monthRangeFromKey, shiftMonthKey } from './dates'
 import { format } from 'date-fns'
 import { id as localeId } from 'date-fns/locale'
@@ -11,6 +11,8 @@ export interface NetWorthPoint {
   asOf: string
   /** Saldo semua rekening (transfer tidak mengubah total). */
   cash: number
+  /** Dana tabungan tujuan yang diambil dari rekening (masih milik pengguna). */
+  savings: number
   /** Piutang yang belum dibayar. */
   receivable: number
   /** Hutang yang belum dibayar. */
@@ -31,6 +33,7 @@ export function netWorthSeries(
   today: string,
   months = 12,
   transfers: Transfer[] = [],
+  goalContributions: GoalContribution[] = [],
 ): NetWorthPoint[] {
   const accountIds = new Set(accounts.map((a) => a.id))
   const opening = accounts.reduce((sum, a) => sum + (Number(a.openingBalance) || 0), 0)
@@ -52,6 +55,14 @@ export function netWorthSeries(
       if (transfer.occurredAt > asOf) continue
       if (accountIds.has(transfer.fromAccountId)) cash -= transfer.amount
       if (accountIds.has(transfer.toAccountId)) cash += transfer.amount
+    }
+
+    let savings = 0
+    for (const item of goalContributions) {
+      if (item.occurredAt > asOf || !item.accountId || !accountIds.has(item.accountId)) continue
+      const delta = item.kind === 'deposit' ? item.amount : -item.amount
+      cash -= delta
+      savings += delta
     }
 
     let receivable = 0
@@ -82,9 +93,10 @@ export function netWorthSeries(
       label: format(new Date(`${key}-01T00:00:00`), 'MMM yy', { locale: localeId }),
       asOf,
       cash,
+      savings,
       receivable,
       payable,
-      netWorth: cash + receivable - payable,
+      netWorth: cash + savings + receivable - payable,
     })
   }
   return points
@@ -93,7 +105,7 @@ export function netWorthSeries(
 /** Titik awal pertama yang punya data, agar grafik tidak diawali deretan nol. */
 export function trimLeadingEmpty(points: NetWorthPoint[]): NetWorthPoint[] {
   const first = points.findIndex(
-    (p) => p.cash !== 0 || p.receivable !== 0 || p.payable !== 0,
+    (p) => p.cash !== 0 || p.savings !== 0 || p.receivable !== 0 || p.payable !== 0,
   )
   return first <= 0 ? points : points.slice(first)
 }

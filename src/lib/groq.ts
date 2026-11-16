@@ -67,6 +67,7 @@ export interface ResolvedAiTransfer {
   amount: number
   occurredAt: string
   note: string
+  fee?: number
 }
 
 /** Cocokkan nama rekening dari AI: persis (tanpa huruf besar/kecil), lalu saling mengandung. */
@@ -97,6 +98,7 @@ export function resolveAiTransfer(
     amount: draft.amount,
     occurredAt: draft.occurredAt,
     note: draft.note,
+    ...(draft.fee && draft.fee > 0 ? { fee: draft.fee } : {}),
   }
 }
 
@@ -116,6 +118,7 @@ export function readAiEntry(
   const note = String(object.note ?? '').slice(0, 120)
 
   if (String(object.type ?? '').toLowerCase() === 'transfer') {
+    const fee = Number(object.fee)
     return {
       kind: 'transfer',
       transfer: {
@@ -124,6 +127,7 @@ export function readAiEntry(
         toAccountName: String(object.toAccountName ?? '').trim(),
         occurredAt,
         note,
+        ...(Number.isFinite(fee) && fee > 0 ? { fee: Math.round(fee) } : {}),
       },
     }
   }
@@ -146,6 +150,7 @@ export function readAiEntry(
 const TRANSFER_RULES = `- Pindah uang antar rekening milik pengguna sendiri adalah "transfer", BUKAN pemasukan/pengeluaran. Contoh: "top up gopay 50rb dari BCA", "isi saldo Gopay 100rb dari BCA", "tarik tunai 200rb dari BCA", "setor tunai 500rb ke BCA", "pindah 1jt dari BCA ke Seabank".
 - Untuk transfer isi "fromAccountName" (rekening sumber) dan "toAccountName" (rekening tujuan), keduanya wajib dari daftar rekening dan harus berbeda. Tidak perlu categoryName/accountName.
 - Contoh: "top up gopay 50rb dari BCA" -> {"type":"transfer","amount":50000,"fromAccountName":"BCA","toAccountName":"Gopay",...}. "tarik tunai 200rb dari BCA" -> dari BCA ke Tunai.
+- Isi "fee" hanya jika pengguna menyebut biaya admin (mis. "admin 1.500"), selain itu 0. Nominal "amount" tidak termasuk fee.
 - Uang keluar ke orang lain, toko, atau layanan (bayar tagihan, belanja, kirim ke teman) tetap "expense".`
 
 export function resolveAiDraft(
@@ -255,7 +260,7 @@ Hari ini: ${today}.
 Kembalikan HANYA objek JSON valid tanpa markdown dengan schema:
 {"type":"income"|"expense","amount":number,"categoryName":string,"accountName":string,"occurredAt":"YYYY-MM-DD","note":string}
 atau untuk transfer antar rekening:
-{"type":"transfer","amount":number,"fromAccountName":string,"toAccountName":string,"occurredAt":"YYYY-MM-DD","note":string}
+{"type":"transfer","amount":number,"fee":number,"fromAccountName":string,"toAccountName":string,"occurredAt":"YYYY-MM-DD","note":string}
 Aturan:
 - "type" wajib "income" untuk pemasukan, "expense" untuk pengeluaran, "transfer" untuk pindah uang antar rekening sendiri.
 - "amount" angka bulat positif dalam Rupiah, tanpa titik/koma.
@@ -331,7 +336,7 @@ Balas HANYA objek JSON valid tanpa markdown dengan schema:
 atau
 {"reply":string,"transaction":{"type":"income"|"expense","amount":number,"categoryName":string,"accountName":string,"occurredAt":"YYYY-MM-DD","note":string}}
 atau untuk transfer antar rekening:
-{"reply":string,"transaction":{"type":"transfer","amount":number,"fromAccountName":string,"toAccountName":string,"occurredAt":"YYYY-MM-DD","note":string}}
+{"reply":string,"transaction":{"type":"transfer","amount":number,"fee":number,"fromAccountName":string,"toAccountName":string,"occurredAt":"YYYY-MM-DD","note":string}}
 Aturan:
 - "reply" adalah jawaban untuk pengguna, maksimal 2 kalimat. Jangan menampilkan JSON di reply.
 - Jika nominal atau jenis transaksi belum bisa disimpulkan, tanyakan satu klarifikasi singkat dan isi "transaction": null. Jangan mengarang nominal.

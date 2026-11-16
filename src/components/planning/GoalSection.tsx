@@ -10,6 +10,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import type { Goal, GoalContributionKind } from '../../types'
+import { useAccounts, useAllAccounts } from '../../hooks/useAccounts'
 import { useGoals } from '../../hooks/useGoals'
 import {
   addGoalContribution,
@@ -37,6 +38,13 @@ interface EntryTarget {
 export function GoalSection() {
   const { goals, contributions } = useGoals()
   const { toast } = useToast()
+  const activeAccounts = useAccounts()
+  const allAccounts = useAllAccounts()
+  const accountNames = useMemo(
+    () => new Map(allAccounts.map((account) => [account.id, account.name])),
+    [allAccounts],
+  )
+  const defaultAccountId = activeAccounts[0]?.id ?? ''
   const today = todayISO()
 
   const progress = useMemo(
@@ -67,6 +75,7 @@ export function GoalSection() {
       amount: values.amount,
       occurredAt: values.occurredAt,
       note: values.note,
+      accountId: values.accountId || undefined,
     })
     toast(entry.kind === 'deposit' ? 'Dana ditambahkan ke target.' : 'Dana diambil dari target.')
     setEntry(null)
@@ -284,8 +293,12 @@ export function GoalSection() {
                             <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
                               {formatDate(row.occurredAt)}
                             </p>
-                            {row.note && (
+                            {(row.accountId || row.note) && (
                               <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">
+                                {row.accountId
+                                  ? `${row.kind === 'deposit' ? 'Dari' : 'Ke'} ${accountNames.get(row.accountId) ?? 'rekening'}`
+                                  : ''}
+                                {row.accountId && row.note ? ' · ' : ''}
                                 {row.note}
                               </p>
                             )}
@@ -350,6 +363,13 @@ export function GoalSection() {
             maxAmount={entry.kind === 'withdrawal' ? Math.max(0, entry.progress.saved) : undefined}
             maxLabel="Tabungan terkumpul"
             notePlaceholder={entry.kind === 'withdrawal' ? 'Contoh: dipakai bayar cicilan' : 'Contoh: sisa gaji'}
+            accountLabel={entry.kind === 'withdrawal' ? 'Kembalikan ke rekening' : 'Ambil dari rekening'}
+            accountHint={
+              entry.kind === 'withdrawal'
+                ? 'Dana kembali menambah saldo rekening terpilih.'
+                : 'Saldo rekening terpilih berkurang sebesar setoran.'
+            }
+            defaultAccountId={defaultAccountId}
             onSubmit={handleEntry}
             onCancel={() => setEntry(null)}
           />
@@ -359,7 +379,7 @@ export function GoalSection() {
       <ConfirmDialog
         open={Boolean(deleting)}
         title="Hapus target?"
-        message="Target beserta seluruh riwayat setorannya akan dihapus. Saldo rekening tidak terpengaruh."
+        message="Target beserta seluruh riwayat setorannya akan dihapus. Setoran yang dicatat ke rekening dikembalikan ke saldo rekening itu."
         confirmLabel="Hapus target"
         danger
         loading={deleteLoading}

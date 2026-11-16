@@ -35,6 +35,7 @@ export function DashboardPage() {
     transfers,
     debts,
     debtPayments,
+    goalContributions,
   } = useDashboardData()
   const { name: profileName } = useProfile()
   const allCategories = useAllCategories()
@@ -136,6 +137,7 @@ export function DashboardPage() {
                 debts={debts}
                 payments={debtPayments}
                 transfers={transfers}
+                goalContributions={goalContributions}
               />
             ),
           },
