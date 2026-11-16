@@ -1,4 +1,4 @@
-import { Suspense } from 'react'
+import { Suspense, useEffect } from 'react'
 import { Link, Outlet } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import { Sidebar } from './Sidebar'
@@ -8,10 +8,14 @@ import { PageLoader } from '../ui/PageLoader'
 import { OfflineBanner } from '../pwa/OfflineBanner'
 import { useRecurringRunner } from '../../hooks/useRecurringRunner'
 import { useBudgetAlerts } from '../../hooks/useBudgetAlerts'
+import { startAutoSync } from '../../lib/sync/controller'
 
 export function AppShell() {
   useRecurringRunner()
   useBudgetAlerts()
+  useEffect(() => {
+    void startAutoSync()
+  }, [])
 
   return (
     <div className="min-h-dvh bg-slate-50 dark:bg-slate-950">

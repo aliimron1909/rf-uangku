@@ -3,6 +3,10 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import './index.css'
 import { seedIfEmpty } from './db/seed'
+import { captureOAuthRedirect } from './lib/sync/auth'
+
+// Harus berjalan sebelum router memuat agar token login Google di URL tidak hilang.
+captureOAuthRedirect()
 
 async function start() {
   try {

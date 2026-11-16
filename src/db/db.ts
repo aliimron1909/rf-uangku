@@ -11,6 +11,7 @@ import type {
   Receipt,
   RecurringTransaction,
   SettingRow,
+  SyncStateRow,
   Transaction,
   Transfer,
 } from '../types'
@@ -30,6 +31,7 @@ class UangkuDB extends Dexie {
   debtPayments!: Table<DebtPayment, string>
   favorites!: Table<Favorite, string>
   receipts!: Table<Receipt, string>
+  syncState!: Table<SyncStateRow, string>
 
   constructor() {
     super('rf-uangku')
@@ -79,6 +81,10 @@ class UangkuDB extends Dexie {
       transactions:
         'id, occurredAt, type, accountId, categoryId, updatedAt, recurringId, splitGroupId, receiptId, *tags, [type+occurredAt], [accountId+occurredAt]',
       receipts: 'id, createdAt',
+    })
+    // v8: catatan status sinkronisasi cloud per record (hash terakhir, waktu versi, sudah terkirim).
+    this.version(8).stores({
+      syncState: 'key',
     })
   }
 }
