@@ -1440,17 +1440,17 @@ async function main() {
   const tagTx = (id: string, type: 'income' | 'expense', amount: number, tags?: string[]) => ({
     id, type, amount, accountId: 'x', categoryId: 'y', occurredAt: '2026-11-01', createdAt: '', updatedAt: '', tags,
   })
-  const summary = tagSummary([
+  const tagRowsSummary = tagSummary([
     tagTx('1', 'expense', 100, ['bali', 'liburan']),
     tagTx('2', 'expense', 50, ['bali']),
     tagTx('3', 'income', 70, ['liburan']),
     tagTx('4', 'expense', 999),
   ])
-  assert.deepEqual(summary.map((row) => row.tag), ['bali', 'liburan'])
-  assert.equal(summary[0].expense, 150)
-  assert.equal(summary[0].count, 2)
-  assert.equal(summary[1].expense, 100)
-  assert.equal(summary[1].income, 70)
+  assert.deepEqual(tagRowsSummary.map((row) => row.tag), ['bali', 'liburan'])
+  assert.equal(tagRowsSummary[0].expense, 150)
+  assert.equal(tagRowsSummary[0].count, 2)
+  assert.equal(tagRowsSummary[1].expense, 100)
+  assert.equal(tagRowsSummary[1].income, 70)
   assert.equal(tagsLabel(['a', 'b']), '#a #b')
   assert.equal(tagsLabel(undefined), '')
 
