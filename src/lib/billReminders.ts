@@ -29,7 +29,7 @@ export function upcomingBills(
   days = BILL_REMINDER_DAYS,
 ): UpcomingBill[] {
   return rules
-    .filter((rule) => rule.active && rule.type === 'expense')
+    .filter((rule) => rule.active && rule.type === 'expense' && !rule.toAccountId)
     .filter((rule) => !rule.endDate || rule.nextRunAt <= rule.endDate)
     .map((rule): UpcomingBill => {
       const daysUntil = daysBetween(today, rule.nextRunAt)

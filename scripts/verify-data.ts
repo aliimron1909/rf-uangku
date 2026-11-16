@@ -29,7 +29,8 @@ import {
   deleteDebtPayment,
   updateDebt,
 } from '../src/db/debts'
-import { goalProgress, goalSaved } from '../src/lib/goals'
+import { goalAccountFlows, goalProgress, goalSaved } from '../src/lib/goals'
+import { accountBalance } from '../src/lib/analytics'
 import { debtAccountFlows, debtProgress } from '../src/lib/debts'
 import { createFavorite, deleteFavorite, undoFavoriteUse, updateFavorite, useFavorite } from '../src/db/favorites'
 import { favoriteIssue } from '../src/lib/favorites'
@@ -1604,6 +1605,129 @@ async function main() {
     // asal = tujuan atau rekening tak dikenal -> null
     assert.equal(resolveAiTransfer({ amount: 1, fromAccountName: 'BCA', toAccountName: 'bca', occurredAt: '2026-11-16', note: '' }, accs), null)
     assert.equal(resolveAiTransfer({ amount: 1, fromAccountName: 'BCA', toAccountName: 'OVO', occurredAt: '2026-11-16', note: '' }, accs), null)
+  }
+
+
+  // --- Biaya admin, transfer berulang, tabungan menggerakkan saldo ---
+  {
+    await db.accounts.clear()
+    await db.transactions.clear()
+    await db.transfers.clear()
+    await db.recurringTransactions.clear()
+    await db.goalContributions.clear()
+    await db.goals.clear()
+    const mkAcc = (id: string, openingBalance: number, archived = false) =>
+      ({ id, name: id, kind: 'bank', openingBalance, color: '#000', sortOrder: 1, archived, createdAt: '2026-01-01T00:00:00.000Z' }) as Account
+    await db.accounts.bulkAdd([mkAcc('f-a', 1000000), mkAcc('f-b', 0), mkAcc('f-arsip', 0, true)])
+    const balanceOf = async (id: string, extraFlows: import('../src/types').AccountFlow[] = []) => {
+      const account = (await db.accounts.get(id)) as Account
+      return accountBalance(account, await db.transactions.toArray(), await db.transfers.toArray(), extraFlows)
+    }
+
+    // Transfer dengan biaya admin: asal berkurang amount+fee, tujuan bertambah amount
+    const trf = await createTransfer({ fromAccountId: 'f-a', toAccountId: 'f-b', amount: 50000, fee: 1500, occurredAt: '2026-11-10', note: 'Top up' })
+    assert.equal(trf.fee, 1500)
+    assert.ok(trf.feeTransactionId)
+    assert.equal(await balanceOf('f-a'), 1000000 - 50000 - 1500)
+    assert.equal(await balanceOf('f-b'), 50000)
+    const feeTx = await db.transactions.get(trf.feeTransactionId as string)
+    assert.equal(feeTx?.type, 'expense')
+    assert.equal(feeTx?.amount, 1500)
+    const feeCat = await db.categories.get(feeTx?.categoryId as string)
+    assert.equal(feeCat?.name, 'Biaya Admin')
+
+    // Transfer kedua memakai kategori yang sama (tidak membuat duplikat)
+    await createTransfer({ fromAccountId: 'f-a', toAccountId: 'f-b', amount: 10000, fee: 500, occurredAt: '2026-11-11' })
+    assert.equal(await db.categories.filter((c) => c.name === 'Biaya Admin').count(), 1)
+
+    // Ubah biaya -> transaksi biaya ikut berubah; hapus biaya -> transaksi dihapus
+    await updateTransfer(trf.id, { fromAccountId: 'f-a', toAccountId: 'f-b', amount: 50000, fee: 2500, occurredAt: '2026-11-10', note: 'Top up' })
+    assert.equal((await db.transactions.get(trf.feeTransactionId as string))?.amount, 2500)
+    await updateTransfer(trf.id, { fromAccountId: 'f-a', toAccountId: 'f-b', amount: 50000, occurredAt: '2026-11-10', note: 'Top up' })
+    assert.equal(await db.transactions.get(trf.feeTransactionId as string), undefined)
+    assert.equal((await db.transfers.get(trf.id))?.fee, undefined)
+    // Tambah biaya lagi pada transfer tanpa biaya
+    await updateTransfer(trf.id, { fromAccountId: 'f-a', toAccountId: 'f-b', amount: 50000, fee: 700, occurredAt: '2026-11-10' })
+    const refreshed = await db.transfers.get(trf.id)
+    assert.equal(refreshed?.fee, 700)
+    assert.ok(await db.transactions.get(refreshed?.feeTransactionId as string))
+    // Hapus transfer -> biaya ikut terhapus
+    await deleteTransfer(trf.id)
+    assert.equal(await db.transactions.get(refreshed?.feeTransactionId as string), undefined)
+    assert.equal(await db.transfers.get(trf.id), undefined)
+    await assert.rejects(() => createTransfer({ fromAccountId: 'f-a', toAccountId: 'f-b', amount: 100, fee: -5, occurredAt: '2026-11-10' }))
+
+    // Transfer berulang
+    await db.transfers.clear()
+    await db.transactions.clear()
+    const rule = await createRecurring({
+      type: 'expense', amount: 200000, accountId: 'f-a', categoryId: '', toAccountId: 'f-b', fee: 1000,
+      note: 'Nabung bulanan', frequency: 'monthly', interval: 1, startDate: '2026-09-05',
+    })
+    const rrun = await processDueRecurring('2026-11-16')
+    assert.equal(rrun.created, 3)
+    assert.equal(rrun.transfers, 3)
+    assert.equal(await db.transfers.count(), 3)
+    assert.equal(await db.transactions.count(), 3) // tiga biaya admin
+    assert.ok((await db.transfers.toArray()).every((t) => t.recurringId === rule.id && t.fee === 1000))
+    assert.equal((await db.recurringTransactions.get(rule.id))?.nextRunAt, '2026-12-05')
+    assert.equal(await balanceOf('f-b'), 600000)
+    assert.equal(await balanceOf('f-a'), 1000000 - 600000 - 3000)
+    // Dijalankan lagi hari yang sama: tidak ada duplikat
+    assert.equal((await processDueRecurring('2026-11-16')).created, 0)
+    // Tujuan diarsipkan -> aturan dijeda, tidak membuat transfer
+    await db.accounts.update('f-b', { archived: true })
+    const rrun2 = await processDueRecurring('2026-12-06')
+    assert.equal(rrun2.created, 0)
+    assert.equal(rrun2.paused, 1)
+    assert.equal((await db.recurringTransactions.get(rule.id))?.active, false)
+    await db.accounts.update('f-b', { archived: false })
+    // Aturan transfer tidak muncul sebagai pengingat tagihan
+    const { upcomingBills } = await import('../src/lib/billReminders')
+    assert.equal(upcomingBills([{ ...rule, active: true, nextRunAt: '2026-11-18' }], '2026-11-16').length, 0)
+
+    // Tabungan tujuan menggerakkan saldo
+    const goalX = await createGoal({ name: 'Dana darurat', targetAmount: 1000000, color: '#10b981' })
+    await db.transfers.clear()
+    await db.transactions.clear()
+    const dep = await addGoalContribution({ goalId: goalX.id, kind: 'deposit', amount: 300000, occurredAt: '2026-11-10', accountId: 'f-a' })
+    await addGoalContribution({ goalId: goalX.id, kind: 'deposit', amount: 50000, occurredAt: '2026-11-11' }) // tanpa rekening
+    const contribs = await db.goalContributions.toArray()
+    const gflows = goalAccountFlows(contribs)
+    assert.equal(gflows.length, 1)
+    assert.equal(await balanceOf('f-a', gflows), 1000000 - 300000)
+    await assert.rejects(() => addGoalContribution({ goalId: goalX.id, kind: 'deposit', amount: 1, occurredAt: '2026-11-10', accountId: 'tidak-ada' }))
+    await addGoalContribution({ goalId: goalX.id, kind: 'withdrawal', amount: 100000, occurredAt: '2026-11-12', accountId: 'f-a' })
+    const gflows2 = goalAccountFlows(await db.goalContributions.toArray())
+    assert.equal(await balanceOf('f-a', gflows2), 1000000 - 300000 + 100000)
+    assert.equal(goalSaved(await db.goalContributions.toArray(), goalX.id), 250000)
+
+    // Kekayaan bersih tidak berubah oleh setoran tabungan dari rekening
+    const accsNow = (await db.accounts.toArray()).filter((a) => !a.archived)
+    const base = netWorthSeries(accsNow, [], [], [], '2026-11-16', 1, [], [])
+    const withGoal = netWorthSeries(accsNow, [], [], [], '2026-11-16', 1, [], await db.goalContributions.toArray())
+    assert.equal(base[0].netWorth, withGoal[0].netWorth + 0 - 0 + (withGoal[0].savings - withGoal[0].savings))
+    assert.equal(withGoal[0].savings, 200000)
+    assert.equal(withGoal[0].cash, base[0].cash - 200000)
+    assert.equal(withGoal[0].netWorth, base[0].netWorth)
+    void dep
+
+    // Backup memuat dan memvalidasi kolom baru
+    await createTransfer({ fromAccountId: 'f-a', toAccountId: 'f-b', amount: 1000, fee: 100, occurredAt: '2026-11-12' })
+    const backupNew = await buildBackup()
+    validateBackup(backupNew)
+    assert.ok(backupNew.recurringTransactions?.some((r) => r.toAccountId === 'f-b'))
+    assert.ok(backupNew.goalContributions?.some((c) => c.accountId === 'f-a'))
+    assert.throws(() =>
+      validateBackup({ ...backupNew, goalContributions: backupNew.goalContributions?.map((c) => ({ ...c, accountId: c.accountId ? 'hilang' : undefined })) }),
+    )
+
+    await db.accounts.clear()
+    await db.transactions.clear()
+    await db.transfers.clear()
+    await db.recurringTransactions.clear()
+    await db.goalContributions.clear()
+    await db.goals.clear()
   }
 
   await db.delete()

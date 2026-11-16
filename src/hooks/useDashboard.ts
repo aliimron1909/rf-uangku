@@ -6,6 +6,7 @@ import { useBudgets } from './useBudgets'
 import { useTransactions } from './useTransactions'
 import { useTransfers } from './useTransfers'
 import { useDebts } from './useDebts'
+import { useGoals } from './useGoals'
 import {
   accountsWithBalance,
   categoryBreakdown,
@@ -15,11 +16,13 @@ import {
 import { buildTrend, monthRange } from '../lib/dates'
 import { budgetProgress, budgetSummary } from '../lib/budget'
 import { debtAccountFlows } from '../lib/debts'
+import { goalAccountFlows } from '../lib/goals'
 
 export function useDashboardData() {
   const transactions = useTransactions()
   const transfers = useTransfers()
   const { debts, payments: debtPayments } = useDebts()
+  const { contributions: goalContributions } = useGoals()
   // Use all accounts/categories so archived master data still resolves
   // correctly on historical transactions.
   const accounts = useAllAccounts()
@@ -38,7 +41,10 @@ export function useDashboardData() {
   )
 
   const totals = useMemo(() => computeTotals(monthTransactions), [monthTransactions])
-  const debtFlows = useMemo(() => debtAccountFlows(debts, debtPayments), [debts, debtPayments])
+  const debtFlows = useMemo(
+    () => [...debtAccountFlows(debts, debtPayments), ...goalAccountFlows(goalContributions)],
+    [debts, debtPayments, goalContributions],
+  )
   const trend = useMemo(() => buildTrend(transactions, granularity), [transactions, granularity])
   const breakdown = useMemo(
     () => categoryBreakdown(monthTransactions, categories),
@@ -76,6 +82,7 @@ export function useDashboardData() {
     transactions,
     debts,
     debtPayments,
+    goalContributions,
     accounts,
     activeAccounts,
     archivedCount,

@@ -102,6 +102,12 @@ export interface Transfer {
   fromAccountId: string
   toAccountId: string
   amount: number
+  /** Biaya admin (mis. top up e-wallet) yang dipotong dari rekening asal; dicatat sebagai pengeluaran. */
+  fee?: number
+  /** Transaksi pengeluaran biaya admin yang menyertai transfer ini. */
+  feeTransactionId?: string
+  /** Aturan transfer berulang yang membuatnya. */
+  recurringId?: string
   occurredAt: string
   note?: string
   createdAt: string
@@ -127,6 +133,8 @@ export interface GoalContribution {
   goalId: string
   kind: GoalContributionKind
   amount: number
+  /** Rekening sumber (setor) atau tujuan (ambil); kosong = hanya catatan, saldo tidak berubah. */
+  accountId?: string
   occurredAt: string
   note?: string
   createdAt: string
@@ -182,6 +190,10 @@ export interface RecurringTransaction {
   accountId: string
   categoryId: string
   note?: string
+  /** Jika terisi, aturan ini adalah transfer dari accountId ke toAccountId (type/categoryId diabaikan). */
+  toAccountId?: string
+  /** Biaya admin per transfer berulang. */
+  fee?: number
   frequency: RecurrenceFrequency
   interval: number
   startDate: string
@@ -265,6 +277,8 @@ export interface AiTransferDraft {
   toAccountName: string
   occurredAt: string
   note: string
+  /** Biaya admin bila disebut (mis. "admin 1.500"). */
+  fee?: number
 }
 
 export interface TrendPoint {

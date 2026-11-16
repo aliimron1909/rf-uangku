@@ -61,6 +61,8 @@ export interface ContributionInput {
   amount: number
   occurredAt: string
   note?: string
+  /** Rekening sumber/tujuan; kosong = hanya catatan. */
+  accountId?: string
 }
 
 export async function addGoalContribution(input: ContributionInput): Promise<GoalContribution> {
@@ -69,8 +71,11 @@ export async function addGoalContribution(input: ContributionInput): Promise<Goa
   }
   if (!isIsoDate(input.occurredAt)) throw new Error('Tanggal tidak valid.')
 
-  return db.transaction('rw', db.goals, db.goalContributions, async () => {
+  return db.transaction('rw', db.goals, db.goalContributions, db.accounts, async () => {
     if (!(await db.goals.get(input.goalId))) throw new Error('Target tidak ditemukan.')
+    if (input.accountId && !(await db.accounts.get(input.accountId))) {
+      throw new Error('Rekening tidak ditemukan.')
+    }
     if (input.kind === 'withdrawal') {
       const items = await db.goalContributions.where('goalId').equals(input.goalId).toArray()
       if (input.amount > goalSaved(items, input.goalId)) {
@@ -82,6 +87,7 @@ export async function addGoalContribution(input: ContributionInput): Promise<Goa
       goalId: input.goalId,
       kind: input.kind,
       amount: input.amount,
+      ...(input.accountId ? { accountId: input.accountId } : {}),
       occurredAt: input.occurredAt,
       note: input.note?.trim() || '',
       createdAt: new Date().toISOString(),

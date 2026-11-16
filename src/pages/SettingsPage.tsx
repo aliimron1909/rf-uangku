@@ -1039,21 +1039,48 @@ export function SettingsPage() {
         id="tentang"
         icon={<Info className="h-5 w-5" />}
         title="Tentang RF Uangku"
-        description="Aplikasi keuangan pribadi yang sederhana, lokal, dan privat."
+        description="Catat, rencanakan, dan pantau uang keluarga dalam satu aplikasi."
       >
-        <div className="space-y-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-          <p>
-            RF Uangku menyimpan seluruh data di IndexedDB browser/perangkat. Tidak ada server,
-            tidak ada akun, dan tidak ada pengiriman data ke pihak lain — kecuali teks dan API key
-            yang Anda kirim ke Groq saat memakai isi cepat, chat AI, atau mencari model aktif.
+        <div className="space-y-4">
+          <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+            <span className="font-bold text-slate-900 dark:text-slate-100">RF Uangku</span> membantu
+            keluarga mencatat uang masuk dan keluar dengan cepat, lalu melihat ke mana uangnya pergi
+            tanpa ribet.
           </p>
-          <p>
-            Dibangun dengan React, Vite, Tailwind CSS, Dexie, Recharts, dan jsPDF. Ikon dan tampilan
-            dibuat khusus untuk pemakaian pribadi di satu HP.
+
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              'Catat cepat dengan AI',
+              'Transfer & biaya admin',
+              'Budget & peringatan',
+              'Transaksi & tagihan berulang',
+              'Target tabungan',
+              'Hutang & piutang',
+              'Laporan PDF/CSV',
+              'Kekayaan bersih',
+            ].map((feature) => (
+              <span
+                key={feature}
+                className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
+              >
+                {feature}
+              </span>
+            ))}
+          </div>
+
+          <p className="rounded-xl bg-slate-50 px-3 py-2.5 text-xs leading-relaxed text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
+            <span className="font-semibold text-slate-700 dark:text-slate-200">Privat dan tetap jalan offline.</span>{' '}
+            Data tersimpan di perangkat ini. Sinkronisasi antar perangkat bersifat opsional dan
+            dienkripsi di perangkat sebelum dikirim. Hanya teks yang Anda tulis ke fitur AI yang
+            dikirim ke Groq.
           </p>
-          <p className="font-medium text-slate-600 dark:text-slate-300">
-            Versi {APP_VERSION} · Data milik Anda sepenuhnya.
-          </p>
+
+          <div className="border-t border-slate-100 pt-3 text-center text-[11px] text-slate-400 dark:border-slate-800 dark:text-slate-500">
+            <p className="font-semibold text-slate-600 dark:text-slate-300">
+              Copyright © rf_family
+            </p>
+            <p className="mt-0.5">Versi {APP_VERSION} · Semua hak dilindungi.</p>
+          </div>
         </div>
       </Section>
   )

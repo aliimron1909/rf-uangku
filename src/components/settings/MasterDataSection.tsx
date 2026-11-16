@@ -346,6 +346,22 @@ export function MasterDataSection() {
         setDeletingAccount(null)
         return
       }
+      const usedByRecurringTransfer = await db.recurringTransactions
+        .filter((rule) => rule.toAccountId === deletingAccount.id)
+        .count()
+      if (usedByRecurringTransfer > 0) {
+        toast('Rekening masih dipakai transfer berulang. Hapus atau ubah aturan itu dulu.', 'error')
+        setDeletingAccount(null)
+        return
+      }
+      const usedByGoal = await db.goalContributions
+        .filter((item) => item.accountId === deletingAccount.id)
+        .count()
+      if (usedByGoal > 0) {
+        toast('Rekening masih dipakai setoran tabungan. Arsipkan saja agar riwayat tetap aman.', 'error')
+        setDeletingAccount(null)
+        return
+      }
       const usedByFavorite = await db.favorites
         .where('accountId')
         .equals(deletingAccount.id)
