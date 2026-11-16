@@ -92,7 +92,7 @@ export function DashboardPage() {
         archivedCount={archivedCount}
       />
 
-      <div className="grid gap-3 sm:gap-4 lg:grid-cols-2 lg:items-start">
+      <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2 lg:items-start [&>*]:min-w-0">
         <BudgetOverview progress={budgetItems} summary={budget} />
         <InsightsCard
           transactions={transactions}
@@ -142,7 +142,7 @@ export function DashboardPage() {
         ]}
       />
 
-      <div className="grid gap-3 sm:gap-4 lg:grid-cols-2 lg:items-start">
+      <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2 lg:items-start [&>*]:min-w-0">
         <AccountBalances accounts={balances} />
         <RecentTransactions transactions={recent} />
       </div>
