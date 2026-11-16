@@ -13,8 +13,18 @@ import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
 import { Textarea } from '../ui/Textarea'
 
+export interface TransferInitial {
+  fromAccountId: string
+  toAccountId: string
+  amount: number
+  occurredAt: string
+  note: string
+}
+
 interface TransferFormProps {
   transfer?: Transfer | null
+  /** Nilai awal untuk transfer baru (mis. dari AI atau form transaksi). */
+  initial?: TransferInitial | null
   onSaved: () => void
   onCancel: () => void
 }
@@ -26,18 +36,22 @@ interface FormErrors {
   occurredAt?: string
 }
 
-export function TransferForm({ transfer, onSaved, onCancel }: TransferFormProps) {
+export function TransferForm({ transfer, initial, onSaved, onCancel }: TransferFormProps) {
   const accounts = useAccounts()
   const allAccounts = useAllAccounts()
   const { toast } = useToast()
 
-  const [fromAccountId, setFromAccountId] = useState(transfer?.fromAccountId ?? '')
-  const [toAccountId, setToAccountId] = useState(transfer?.toAccountId ?? '')
+  const [fromAccountId, setFromAccountId] = useState(transfer?.fromAccountId ?? initial?.fromAccountId ?? '')
+  const [toAccountId, setToAccountId] = useState(transfer?.toAccountId ?? initial?.toAccountId ?? '')
   const [amountInput, setAmountInput] = useState(
-    transfer ? formatNumberInput(String(transfer.amount)) : '',
+    transfer
+      ? formatNumberInput(String(transfer.amount))
+      : initial && initial.amount > 0
+        ? formatNumberInput(String(initial.amount))
+        : '',
   )
-  const [occurredAt, setOccurredAt] = useState(transfer?.occurredAt ?? todayISO())
-  const [note, setNote] = useState(transfer?.note ?? '')
+  const [occurredAt, setOccurredAt] = useState(transfer?.occurredAt ?? initial?.occurredAt ?? todayISO())
+  const [note, setNote] = useState(transfer?.note ?? initial?.note ?? '')
   const [errors, setErrors] = useState<FormErrors>({})
   const [saving, setSaving] = useState(false)
 
@@ -52,8 +66,9 @@ export function TransferForm({ transfer, onSaved, onCancel }: TransferFormProps)
 
   useEffect(() => {
     if (transfer || accounts.length < 2) return
-    if (!fromAccountId) setFromAccountId(accounts[0].id)
-    if (!toAccountId) setToAccountId(accounts[1].id)
+    const from = fromAccountId || accounts[0].id
+    if (!fromAccountId) setFromAccountId(from)
+    if (!toAccountId) setToAccountId(accounts.find((account) => account.id !== from)?.id ?? '')
   }, [accounts, fromAccountId, toAccountId, transfer])
 
   function swapAccounts() {

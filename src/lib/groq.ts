@@ -1,4 +1,4 @@
-import type { Account, AiDraft, Category, TxType } from '../types'
+import type { Account, AiDraft, AiTransferDraft, Category, TxType } from '../types'
 import type { InsightFacts } from './insights'
 import { todayISO } from './dates'
 
@@ -54,7 +54,99 @@ export interface GroqChatMessage {
 export interface GroqChatResult {
   reply: string
   draft: AiDraft | null
+  transfer: AiTransferDraft | null
 }
+
+export type ParsedAiEntry =
+  | { kind: 'transaction'; draft: AiDraft }
+  | { kind: 'transfer'; transfer: AiTransferDraft }
+
+export interface ResolvedAiTransfer {
+  fromAccountId: string
+  toAccountId: string
+  amount: number
+  occurredAt: string
+  note: string
+}
+
+/** Cocokkan nama rekening dari AI: persis (tanpa huruf besar/kecil), lalu saling mengandung. */
+export function matchAccountName(name: string, accounts: Account[]): Account | null {
+  const wanted = name.trim().toLowerCase()
+  if (!wanted) return null
+  const active = accounts.filter((account) => !account.archived)
+  return (
+    active.find((account) => account.name.toLowerCase() === wanted) ??
+    active.find((account) => {
+      const candidate = account.name.toLowerCase()
+      return candidate.includes(wanted) || wanted.includes(candidate)
+    }) ??
+    null
+  )
+}
+
+export function resolveAiTransfer(
+  draft: AiTransferDraft,
+  accounts: Account[],
+): ResolvedAiTransfer | null {
+  const from = matchAccountName(draft.fromAccountName, accounts)
+  const to = matchAccountName(draft.toAccountName, accounts)
+  if (!from || !to || from.id === to.id) return null
+  return {
+    fromAccountId: from.id,
+    toAccountId: to.id,
+    amount: draft.amount,
+    occurredAt: draft.occurredAt,
+    note: draft.note,
+  }
+}
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
+
+/**
+ * Membaca objek JSON hasil AI menjadi transaksi biasa atau transfer.
+ * Mengembalikan null bila jenis atau nominal tidak jelas.
+ */
+export function readAiEntry(
+  object: Record<string, unknown>,
+  today: string,
+): ParsedAiEntry | null {
+  const amount = Number(object.amount)
+  if (!Number.isFinite(amount) || amount <= 0) return null
+  const occurredAt = ISO_DATE.test(String(object.occurredAt)) ? String(object.occurredAt) : today
+  const note = String(object.note ?? '').slice(0, 120)
+
+  if (String(object.type ?? '').toLowerCase() === 'transfer') {
+    return {
+      kind: 'transfer',
+      transfer: {
+        amount: Math.round(amount),
+        fromAccountName: String(object.fromAccountName ?? '').trim(),
+        toAccountName: String(object.toAccountName ?? '').trim(),
+        occurredAt,
+        note,
+      },
+    }
+  }
+
+  const type = normalizeType(object.type)
+  if (!type) return null
+  return {
+    kind: 'transaction',
+    draft: {
+      type,
+      amount: Math.round(amount),
+      categoryName: String(object.categoryName ?? '').trim(),
+      accountName: String(object.accountName ?? '').trim(),
+      occurredAt,
+      note,
+    },
+  }
+}
+
+const TRANSFER_RULES = `- Pindah uang antar rekening milik pengguna sendiri adalah "transfer", BUKAN pemasukan/pengeluaran. Contoh: "top up gopay 50rb dari BCA", "isi saldo Gopay 100rb dari BCA", "tarik tunai 200rb dari BCA", "setor tunai 500rb ke BCA", "pindah 1jt dari BCA ke Seabank".
+- Untuk transfer isi "fromAccountName" (rekening sumber) dan "toAccountName" (rekening tujuan), keduanya wajib dari daftar rekening dan harus berbeda. Tidak perlu categoryName/accountName.
+- Contoh: "top up gopay 50rb dari BCA" -> {"type":"transfer","amount":50000,"fromAccountName":"BCA","toAccountName":"Gopay",...}. "tarik tunai 200rb dari BCA" -> dari BCA ke Tunai.
+- Uang keluar ke orang lain, toko, atau layanan (bayar tagihan, belanja, kirim ke teman) tetap "expense".`
 
 export function resolveAiDraft(
   draft: AiDraft,
@@ -146,7 +238,7 @@ export async function listGroqChatModels(apiKey: string): Promise<GroqModelInfo[
 export async function parseTransactionWithGroq(
   text: string,
   options: ParseOptions,
-): Promise<AiDraft> {
+): Promise<ParsedAiEntry> {
   const today = options.today ?? todayISO()
   const incomeCategories = options.categories
     .filter((category) => category.type === 'income' && !category.archived)
@@ -162,13 +254,16 @@ export async function parseTransactionWithGroq(
 Hari ini: ${today}.
 Kembalikan HANYA objek JSON valid tanpa markdown dengan schema:
 {"type":"income"|"expense","amount":number,"categoryName":string,"accountName":string,"occurredAt":"YYYY-MM-DD","note":string}
+atau untuk transfer antar rekening:
+{"type":"transfer","amount":number,"fromAccountName":string,"toAccountName":string,"occurredAt":"YYYY-MM-DD","note":string}
 Aturan:
-- "type" wajib "income" untuk pemasukan, "expense" untuk pengeluaran.
+- "type" wajib "income" untuk pemasukan, "expense" untuk pengeluaran, "transfer" untuk pindah uang antar rekening sendiri.
 - "amount" angka bulat positif dalam Rupiah, tanpa titik/koma.
 - "categoryName" wajib salah satu dari daftar kategori sesuai type.
 - "accountName" wajib salah satu dari daftar rekening.
 - "occurredAt" format YYYY-MM-DD. Jika tidak disebut, gunakan ${today}.
 - "note" ringkas, maksimal 80 karakter.
+${TRANSFER_RULES}
 Kategori pemasukan: ${incomeCategories.join(', ')}.
 Kategori pengeluaran: ${expenseCategories.join(', ')}.
 Rekening: ${accountNames.join(', ')}.
@@ -208,29 +303,10 @@ Jika ragu, gunakan kategori "Lain-lain" dan rekening "Tunai".`
     throw new Error('AI mengembalikan format yang tidak valid. Coba tulis ulang dengan lebih jelas.')
   }
 
-  const object = parsed as Record<string, unknown>
-  const type = normalizeType(object.type)
-  const amount = Number(object.amount)
-
-  if (!type) throw new Error('AI tidak dapat menentukan jenis transaksi.')
-  if (!Number.isFinite(amount) || amount <= 0) throw new Error('AI tidak dapat menentukan nominal.')
   if (!text.trim()) throw new Error('Tulis dulu transaksinya.')
-
-  const categoryName = String(object.categoryName ?? '').trim()
-  const accountName = String(object.accountName ?? '').trim()
-  const occurredAt = /^\d{4}-\d{2}-\d{2}$/.test(String(object.occurredAt))
-    ? String(object.occurredAt)
-    : today
-  const note = String(object.note ?? '').slice(0, 120)
-
-  return {
-    type,
-    amount: Math.round(amount),
-    categoryName,
-    accountName,
-    occurredAt,
-    note,
-  }
+  const entry = readAiEntry(parsed as Record<string, unknown>, today)
+  if (!entry) throw new Error('AI tidak dapat menentukan jenis atau nominal transaksi.')
+  return entry
 }
 
 export async function chatTransactionWithGroq(
@@ -254,16 +330,19 @@ Balas HANYA objek JSON valid tanpa markdown dengan schema:
 {"reply":string,"transaction":null}
 atau
 {"reply":string,"transaction":{"type":"income"|"expense","amount":number,"categoryName":string,"accountName":string,"occurredAt":"YYYY-MM-DD","note":string}}
+atau untuk transfer antar rekening:
+{"reply":string,"transaction":{"type":"transfer","amount":number,"fromAccountName":string,"toAccountName":string,"occurredAt":"YYYY-MM-DD","note":string}}
 Aturan:
 - "reply" adalah jawaban untuk pengguna, maksimal 2 kalimat. Jangan menampilkan JSON di reply.
 - Jika nominal atau jenis transaksi belum bisa disimpulkan, tanyakan satu klarifikasi singkat dan isi "transaction": null. Jangan mengarang nominal.
 - Jika informasi sudah cukup atau pengguna mengonfirmasi, isi "transaction" dengan data final.
-- "type" wajib "income" untuk pemasukan, "expense" untuk pengeluaran.
+- "type" wajib "income" untuk pemasukan, "expense" untuk pengeluaran, "transfer" untuk pindah uang antar rekening sendiri.
 - "amount" angka bulat positif dalam Rupiah, tanpa titik/koma.
 - "categoryName" wajib salah satu dari daftar kategori sesuai type.
 - "accountName" wajib salah satu dari daftar rekening.
 - "occurredAt" format YYYY-MM-DD. Jika tidak disebut, gunakan ${today}.
 - "note" ringkas, maksimal 80 karakter.
+${TRANSFER_RULES}
 - Jika kategori tidak disebut, gunakan "Lain-lain" sesuai type.
 - Jika rekening tidak disebut, gunakan "Tunai".
 - Jika pengguna mengoreksi data, perbarui "transaction" sesuai koreksi.
@@ -312,32 +391,22 @@ Rekening: ${accountNames.join(', ')}.`
   const reply = String(object.reply ?? '').trim()
   const rawDraft = object.transaction
   let draft: AiDraft | null = null
+  let transfer: AiTransferDraft | null = null
 
   if (rawDraft && typeof rawDraft === 'object' && !Array.isArray(rawDraft)) {
-    const transaction = rawDraft as Record<string, unknown>
-    const type = normalizeType(transaction.type)
-    const amount = Number(transaction.amount)
-    if (type && Number.isFinite(amount) && amount > 0) {
-      draft = {
-        type,
-        amount: Math.round(amount),
-        categoryName: String(transaction.categoryName ?? '').trim(),
-        accountName: String(transaction.accountName ?? '').trim(),
-        occurredAt: /^\d{4}-\d{2}-\d{2}$/.test(String(transaction.occurredAt))
-          ? String(transaction.occurredAt)
-          : today,
-        note: String(transaction.note ?? '').slice(0, 120),
-      }
-    }
+    const entry = readAiEntry(rawDraft as Record<string, unknown>, today)
+    if (entry?.kind === 'transaction') draft = entry.draft
+    if (entry?.kind === 'transfer') transfer = entry.transfer
   }
 
-  if (!reply && !draft) {
+  if (!reply && !draft && !transfer) {
     throw new Error('AI tidak memberi jawaban. Coba kirim pesan lagi.')
   }
 
   return {
     reply: reply || 'Baik, transaksinya sudah siap. Periksa dulu sebelum disimpan.',
     draft,
+    transfer,
   }
 }
 

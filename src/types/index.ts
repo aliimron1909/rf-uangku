@@ -258,6 +258,15 @@ export interface AiDraft {
   note: string
 }
 
+/** Transfer antar rekening hasil pemahaman AI (nama rekening belum dicocokkan). */
+export interface AiTransferDraft {
+  amount: number
+  fromAccountName: string
+  toAccountName: string
+  occurredAt: string
+  note: string
+}
+
 export interface TrendPoint {
   key: string
   label: string

@@ -18,8 +18,10 @@ import { formatRupiah } from '../../lib/format'
 import {
   chatTransactionWithGroq,
   resolveAiDraft,
+  resolveAiTransfer,
   type GroqChatMessage,
   type ResolvedAiDraft,
+  type ResolvedAiTransfer,
 } from '../../lib/groq'
 import { cn, errorMessage } from '../../lib/utils'
 import { Button } from '../ui/Button'
@@ -32,6 +34,8 @@ interface AiChatModalProps {
   categories: Category[]
   onApplyDraft: (draft: ResolvedAiDraft) => void
   onSaveDraft: (draft: ResolvedAiDraft) => Promise<void>
+  onApplyTransfer: (transfer: ResolvedAiTransfer) => void
+  onSaveTransfer: (transfer: ResolvedAiTransfer) => Promise<void>
 }
 
 const greeting: GroqChatMessage = {
@@ -44,7 +48,7 @@ const examples = [
   'Makan siang 25rb pakai Gopay',
   'Gaji 5jt masuk BCA',
   'Bensin 50rb Tunai',
-  'Kopi 18rb tadi pagi',
+  'Top up Gopay 50rb dari BCA',
 ]
 
 export function AiChatModal({
@@ -54,6 +58,8 @@ export function AiChatModal({
   categories,
   onApplyDraft,
   onSaveDraft,
+  onApplyTransfer,
+  onSaveTransfer,
 }: AiChatModalProps) {
   const apiKey = useSetting<string>('groqKey', '')
   const model = useSetting<string>('groqModel', DEFAULT_GROQ_MODEL)
@@ -63,13 +69,14 @@ export function AiChatModal({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [draft, setDraft] = useState<ResolvedAiDraft | null>(null)
+  const [transferDraft, setTransferDraft] = useState<ResolvedAiTransfer | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     const element = scrollRef.current
     if (element) element.scrollTop = element.scrollHeight
-  }, [messages, loading, draft, error])
+  }, [messages, loading, draft, transferDraft, error])
 
   useEffect(() => {
     if (!open) return
@@ -82,6 +89,7 @@ export function AiChatModal({
     setInput('')
     setError('')
     setDraft(null)
+    setTransferDraft(null)
     setLoading(false)
     setSaving(false)
   }
@@ -99,6 +107,7 @@ export function AiChatModal({
     setInput('')
     setError('')
     setDraft(null)
+    setTransferDraft(null)
     setLoading(true)
 
     try {
@@ -109,6 +118,16 @@ export function AiChatModal({
         accounts,
       })
       setMessages([...nextMessages, { role: 'assistant', content: result.reply }])
+      if (result.transfer) {
+        const resolvedTransfer = resolveAiTransfer(result.transfer, accounts)
+        if (resolvedTransfer) {
+          setTransferDraft({ ...resolvedTransfer, note: result.transfer.note })
+        } else {
+          setError(
+            'AI memahami ini sebagai transfer, tetapi rekening asal atau tujuannya tidak cocok. Sebutkan nama rekening dengan jelas.',
+          )
+        }
+      }
       if (result.draft) {
         const resolved = resolveAiDraft(result.draft, accounts, categories)
         if (resolved) {
@@ -145,6 +164,31 @@ export function AiChatModal({
     }
   }
 
+  async function handleSaveTransfer() {
+    if (!transferDraft || saving) return
+    setSaving(true)
+    setError('')
+    try {
+      await onSaveTransfer(transferDraft)
+      setTransferDraft(null)
+      setInput('')
+      setMessages((current) => [
+        ...current,
+        { role: 'assistant', content: 'Transfer berhasil disimpan. Ada lagi yang ingin dicatat?' },
+      ])
+    } catch (caught) {
+      setError(errorMessage(caught))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function handleApplyTransfer() {
+    if (!transferDraft) return
+    onApplyTransfer(transferDraft)
+    setTransferDraft(null)
+  }
+
   function handleApply() {
     if (!draft) return
     onApplyDraft(draft)
@@ -156,6 +200,13 @@ export function AiChatModal({
     : ''
   const draftAccount = draft
     ? accounts.find((account) => account.id === draft.accountId)?.name ?? 'Rekening'
+    : ''
+
+  const transferFrom = transferDraft
+    ? accounts.find((account) => account.id === transferDraft.fromAccountId)?.name ?? 'Rekening'
+    : ''
+  const transferTo = transferDraft
+    ? accounts.find((account) => account.id === transferDraft.toAccountId)?.name ?? 'Rekening'
     : ''
 
   const footer = apiKey ? (
@@ -270,7 +321,7 @@ export function AiChatModal({
               )
             })}
 
-            {messages.length === 1 && !loading && !draft && (
+            {messages.length === 1 && !loading && !draft && !transferDraft && (
               <div className="flex flex-wrap gap-1.5 pl-9">
                 {examples.map((example) => (
                   <button
@@ -357,6 +408,65 @@ export function AiChatModal({
                     size="sm"
                     variant="outline"
                     onClick={() => void handleSaveDirect()}
+                    loading={saving}
+                    className="flex-1"
+                  >
+                    {!saving && <Check className="h-4 w-4" />}
+                    Simpan langsung
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {transferDraft && (
+              <div className="ml-9 rounded-2xl border border-sky-200 bg-sky-50/80 p-3.5 dark:border-sky-900 dark:bg-sky-950/30">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-bold uppercase tracking-wide text-sky-700 dark:text-sky-300">
+                    Draft transfer
+                  </p>
+                  <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+                    Transfer
+                  </span>
+                </div>
+                <p className="mt-1 text-xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">
+                  {formatRupiah(transferDraft.amount)}
+                </p>
+                <dl className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <dt className="text-slate-500 dark:text-slate-400">Dari</dt>
+                    <dd className="font-semibold text-slate-800 dark:text-slate-200">
+                      {transferFrom}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-500 dark:text-slate-400">Ke</dt>
+                    <dd className="font-semibold text-slate-800 dark:text-slate-200">
+                      {transferTo}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-500 dark:text-slate-400">Tanggal</dt>
+                    <dd className="font-semibold text-slate-800 dark:text-slate-200">
+                      {formatDate(transferDraft.occurredAt)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-500 dark:text-slate-400">Catatan</dt>
+                    <dd className="font-semibold text-slate-800 dark:text-slate-200">
+                      {transferDraft.note || '—'}
+                    </dd>
+                  </div>
+                </dl>
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                  <Button type="button" size="sm" onClick={handleApplyTransfer} className="flex-1">
+                    <Wand2 className="h-4 w-4" />
+                    Periksa di form
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void handleSaveTransfer()}
                     loading={saving}
                     className="flex-1"
                   >
