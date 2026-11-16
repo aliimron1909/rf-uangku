@@ -50,6 +50,8 @@ Di Vercel: **Project → Settings → Environment Variables**, tambahkan:
 | `VITE_SUPABASE_URL` | Project URL (mis. `https://abcd1234.supabase.co`) |
 | `VITE_SUPABASE_ANON_KEY` | anon public key |
 
+Jika Anda memakai integrasi Supabase di Vercel, variabel `NEXT_PUBLIC_SUPABASE_URL` dan `NEXT_PUBLIC_SUPABASE_ANON_KEY` yang dibuatnya juga dikenali, jadi langkah ini bisa dilewati. Jangan pernah menamai ulang `SUPABASE_SERVICE_ROLE_KEY` dengan awalan `VITE_` atau `NEXT_PUBLIC_`.
+
 Lalu **Redeploy**. Untuk pengembangan lokal, salin `.env.example` menjadi `.env.local`.
 
 ### 6. Pakai di aplikasi
