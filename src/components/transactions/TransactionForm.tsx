@@ -3,13 +3,16 @@ import { ArrowDownLeft, ArrowUpRight, Save } from 'lucide-react'
 import type { Transaction, TxType } from '../../types'
 import { useAccounts, useAllAccounts } from '../../hooks/useAccounts'
 import { useCategories, useAllCategories } from '../../hooks/useCategories'
-import { createTransaction, updateTransaction } from '../../db/transactions'
+import { saveTransaction } from '../../db/transactions'
+import { useTransactions } from '../../hooks/useTransactions'
+import { collectTags } from '../../lib/tags'
+import { splitIssue, splitMembers } from '../../lib/split'
 import { createFavorite } from '../../db/favorites'
 import { FAVORITE_NAME_MAX_LENGTH, suggestFavoriteName } from '../../lib/favorites'
 import { todayISO } from '../../lib/dates'
 import { formatNumberInput, parseNumberInput } from '../../lib/format'
 import type { ResolvedAiDraft } from '../../lib/groq'
-import { errorMessage } from '../../lib/utils'
+import { createId, errorMessage } from '../../lib/utils'
 import { useToast } from '../../contexts/ToastContext'
 import { Button } from '../ui/Button'
 import { CurrencyInput } from '../ui/CurrencyInput'
@@ -17,6 +20,9 @@ import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
 import { Textarea } from '../ui/Textarea'
 import { AiQuickAdd } from './AiQuickAdd'
+import { ReceiptField } from './ReceiptField'
+import { SplitEditor, type SplitPartDraft } from './SplitEditor'
+import { TagInput } from './TagInput'
 
 interface TransactionFormProps {
   transaction?: Transaction | null
@@ -30,6 +36,7 @@ interface FormErrors {
   accountId?: string
   categoryId?: string
   occurredAt?: string
+  split?: string
 }
 
 export function TransactionForm({
@@ -43,13 +50,16 @@ export function TransactionForm({
   const categories = useCategories()
   const allCategories = useAllCategories()
   const { toast } = useToast()
+  const allTransactions = useTransactions()
+  const initialMembers = transaction ? splitMembers(transaction, allTransactions) : []
+  const initialTotal = initialMembers.reduce((sum, item) => sum + item.amount, 0)
 
   const [type, setType] = useState<TxType>(
     transaction?.type ?? initialDraft?.type ?? 'expense',
   )
   const [amountInput, setAmountInput] = useState(
     transaction
-      ? formatNumberInput(String(transaction.amount))
+      ? formatNumberInput(String(initialTotal || transaction.amount))
       : initialDraft
         ? formatNumberInput(String(initialDraft.amount))
         : '',
@@ -66,6 +76,19 @@ export function TransactionForm({
   const [note, setNote] = useState(transaction?.note ?? initialDraft?.note ?? '')
   const [errors, setErrors] = useState<FormErrors>({})
   const [saving, setSaving] = useState(false)
+  const [tags, setTags] = useState<string[]>(transaction?.tags ?? [])
+  const [receiptId, setReceiptId] = useState<string | undefined>(transaction?.receiptId)
+  const [newReceipt, setNewReceipt] = useState<string | undefined>(undefined)
+  const [splitMode, setSplitMode] = useState(initialMembers.length > 1)
+  const [parts, setParts] = useState<SplitPartDraft[]>(
+    initialMembers.length > 1
+      ? initialMembers.map((member) => ({
+          key: createId(),
+          categoryId: member.categoryId,
+          amountInput: formatNumberInput(String(member.amount)),
+        }))
+      : [],
+  )
   const [saveAsFavorite, setSaveAsFavorite] = useState(false)
   const [favoriteName, setFavoriteName] = useState('')
 
@@ -92,6 +115,28 @@ export function TransactionForm({
     return selected ? [...availableCategories, selected] : availableCategories
   }, [availableCategories, allCategories, categoryId, type])
 
+  const partCategories = useMemo(() => {
+    const used = new Set(parts.map((part) => part.categoryId).filter(Boolean))
+    const extra = allCategories.filter(
+      (category) =>
+        category.type === type &&
+        used.has(category.id) &&
+        !availableCategories.some((item) => item.id === category.id),
+    )
+    return [...availableCategories, ...extra]
+  }, [availableCategories, allCategories, parts, type])
+
+  function toggleSplit(enabled: boolean) {
+    setSplitMode(enabled)
+    if (enabled && parts.length < 2) {
+      setParts([
+        { key: createId(), categoryId: categoryId, amountInput: amountInput },
+        { key: createId(), categoryId: '', amountInput: '' },
+      ])
+    }
+    setErrors((current) => ({ ...current, split: undefined }))
+  }
+
   useEffect(() => {
     if (!accountId && accounts.length > 0) setAccountId(accounts[0].id)
   }, [accounts, accountId])
@@ -105,6 +150,7 @@ export function TransactionForm({
   function changeType(nextType: TxType) {
     if (nextType === type) return
     setType(nextType)
+    if (splitMode) setParts((current) => current.map((part) => ({ ...part, categoryId: '' })))
     const nextCategories = categories.filter((category) => category.type === nextType)
     if (!nextCategories.some((category) => category.id === categoryId)) {
       setCategoryId(nextCategories[0]?.id ?? '')
@@ -135,7 +181,17 @@ export function TransactionForm({
 
     if (!amount || amount <= 0) nextErrors.amount = 'Nominal harus lebih dari 0.'
     if (!accountId) nextErrors.accountId = 'Pilih rekening.'
-    if (!categoryId) nextErrors.categoryId = 'Pilih kategori.'
+    if (!categoryId && !splitMode) nextErrors.categoryId = 'Pilih kategori.'
+    const splitParts = splitMode
+      ? parts.map((part) => ({
+          categoryId: part.categoryId,
+          amount: parseNumberInput(part.amountInput),
+        }))
+      : undefined
+    if (splitParts && amount > 0) {
+      const issue = splitIssue(amount, splitParts)
+      if (issue) nextErrors.split = issue
+    }
     if (!occurredAt) nextErrors.occurredAt = 'Pilih tanggal.'
 
     if (Object.keys(nextErrors).length > 0) {
@@ -149,18 +205,17 @@ export function TransactionForm({
         type,
         amount,
         accountId,
-        categoryId,
+        categoryId: splitParts ? splitParts[0].categoryId : categoryId,
         occurredAt,
         note: note.trim(),
+        tags,
+        receiptId,
+        newReceiptDataUrl: newReceipt,
+        parts: splitParts,
       }
-      if (transaction) {
-        await updateTransaction(transaction.id, input)
-        toast('Transaksi berhasil diperbarui.')
-      } else {
-        await createTransaction(input)
-        toast('Transaksi berhasil disimpan.')
-      }
-      if (saveAsFavorite) {
+      await saveTransaction(transaction ?? null, input)
+      toast(transaction ? 'Transaksi berhasil diperbarui.' : 'Transaksi berhasil disimpan.')
+      if (saveAsFavorite && !splitParts) {
         try {
           const categoryName = allCategories.find((item) => item.id === categoryId)?.name ?? ''
           await createFavorite({
@@ -244,21 +299,42 @@ export function TransactionForm({
             </option>
           ))}
         </Select>
-        <Select
-          label="Kategori"
-          value={categoryId}
-          onChange={(event) => setCategoryId(event.target.value)}
-          error={errors.categoryId}
-        >
-          <option value="">Pilih kategori</option>
-          {categoryOptions.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-              {category.archived ? ' (arsip)' : ''}
-            </option>
-          ))}
-        </Select>
+        {!splitMode && (
+          <Select
+            label="Kategori"
+            value={categoryId}
+            onChange={(event) => setCategoryId(event.target.value)}
+            error={errors.categoryId}
+          >
+            <option value="">Pilih kategori</option>
+            {categoryOptions.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+                {category.archived ? ' (arsip)' : ''}
+              </option>
+            ))}
+          </Select>
+        )}
       </div>
+
+      <label className="flex cursor-pointer items-center gap-2.5 text-sm font-medium text-slate-700 dark:text-slate-300">
+        <input
+          type="checkbox"
+          checked={splitMode}
+          onChange={(event) => toggleSplit(event.target.checked)}
+          className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+        />
+        Pecah ke beberapa kategori (satu struk)
+      </label>
+      {splitMode && (
+        <SplitEditor
+          total={parseNumberInput(amountInput)}
+          parts={parts}
+          categories={partCategories}
+          onChange={setParts}
+          error={errors.split}
+        />
+      )}
 
       <Input
         label="Tanggal"
@@ -278,6 +354,18 @@ export function TransactionForm({
         className="min-h-20"
       />
 
+      <TagInput value={tags} onChange={setTags} suggestions={collectTags(allTransactions)} />
+
+      <ReceiptField
+        receiptId={receiptId}
+        newDataUrl={newReceipt}
+        onChange={(next) => {
+          setReceiptId(next.receiptId)
+          setNewReceipt(next.newDataUrl)
+        }}
+      />
+
+      {!splitMode && (
       <div className="rounded-xl bg-slate-50 px-3 py-2.5 dark:bg-slate-800/60">
         <label className="flex cursor-pointer items-center gap-2.5 text-sm font-medium text-slate-700 dark:text-slate-300">
           <input
@@ -303,6 +391,7 @@ export function TransactionForm({
           </div>
         )}
       </div>
+      )}
 
       <div className="flex justify-end gap-2 pt-1">
         <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>

@@ -1,10 +1,11 @@
-import { Pencil, RefreshCw, Trash2 } from 'lucide-react'
+import { Layers, Pencil, RefreshCw, Trash2 } from 'lucide-react'
 import { EntityIcon } from '../ui/EntityIcon'
 import { defaultCategoryIconKey } from '../../lib/icons'
 import type { TransactionWithRefs } from '../../types'
 import { formatDate } from '../../lib/dates'
 import { formatSignedRupiah } from '../../lib/format'
 import { Badge } from '../ui/Badge'
+import { ReceiptButton } from './ReceiptViewer'
 
 interface TransactionTableProps {
   transactions: TransactionWithRefs[]
@@ -57,6 +58,13 @@ export function TransactionTable({ transactions, onEdit, onDelete }: Transaction
                           Otomatis
                         </Badge>
                       )}
+                      {transaction.splitGroupId && (
+                        <Badge variant="neutral">
+                          <Layers className="h-3 w-3" />
+                          Split
+                        </Badge>
+                      )}
+                      {transaction.receiptId && <ReceiptButton receiptId={transaction.receiptId} />}
                     </div>
                   </div>
                 </div>
@@ -68,6 +76,18 @@ export function TransactionTable({ transactions, onEdit, onDelete }: Transaction
                 <p className="max-w-[240px] truncate text-xs text-slate-500 dark:text-slate-400">
                   {transaction.note || '-'}
                 </p>
+                {transaction.tags && transaction.tags.length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {transaction.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300"
+                      >
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </td>
               <td
                 className={`whitespace-nowrap px-4 py-3 text-right text-sm font-bold ${
