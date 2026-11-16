@@ -6,6 +6,7 @@ import {
   createTransaction,
   deleteTransaction,
   emptyTrash,
+  importTransactions,
   purgeExpiredTrash,
   restoreFromTrash,
   saveTransaction,
@@ -32,6 +33,15 @@ import { goalProgress, goalSaved } from '../src/lib/goals'
 import { debtAccountFlows, debtProgress } from '../src/lib/debts'
 import { createFavorite, deleteFavorite, undoFavoriteUse, updateFavorite, useFavorite } from '../src/db/favorites'
 import { favoriteIssue } from '../src/lib/favorites'
+import {
+  buildImportRows,
+  detectDelimiter,
+  detectHeaderRow,
+  guessMapping,
+  parseAmount,
+  parseCsv,
+  parseDate,
+} from '../src/lib/csvImport'
 import { evaluateBudgetAlerts } from '../src/lib/budgetAlerts'
 import { factsSignature, monthlyInsights } from '../src/lib/insights'
 import { deriveSyncKey, randomSalt, createSyncProfile, unlockSyncProfile } from '../src/lib/sync/crypto'
@@ -1324,6 +1334,106 @@ async function main() {
   await seedIfEmpty()
   const wrongKey = await deriveSyncKey('frasa-lain-12345', randomSalt())
   await assert.rejects(doSync(wrongKey), /Frasa sandi salah/)
+
+
+  // ---- Impor CSV ----
+  assert.equal(detectDelimiter('a;b;c\n1;2;3'), ';')
+  assert.deepEqual(parseCsv('a,b\n"x, y","say ""hi"""\r\n\r\n1,2'), [
+    ['a', 'b'],
+    ['x, y', 'say "hi"'],
+    ['1', '2'],
+  ])
+  assert.equal(parseDate('2026-11-05'), '2026-11-05')
+  assert.equal(parseDate('05/11/2026 13:45'), '2026-11-05')
+  assert.equal(parseDate('5-11-26'), '2026-11-05')
+  assert.equal(parseDate('5 Agu 2026'), '2026-08-05')
+  assert.equal(parseDate('12 December 2026'), '2026-12-12')
+  assert.equal(parseDate('31/02/2026'), null)
+  assert.equal(parseDate('abc'), null)
+  assert.equal(parseAmount('Rp 1.234.567'), 1234567)
+  assert.equal(parseAmount('1.234.567,89'), 1234568)
+  assert.equal(parseAmount('1,234,567.00'), 1234567)
+  assert.equal(parseAmount('-50.000'), -50000)
+  assert.equal(parseAmount('(25.000)'), -25000)
+  assert.equal(parseAmount('75.000 DB'), -75000)
+  assert.equal(parseAmount('150000'), 150000)
+  assert.equal(parseAmount('12,50'), 13)
+  assert.equal(parseAmount(''), null)
+  assert.equal(parseAmount('n/a'), null)
+
+  await resetMasterData()
+  const impAccount = DEFAULT_ACCOUNTS[0]
+  const impCats = DEFAULT_CATEGORIES
+  const impExpense = impCats.find((item) => item.type === 'expense' && /makan/i.test(item.name))!
+  const csvText = [
+    'Laporan Mutasi Rekening',
+    'Periode;Nov 2026;;',
+    'Tanggal;Keterangan;Debit;Kredit',
+    '05/11/2026;Makan siang warung;35.000;',
+    '06/11/2026;Gaji November;;5.000.000',
+    '07/11/2026;;;',
+    'tanggal rusak;Salah;10.000;',
+  ].join('\n')
+  const csvTable = parseCsv(csvText)
+  const csvHeader = detectHeaderRow(csvTable)
+  assert.equal(csvHeader, 2)
+  const csvMapping = guessMapping(csvTable[csvHeader])
+  assert.equal(csvMapping.date, 0)
+  assert.equal(csvMapping.description, 1)
+  assert.equal(csvMapping.debit, 2)
+  assert.equal(csvMapping.credit, 3)
+  await createTransaction({
+    type: 'expense',
+    amount: 20_000,
+    accountId: impAccount.id,
+    categoryId: impExpense.id,
+    occurredAt: '2026-10-01',
+    note: 'Makan siang warung',
+  })
+  const imported = buildImportRows(
+    csvTable,
+    { mapping: csvMapping, headerRow: csvHeader, positiveIsExpense: false, accountId: impAccount.id },
+    impCats,
+    await db.transactions.toArray(),
+  )
+  assert.equal(imported.rows.length, 2)
+  assert.equal(imported.skipped.length, 2)
+  assert.equal(imported.rows[0].type, 'expense')
+  assert.equal(imported.rows[0].amount, 35_000)
+  assert.equal(imported.rows[0].categoryId, impExpense.id) // dipelajari dari riwayat
+  assert.equal(imported.rows[1].type, 'income')
+  assert.equal(imported.rows[1].amount, 5_000_000)
+  assert.equal(imported.rows[0].duplicate, false)
+  const importedCount = await importTransactions(imported.rows, impAccount.id)
+  assert.equal(importedCount, 2)
+  assert.equal(await db.transactions.where('tags').equals('impor').count(), 2)
+  await assert.rejects(
+    importTransactions([{ ...imported.rows[0], categoryId: 'tidak-ada' }], impAccount.id),
+    /kategori/,
+  )
+  assert.equal(await db.transactions.where('tags').equals('impor').count(), 2)
+
+  const signedMapping = { date: 0, description: 1, amount: 2, debit: null, credit: null, type: null }
+  const signed = buildImportRows(
+    [
+      ['Tanggal', 'Keterangan', 'Jumlah'],
+      ['2026-10-01', 'Makan siang warung', '-20.000'],
+      ['2026-10-02', 'Transfer masuk', '100.000'],
+    ],
+    { mapping: signedMapping, headerRow: 0, positiveIsExpense: false, accountId: impAccount.id },
+    impCats,
+    await db.transactions.toArray(),
+  )
+  assert.equal(signed.rows[0].duplicate, true)
+  assert.equal(signed.rows[1].duplicate, false)
+  assert.equal(signed.rows[1].type, 'income')
+  const flipped = buildImportRows(
+    [['Tanggal', 'Keterangan', 'Jumlah'], ['2026-10-02', 'Belanja', '100.000']],
+    { mapping: signedMapping, headerRow: 0, positiveIsExpense: true, accountId: impAccount.id },
+    impCats,
+    [],
+  )
+  assert.equal(flipped.rows[0].type, 'expense')
 
   await db.delete()
   console.log('Semua verifikasi data lulus.')

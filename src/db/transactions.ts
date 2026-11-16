@@ -213,3 +213,45 @@ export async function purgeExpiredTrash(now: Date = new Date()): Promise<number>
   const cutoff = new Date(now.getTime() - TRASH_RETENTION_DAYS * 86_400_000).toISOString()
   return db.trash.where('deletedAt').below(cutoff).delete()
 }
+
+export interface ImportedRow {
+  date: string
+  description: string
+  amount: number
+  type: TxType
+  categoryId: string
+}
+
+/** Menyimpan banyak transaksi hasil impor sekaligus (semua berhasil atau tidak sama sekali). */
+export async function importTransactions(
+  rows: ImportedRow[],
+  accountId: string,
+  tags: string[] = ['impor'],
+): Promise<number> {
+  if (rows.length === 0) return 0
+  return db.transaction('rw', db.transactions, db.accounts, db.categories, async () => {
+    if (!(await db.accounts.get(accountId))) throw new Error('Rekening tujuan tidak ditemukan.')
+    const categoryIds = new Set(rows.map((row) => row.categoryId))
+    for (const id of categoryIds) {
+      if (!id || !(await db.categories.get(id))) {
+        throw new Error('Ada transaksi tanpa kategori yang valid. Pilih kategori untuk semua baris.')
+      }
+    }
+    const now = new Date().toISOString()
+    const normalizedTags = normalizeTags(tags)
+    const transactions: Transaction[] = rows.map((row) => ({
+      id: createId(),
+      type: row.type,
+      amount: row.amount,
+      accountId,
+      categoryId: row.categoryId,
+      occurredAt: row.date,
+      note: row.description,
+      ...(normalizedTags.length > 0 ? { tags: normalizedTags } : {}),
+      createdAt: now,
+      updatedAt: now,
+    }))
+    await db.transactions.bulkAdd(transactions)
+    return transactions.length
+  })
+}

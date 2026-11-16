@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, MessageCircle, Plus, SearchX, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, MessageCircle, Plus, FileUp, SearchX, Trash2 } from 'lucide-react'
 import type { Transaction, TransactionWithRefs } from '../types'
 import { useTransactions } from '../hooks/useTransactions'
 import { useAllAccounts } from '../hooks/useAccounts'
@@ -11,6 +11,7 @@ import { splitMembers } from '../lib/split'
 import { createTransaction, deleteTransaction, restoreFromTrash } from '../db/transactions'
 import { useTrash } from '../hooks/useTrash'
 import { TrashModal } from '../components/transactions/TrashModal'
+import { ImportCsvModal } from '../components/transactions/ImportCsvModal'
 import type { ResolvedAiDraft } from '../lib/groq'
 import { errorMessage } from '../lib/utils'
 import { formatRupiah } from '../lib/format'
@@ -54,6 +55,7 @@ export function TransactionsPage() {
   const [deleting, setDeleting] = useState<TransactionWithRefs | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [trashOpen, setTrashOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const trashItems = useTrash()
 
   useEffect(() => {
@@ -202,6 +204,10 @@ export function TransactionsPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => setImportOpen(true)}>
+            <FileUp className="h-4 w-4" />
+            Impor
+          </Button>
           <Button variant="outline" onClick={() => setTrashOpen(true)}>
             <Trash2 className="h-4 w-4" />
             Sampah{trashItems.length > 0 ? ` (${trashItems.length})` : ''}
@@ -348,6 +354,7 @@ export function TransactionsPage() {
         onSaveDraft={handleChatSave}
       />
 
+      <ImportCsvModal open={importOpen} existing={transactions} onClose={() => setImportOpen(false)} />
       <TrashModal open={trashOpen} items={trashItems} onClose={() => setTrashOpen(false)} />
 
       <ConfirmDialog
