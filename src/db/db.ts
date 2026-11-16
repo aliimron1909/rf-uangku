@@ -8,6 +8,7 @@ import type {
   Favorite,
   Goal,
   GoalContribution,
+  Receipt,
   RecurringTransaction,
   SettingRow,
   Transaction,
@@ -28,6 +29,7 @@ class UangkuDB extends Dexie {
   debts!: Table<Debt, string>
   debtPayments!: Table<DebtPayment, string>
   favorites!: Table<Favorite, string>
+  receipts!: Table<Receipt, string>
 
   constructor() {
     super('rf-uangku')
@@ -71,6 +73,12 @@ class UangkuDB extends Dexie {
     // v6: template transaksi favorit.
     this.version(6).stores({
       favorites: 'id, useCount, lastUsedAt, accountId, categoryId',
+    })
+    // v7: tag (multiEntry), split transaksi, dan foto struk.
+    this.version(7).stores({
+      transactions:
+        'id, occurredAt, type, accountId, categoryId, updatedAt, recurringId, splitGroupId, receiptId, *tags, [type+occurredAt], [accountId+occurredAt]',
+      receipts: 'id, createdAt',
     })
   }
 }

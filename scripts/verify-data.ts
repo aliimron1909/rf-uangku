@@ -2,7 +2,14 @@ import 'fake-indexeddb/auto'
 import assert from 'node:assert/strict'
 import { db } from '../src/db/db'
 import { DEFAULT_ACCOUNTS, DEFAULT_CATEGORIES, resetMasterData, seedIfEmpty } from '../src/db/seed'
-import { createTransaction, deleteTransaction, updateTransaction } from '../src/db/transactions'
+import {
+  createTransaction,
+  deleteTransaction,
+  saveTransaction,
+  updateTransaction,
+} from '../src/db/transactions'
+import { collectTags, normalizeTag, parseTagInput } from '../src/lib/tags'
+import { splitIssue } from '../src/lib/split'
 import { stopBudget, upsertBudget } from '../src/db/budgets'
 import {
   addGoalContribution,
@@ -274,7 +281,7 @@ async function main() {
   const backup = await buildBackup()
   validateBackup(backup)
   assert.equal(backup.app, 'rf-uangku')
-  assert.equal(backup.version, 7)
+  assert.equal(backup.version, 8)
   assert.equal(backup.transfers?.length, 1)
   assert.throws(
     () =>
@@ -507,7 +514,7 @@ async function main() {
   // Backup memuat riwayat budget (v4); file lama tanpa bulan mulai tetap bisa dipulihkan.
   const withHistory = await buildBackup()
   validateBackup(withHistory)
-  assert.equal(withHistory.version, 7)
+  assert.equal(withHistory.version, 8)
   assert.equal(withHistory.budgets?.length, rows.length)
   assert.throws(
     () =>
@@ -739,7 +746,7 @@ async function main() {
   // Backup v5 memuat target tabungan dan hutang/piutang.
   const withPlans = await buildBackup()
   validateBackup(withPlans)
-  assert.equal(withPlans.version, 7)
+  assert.equal(withPlans.version, 8)
   assert.equal(withPlans.goals?.length, 1)
   assert.equal(withPlans.goalContributions?.length, 1)
   assert.equal(withPlans.debts?.length, 1)
@@ -999,6 +1006,153 @@ async function main() {
   assert.equal(monthlyInsights([], insCats, '2026-11', '2026-11-15').insights.length, 0)
   assert.equal(factsSignature(ins.facts), factsSignature(structuredClone(ins.facts)))
   assert.notEqual(factsSignature(ins.facts), factsSignature({ ...ins.facts, expense: 1 }))
+
+
+  // ---- Tag, split, dan foto struk ----
+  assert.equal(normalizeTag('  #Liburan Bali! '), 'liburan-bali')
+  assert.deepEqual(parseTagInput('Kantor, #kantor; Dinas Luar\n'), ['kantor', 'dinas-luar'])
+  assert.equal(splitIssue(100, [{ categoryId: 'a', amount: 60 }]), 'Pecahan minimal dua kategori.')
+  assert.match(
+    splitIssue(100, [
+      { categoryId: 'a', amount: 60 },
+      { categoryId: 'b', amount: 30 },
+    ])!,
+    /kurang/,
+  )
+  assert.match(
+    splitIssue(100, [
+      { categoryId: 'a', amount: 60 },
+      { categoryId: 'a', amount: 40 },
+    ])!,
+    /sekali/,
+  )
+
+  await resetMasterData()
+  const sAccount = DEFAULT_ACCOUNTS[0]
+  const sCats = DEFAULT_CATEGORIES.filter((item) => item.type === 'expense')
+  const receiptUrl = 'data:image/jpeg;base64,/9j/AAAA'
+  const splitRows = await saveTransaction(null, {
+    type: 'expense',
+    amount: 150_000,
+    accountId: sAccount.id,
+    categoryId: sCats[0].id,
+    occurredAt: '2026-11-10',
+    note: 'Belanja bulanan',
+    tags: ['Rumah', 'rumah', 'Bulanan'],
+    newReceiptDataUrl: receiptUrl,
+    parts: [
+      { categoryId: sCats[0].id, amount: 100_000 },
+      { categoryId: sCats[1].id, amount: 50_000 },
+    ],
+  })
+  assert.equal(splitRows.length, 2)
+  assert.equal(new Set(splitRows.map((row) => row.splitGroupId)).size, 1)
+  assert.ok(splitRows[0].splitGroupId)
+  assert.deepEqual(splitRows[0].tags, ['rumah', 'bulanan'])
+  assert.equal(splitRows[0].receiptId, splitRows[1].receiptId)
+  assert.equal(await db.receipts.count(), 1)
+  assert.equal(await db.transactions.where('tags').equals('rumah').count(), 2)
+  assert.deepEqual(collectTags(await db.transactions.toArray()).map((item) => item.tag), ['bulanan', 'rumah'])
+  await assert.rejects(
+    saveTransaction(null, {
+      type: 'expense',
+      amount: 100,
+      accountId: sAccount.id,
+      categoryId: sCats[0].id,
+      occurredAt: '2026-11-10',
+      parts: [
+        { categoryId: sCats[0].id, amount: 60 },
+        { categoryId: sCats[1].id, amount: 30 },
+      ],
+    }),
+    /kurang/,
+  )
+  assert.equal(await db.transactions.count(), 2)
+
+  // Backup menyertakan struk & split, lalu bisa dipulihkan.
+  const splitBackup = await buildBackup()
+  assert.equal(splitBackup.receipts?.length, 1)
+  validateBackup(JSON.parse(JSON.stringify(splitBackup)))
+  assert.throws(
+    () =>
+      validateBackup({
+        ...splitBackup,
+        transactions: splitBackup.transactions.map((row) => ({ ...row, receiptId: 'hilang' })),
+      }),
+    /foto struk/,
+  )
+  assert.throws(
+    () =>
+      validateBackup({
+        ...splitBackup,
+        receipts: [{ ...splitBackup.receipts![0], dataUrl: 'javascript:alert(1)' }],
+      }),
+    /foto struk/,
+  )
+
+  // Ubah split menjadi nominal berbeda dengan struk yang sama: grup dipertahankan, struk tidak yatim.
+  const groupId = splitRows[0].splitGroupId
+  const kept = await saveTransaction(splitRows[0], {
+    type: 'expense',
+    amount: 200_000,
+    accountId: sAccount.id,
+    categoryId: sCats[0].id,
+    occurredAt: '2026-11-10',
+    note: 'Belanja bulanan',
+    tags: ['rumah'],
+    receiptId: splitRows[0].receiptId,
+    parts: [
+      { categoryId: sCats[0].id, amount: 120_000 },
+      { categoryId: sCats[1].id, amount: 80_000 },
+    ],
+  })
+  assert.equal(kept[0].splitGroupId, groupId)
+  assert.equal(await db.transactions.count(), 2)
+  assert.equal(await db.receipts.count(), 1)
+
+  // Menggabungkan kembali menjadi satu transaksi biasa dan mengganti struk.
+  const merged = await saveTransaction(kept[0], {
+    type: 'expense',
+    amount: 200_000,
+    accountId: sAccount.id,
+    categoryId: sCats[0].id,
+    occurredAt: '2026-11-10',
+    newReceiptDataUrl: 'data:image/jpeg;base64,/9j/BBBB',
+  })
+  assert.equal(merged.length, 1)
+  assert.equal(merged[0].splitGroupId, undefined)
+  assert.equal(merged[0].tags, undefined)
+  assert.equal(await db.transactions.count(), 1)
+  assert.equal(await db.receipts.count(), 1)
+  assert.equal((await db.receipts.toArray())[0].dataUrl.endsWith('BBBB'), true)
+
+  // Menghapus transaksi terakhir ikut menghapus struknya.
+  await deleteTransaction(merged[0].id)
+  assert.equal(await db.receipts.count(), 0)
+
+  // Menghapus satu bagian split menghapus seluruh grup.
+  const again2 = await saveTransaction(null, {
+    type: 'expense',
+    amount: 90,
+    accountId: sAccount.id,
+    categoryId: sCats[0].id,
+    occurredAt: '2026-11-10',
+    parts: [
+      { categoryId: sCats[0].id, amount: 40 },
+      { categoryId: sCats[1].id, amount: 50 },
+    ],
+  })
+  await deleteTransaction(again2[0].id)
+  assert.equal(await db.transactions.count(), 0)
+
+  // Restore backup dengan struk & split.
+  await restoreBackup(JSON.parse(JSON.stringify(splitBackup)))
+  assert.equal(await db.transactions.count(), 2)
+  assert.equal(await db.receipts.count(), 1)
+  const oldBackup = { ...splitBackup, version: 7 as const, receipts: undefined, transactions: splitBackup.transactions.map(({ receiptId: _r, ...row }) => row) }
+  validateBackup(oldBackup)
+  await restoreBackup(oldBackup)
+  assert.equal(await db.receipts.count(), 0)
 
   await db.delete()
   console.log('Semua verifikasi data lulus.')

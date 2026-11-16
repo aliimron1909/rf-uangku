@@ -424,7 +424,8 @@ export function SettingsPage() {
 
   async function handleClearTransactions() {
     try {
-      await db.transaction('rw', db.transactions, db.transfers, async () => {
+      await db.transaction('rw', db.transactions, db.transfers, db.receipts, async () => {
+        await db.receipts.clear()
         await db.transactions.clear()
         await db.transfers.clear()
       })

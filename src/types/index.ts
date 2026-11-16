@@ -40,8 +40,21 @@ export interface Transaction {
   occurredAt: string
   note?: string
   recurringId?: string
+  /** Label bebas (huruf kecil, tanpa spasi), mis. "liburan-bali". */
+  tags?: string[]
+  /** Transaksi dengan ID grup sama berasal dari satu struk yang dipecah ke beberapa kategori. */
+  splitGroupId?: string
+  /** Foto struk (tabel receipts); dipakai bersama oleh semua bagian split. */
+  receiptId?: string
   createdAt: string
   updatedAt: string
+}
+
+export interface Receipt {
+  id: string
+  /** Gambar terkompres sebagai data URL (JPEG/WebP). */
+  dataUrl: string
+  createdAt: string
 }
 
 export interface TransactionWithRefs extends Transaction {
@@ -201,7 +214,7 @@ export interface ProfileBackup {
 
 export interface BackupData {
   app: 'rf-uangku'
-  version: 1 | 2 | 3 | 4 | 5 | 6 | 7
+  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
   exportedAt: string
   accounts: Account[]
   categories: Category[]
@@ -214,6 +227,7 @@ export interface BackupData {
   debts?: Debt[]
   debtPayments?: DebtPayment[]
   favorites?: Favorite[]
+  receipts?: Receipt[]
   profile?: ProfileBackup
 }
 

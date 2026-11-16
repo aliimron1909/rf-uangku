@@ -10,6 +10,7 @@ import type {
   Goal,
   GoalContribution,
   ProfileBackup,
+  Receipt,
   RecurringTransaction,
   Transaction,
   Transfer,
@@ -19,6 +20,8 @@ import { isMonthKey } from '../lib/dates'
 import { isIsoDate } from '../lib/dateMath'
 import { FAVORITE_NAME_MAX_LENGTH } from '../lib/favorites'
 import { ICON_KEY_MAX_LENGTH } from '../lib/icons'
+import { isReceiptDataUrl } from '../lib/receipts'
+import { isValidTagList } from '../lib/tags'
 import { PROFILE_PHOTO_MAX_DATA_URL_LENGTH } from '../lib/profile'
 
 export async function buildBackup(): Promise<BackupData> {
@@ -35,7 +38,7 @@ export async function buildBackup(): Promise<BackupData> {
 
   return {
     app: 'rf-uangku',
-    version: 7,
+    version: 8,
     exportedAt: new Date().toISOString(),
     accounts: await db.accounts.toArray(),
     categories: await db.categories.toArray(),
@@ -48,6 +51,7 @@ export async function buildBackup(): Promise<BackupData> {
     debts: await db.debts.toArray(),
     debtPayments: await db.debtPayments.toArray(),
     favorites: await db.favorites.toArray(),
+    receipts: await db.receipts.toArray(),
     ...(profile ? { profile } : {}),
   }
 }
@@ -107,6 +111,18 @@ function isTransactionRow(value: unknown): boolean {
     typeof value.categoryId === 'string' &&
     isDateString(value.occurredAt) &&
     (value.recurringId === undefined || typeof value.recurringId === 'string') &&
+    (value.tags === undefined || isValidTagList(value.tags)) &&
+    (value.splitGroupId === undefined || typeof value.splitGroupId === 'string') &&
+    (value.receiptId === undefined || typeof value.receiptId === 'string') &&
+    typeof value.createdAt === 'string'
+  )
+}
+
+function isReceiptRow(value: unknown): boolean {
+  if (!isRecord(value)) return false
+  return (
+    typeof value.id === 'string' &&
+    isReceiptDataUrl(value.dataUrl) &&
     typeof value.createdAt === 'string'
   )
 }
@@ -278,7 +294,8 @@ export function validateBackup(value: unknown): asserts value is BackupData {
     data.version !== 4 &&
     data.version !== 5 &&
     data.version !== 6 &&
-    data.version !== 7
+    data.version !== 7 &&
+    data.version !== 8
   ) {
     throw new Error('Versi file backup tidak didukung.')
   }
@@ -339,6 +356,11 @@ export function validateBackup(value: unknown): asserts value is BackupData {
       throw new Error('Data pembayaran hutang/piutang di file backup tidak valid.')
     }
   }
+  if (data.receipts !== undefined) {
+    if (!Array.isArray(data.receipts) || !data.receipts.every(isReceiptRow)) {
+      throw new Error('Data foto struk di file backup tidak valid.')
+    }
+  }
   if (data.favorites !== undefined) {
     if (!Array.isArray(data.favorites) || !data.favorites.every(isFavoriteRow)) {
       throw new Error('Data favorit di file backup tidak valid.')
@@ -355,6 +377,7 @@ export function validateBackup(value: unknown): asserts value is BackupData {
   const debts = data.debts ?? []
   const debtPayments = data.debtPayments ?? []
   const favorites = data.favorites ?? []
+  const receipts = data.receipts ?? []
   if (
     new Set(data.accounts.map((account) => account.id)).size !== data.accounts.length ||
     new Set(data.categories.map((category) => category.id)).size !== data.categories.length ||
@@ -370,7 +393,8 @@ export function validateBackup(value: unknown): asserts value is BackupData {
     new Set(goalContributions.map((item) => item.id)).size !== goalContributions.length ||
     new Set(debts.map((debt) => debt.id)).size !== debts.length ||
     new Set(debtPayments.map((payment) => payment.id)).size !== debtPayments.length ||
-    new Set(favorites.map((favorite) => favorite.id)).size !== favorites.length
+    new Set(favorites.map((favorite) => favorite.id)).size !== favorites.length ||
+    new Set(receipts.map((receipt) => receipt.id)).size !== receipts.length
   ) {
     throw new Error('File backup berisi ID ganda.')
   }
@@ -392,6 +416,11 @@ export function validateBackup(value: unknown): asserts value is BackupData {
     )
   ) {
     throw new Error('Transaksi di file backup merujuk rekening atau kategori yang tidak ada.')
+  }
+
+  const receiptIds = new Set(receipts.map((receipt) => receipt.id))
+  if (!data.transactions.every((item) => !item.receiptId || receiptIds.has(item.receiptId))) {
+    throw new Error('Transaksi di file backup merujuk foto struk yang tidak ada.')
   }
 
   if (
@@ -532,6 +561,7 @@ export async function restoreBackup(data: BackupData): Promise<void> {
     note: payment.note || '',
   }))
 
+  const receiptRows: Receipt[] = receipts.map((receipt) => ({ ...receipt }))
   const favoriteRows: Favorite[] = (data.favorites ?? []).map((favorite) => ({
     ...favorite,
     name: favorite.name.trim().slice(0, FAVORITE_NAME_MAX_LENGTH),
@@ -555,6 +585,7 @@ export async function restoreBackup(data: BackupData): Promise<void> {
       db.debts,
       db.debtPayments,
       db.favorites,
+      db.receipts,
       db.settings,
     ],
     async () => {
@@ -569,6 +600,7 @@ export async function restoreBackup(data: BackupData): Promise<void> {
       await db.debtPayments.clear()
       await db.debts.clear()
       await db.favorites.clear()
+      await db.receipts.clear()
       await db.accounts.bulkAdd(accounts)
       await db.categories.bulkAdd(categories)
       await db.transactions.bulkAdd(transactions)
@@ -584,6 +616,7 @@ export async function restoreBackup(data: BackupData): Promise<void> {
       if (debtRows.length > 0) await db.debts.bulkAdd(debtRows)
       if (debtPaymentRows.length > 0) await db.debtPayments.bulkAdd(debtPaymentRows)
       if (favoriteRows.length > 0) await db.favorites.bulkAdd(favoriteRows)
+      if (receiptRows.length > 0) await db.receipts.bulkAdd(receiptRows)
 
       if (data.profile) {
         await db.settings.put({ key: 'profileName', value: data.profile.name.trim() })
@@ -627,7 +660,7 @@ export function toCsv(
   const accountMap = new Map(accounts.map((account) => [account.id, account.name]))
   const categoryMap = new Map(categories.map((category) => [category.id, category.name]))
   const rows: string[][] = [
-    ['Tanggal', 'Jenis', 'Kategori', 'Rekening', 'Catatan', 'Nominal'],
+    ['Tanggal', 'Jenis', 'Kategori', 'Rekening', 'Catatan', 'Nominal', 'Tag', 'Split'],
     ...transactions.map((transaction) => [
       transaction.occurredAt,
       transaction.type === 'income' ? 'Pemasukan' : 'Pengeluaran',
@@ -635,6 +668,8 @@ export function toCsv(
       accountMap.get(transaction.accountId) ?? '',
       transaction.note ?? '',
       String(transaction.amount),
+      (transaction.tags ?? []).join(' '),
+      transaction.splitGroupId ? 'ya' : '',
     ]),
   ]
 
