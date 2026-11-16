@@ -12,6 +12,8 @@ import { AccountBalances } from '../components/dashboard/AccountBalances'
 import { BudgetOverview } from '../components/dashboard/BudgetOverview'
 import { TransferSection } from '../components/transfers/TransferSection'
 import { DebtReminders } from '../components/dashboard/DebtReminders'
+import { InsightsCard } from '../components/dashboard/InsightsCard'
+import { useAllCategories } from '../hooks/useCategories'
 
 export function DashboardPage() {
   const {
@@ -29,6 +31,7 @@ export function DashboardPage() {
     budget,
   } = useDashboardData()
   const { name: profileName } = useProfile()
+  const allCategories = useAllCategories()
   const lastBackupAt = useSetting<string>('lastBackupAt', '')
   const lastBackupDate = lastBackupAt ? new Date(lastBackupAt) : null
   const lastBackupValid = Boolean(lastBackupDate && !Number.isNaN(lastBackupDate.getTime()))
@@ -113,6 +116,8 @@ export function DashboardPage() {
       />
 
       <BudgetOverview progress={budgetItems} summary={budget} />
+
+      <InsightsCard transactions={transactions} categories={allCategories} monthLabel={month.label} />
 
       <CashflowChart
         data={trend.data}

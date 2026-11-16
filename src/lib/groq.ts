@@ -1,4 +1,5 @@
 import type { Account, AiDraft, Category, TxType } from '../types'
+import type { InsightFacts } from './insights'
 import { todayISO } from './dates'
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
@@ -362,4 +363,47 @@ export async function testGroq(apiKey: string, model: string): Promise<string> {
     choices?: Array<{ message?: { content?: string } }>
   }
   return body?.choices?.[0]?.message?.content?.trim() || 'OK'
+}
+
+/**
+ * Ringkasan insight bulanan. Hanya angka agregat (total dan nama kategori) yang dikirim;
+ * catatan, nama rekening, dan transaksi individual tidak pernah keluar dari perangkat.
+ */
+export async function summarizeInsightsWithGroq(options: {
+  apiKey: string
+  model: string
+  facts: InsightFacts
+  insights: string[]
+}): Promise<string> {
+  const response = await fetch(GROQ_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${options.apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: options.model,
+      temperature: 0.3,
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Kamu asisten keuangan pribadi berbahasa Indonesia. Tulis ringkasan 2-3 kalimat yang ramah dan konkret dari data yang diberikan, lalu satu saran praktis. Jangan mengarang angka yang tidak ada di data. Jangan memakai markdown.',
+        },
+        {
+          role: 'user',
+          content: JSON.stringify({ data: options.facts, temuan: options.insights }),
+        },
+      ],
+    }),
+  })
+
+  if (!response.ok) throw new Error(await readGroqError(response))
+
+  const body = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>
+  }
+  const text = body?.choices?.[0]?.message?.content?.trim()
+  if (!text) throw new Error('AI tidak mengembalikan ringkasan. Coba lagi.')
+  return text.slice(0, 800)
 }

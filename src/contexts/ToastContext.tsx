@@ -11,14 +11,25 @@ import { cn } from '../lib/utils'
 
 type ToastType = 'success' | 'error' | 'info'
 
+export interface ToastAction {
+  label: string
+  onClick: () => void
+}
+
 interface ToastItem {
   id: number
   message: string
   type: ToastType
+  action?: ToastAction
+}
+
+interface ToastOptions {
+  /** Tombol aksi di dalam toast, mis. "Urungkan". */
+  action?: ToastAction
 }
 
 interface ToastContextValue {
-  toast: (message: string, type?: ToastType) => void
+  toast: (message: string, type?: ToastType, options?: ToastOptions) => void
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null)
@@ -39,10 +50,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const toast = useCallback(
-    (message: string, type: ToastType = 'success') => {
+    (message: string, type: ToastType = 'success', options?: ToastOptions) => {
       const id = Date.now() + Math.random()
-      setToasts((current) => [...current, { id, message, type }])
-      window.setTimeout(() => remove(id), 4000)
+      setToasts((current) => [...current, { id, message, type, action: options?.action }])
+      window.setTimeout(() => remove(id), options?.action ? 7000 : 4000)
     },
     [remove],
   )
@@ -66,6 +77,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             {item.type === 'error' && <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />}
             {item.type === 'info' && <Info className="mt-0.5 h-5 w-5 shrink-0" />}
             <p className="flex-1 text-sm font-medium">{item.message}</p>
+            {item.action && (
+              <button
+                type="button"
+                onClick={() => {
+                  item.action?.onClick()
+                  remove(item.id)
+                }}
+                className="rounded-md px-2 py-0.5 text-sm font-bold underline underline-offset-2 transition hover:opacity-80"
+              >
+                {item.action.label}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => remove(item.id)}

@@ -1,8 +1,15 @@
 import 'fake-indexeddb/auto'
 import assert from 'node:assert/strict'
 import { db } from '../src/db/db'
-import { DEFAULT_ACCOUNTS, DEFAULT_CATEGORIES, seedIfEmpty } from '../src/db/seed'
-import { createTransaction, deleteTransaction, updateTransaction } from '../src/db/transactions'
+import { DEFAULT_ACCOUNTS, DEFAULT_CATEGORIES, resetMasterData, seedIfEmpty } from '../src/db/seed'
+import {
+  createTransaction,
+  deleteTransaction,
+  saveTransaction,
+  updateTransaction,
+} from '../src/db/transactions'
+import { collectTags, normalizeTag, parseTagInput } from '../src/lib/tags'
+import { splitIssue } from '../src/lib/split'
 import { stopBudget, upsertBudget } from '../src/db/budgets'
 import {
   addGoalContribution,
@@ -20,6 +27,11 @@ import {
 } from '../src/db/debts'
 import { goalProgress, goalSaved } from '../src/lib/goals'
 import { debtAccountFlows, debtProgress } from '../src/lib/debts'
+import { createFavorite, deleteFavorite, undoFavoriteUse, updateFavorite, useFavorite } from '../src/db/favorites'
+import { favoriteIssue } from '../src/lib/favorites'
+import { evaluateBudgetAlerts } from '../src/lib/budgetAlerts'
+import { factsSignature, monthlyInsights } from '../src/lib/insights'
+import type { BudgetProgress } from '../src/types'
 import {
   defaultAccountIconKey,
   defaultCategoryIconKey,
@@ -269,7 +281,7 @@ async function main() {
   const backup = await buildBackup()
   validateBackup(backup)
   assert.equal(backup.app, 'rf-uangku')
-  assert.equal(backup.version, 6)
+  assert.equal(backup.version, 8)
   assert.equal(backup.transfers?.length, 1)
   assert.throws(
     () =>
@@ -502,7 +514,7 @@ async function main() {
   // Backup memuat riwayat budget (v4); file lama tanpa bulan mulai tetap bisa dipulihkan.
   const withHistory = await buildBackup()
   validateBackup(withHistory)
-  assert.equal(withHistory.version, 6)
+  assert.equal(withHistory.version, 8)
   assert.equal(withHistory.budgets?.length, rows.length)
   assert.throws(
     () =>
@@ -734,7 +746,7 @@ async function main() {
   // Backup v5 memuat target tabungan dan hutang/piutang.
   const withPlans = await buildBackup()
   validateBackup(withPlans)
-  assert.equal(withPlans.version, 6)
+  assert.equal(withPlans.version, 8)
   assert.equal(withPlans.goals?.length, 1)
   assert.equal(withPlans.goalContributions?.length, 1)
   assert.equal(withPlans.debts?.length, 1)
@@ -878,6 +890,269 @@ async function main() {
   )
   await assert.rejects(decryptBackup({ ...envelope, iterations: 10 }, 'rahasia-123'), /tidak valid/)
   assert.throws(() => validateBackup(envelope), /terenkripsi/)
+
+
+  // ---- Template favorit ----
+  await resetMasterData()
+  const favAccount = DEFAULT_ACCOUNTS[0]
+  const favCategory = DEFAULT_CATEGORIES.find((item) => item.type === 'expense')!
+  const favorite = await createFavorite({
+    name: '  Kopi pagi  ',
+    type: 'expense',
+    amount: 18000,
+    accountId: favAccount.id,
+    categoryId: favCategory.id,
+    note: '',
+  })
+  assert.equal(favorite.name, 'Kopi pagi')
+  assert.equal(favorite.useCount, 0)
+  const favTx = await useFavorite(favorite.id)
+  assert.equal(favTx.amount, 18000)
+  assert.equal(favTx.note, 'Kopi pagi')
+  assert.equal((await db.favorites.get(favorite.id))?.useCount, 1)
+  await undoFavoriteUse(favorite.id, favTx.id)
+  assert.equal(await db.transactions.get(favTx.id), undefined)
+  assert.equal((await db.favorites.get(favorite.id))?.useCount, 0)
+  await updateFavorite(favorite.id, {
+    name: 'Kopi pagi',
+    type: 'expense',
+    amount: 20000,
+    accountId: favAccount.id,
+    categoryId: favCategory.id,
+  })
+  assert.equal((await db.favorites.get(favorite.id))?.amount, 20000)
+  assert.equal(
+    favoriteIssue(favorite, { ...favAccount, archived: true }, favCategory)?.length ? true : false,
+    true,
+  )
+  const favBackup = await buildBackup()
+  assert.equal(favBackup.favorites?.length, 1)
+  assert.doesNotThrow(() => validateBackup(JSON.parse(JSON.stringify(favBackup))))
+  assert.throws(
+    () =>
+      validateBackup({
+        ...favBackup,
+        favorites: [{ ...favBackup.favorites![0], accountId: 'tidak-ada' }],
+      }),
+    /favorit/i,
+  )
+  await restoreBackup(JSON.parse(JSON.stringify(favBackup)))
+  assert.equal(await db.favorites.count(), 1)
+  const noFavBackup = { ...favBackup, version: 6 as const, favorites: undefined }
+  validateBackup(noFavBackup)
+  await restoreBackup(noFavBackup)
+  assert.equal(await db.favorites.count(), 0)
+  await deleteFavorite(favorite.id)
+
+
+  // ---- Notifikasi budget ----
+  const row = (categoryId: string, percentage: number): BudgetProgress => ({
+    budgetId: `b-${categoryId}`,
+    categoryId,
+    categoryName: categoryId,
+    categoryColor: '#000',
+    limit: 100,
+    spent: percentage,
+    remaining: 100 - percentage,
+    percentage,
+    status: percentage >= 100 ? 'over' : percentage >= 80 ? 'warning' : 'safe',
+    effectiveFrom: '0000-00',
+  })
+  const first = evaluateBudgetAlerts([row('a', 90), row('b', 10)], '2026-11', undefined)
+  assert.equal(first.events.length, 0)
+  assert.deepEqual(first.nextSeen, ['2026-11|a|80'])
+  const same = evaluateBudgetAlerts([row('a', 95), row('b', 10)], '2026-11', first.nextSeen)
+  assert.equal(same.events.length, 0)
+  const crossed = evaluateBudgetAlerts([row('a', 105), row('b', 85)], '2026-11', first.nextSeen)
+  assert.deepEqual(crossed.events.map((e) => `${e.categoryId}:${e.threshold}`).sort(), ['a:100', 'b:80'])
+  const jump = evaluateBudgetAlerts([row('b', 120)], '2026-11', [])
+  assert.deepEqual(jump.events.map((e) => e.threshold), [100])
+  const dropped = evaluateBudgetAlerts([row('a', 50)], '2026-11', crossed.nextSeen)
+  assert.deepEqual(dropped.nextSeen, [])
+  const rearmed = evaluateBudgetAlerts([row('a', 82)], '2026-11', dropped.nextSeen)
+  assert.equal(rearmed.events.length, 1)
+  const newMonth = evaluateBudgetAlerts([row('a', 85)], '2026-12', rearmed.nextSeen)
+  assert.equal(newMonth.events.length, 1)
+
+
+  // ---- Insight bulanan ----
+  const insCats = [
+    { id: 'c-makan', name: 'Makan', type: 'expense' as const, color: '#000', createdAt: '' },
+    { id: 'c-gaji', name: 'Gaji', type: 'income' as const, color: '#000', createdAt: '' },
+  ]
+  const insTx = (id: string, categoryId: string, type: 'income' | 'expense', amount: number, occurredAt: string) => ({
+    id,
+    type,
+    amount,
+    accountId: 'x',
+    categoryId,
+    occurredAt,
+    note: '',
+    createdAt: '',
+    updatedAt: '',
+  })
+  const insData = [
+    insTx('1', 'c-makan', 'expense', 1_000_000, '2026-10-05'),
+    insTx('2', 'c-makan', 'expense', 900_000, '2026-10-25'), // di luar rentang hari yang sama
+    insTx('3', 'c-makan', 'expense', 1_300_000, '2026-11-08'),
+    insTx('4', 'c-gaji', 'income', 5_000_000, '2026-11-01'),
+  ]
+  const ins = monthlyInsights(insData, insCats, '2026-11', '2026-11-15', 'November 2026')
+  const up = ins.insights.find((item) => item.id === 'up-c-makan')
+  assert.ok(up, 'insight kenaikan kategori harus ada')
+  assert.match(up!.text, /naik 30%/)
+  assert.equal(ins.facts.previousExpenseSamePeriod, 1_000_000)
+  assert.ok(ins.insights.some((item) => item.id === 'saving-rate'))
+  assert.equal(monthlyInsights([], insCats, '2026-11', '2026-11-15').insights.length, 0)
+  assert.equal(factsSignature(ins.facts), factsSignature(structuredClone(ins.facts)))
+  assert.notEqual(factsSignature(ins.facts), factsSignature({ ...ins.facts, expense: 1 }))
+
+
+  // ---- Tag, split, dan foto struk ----
+  assert.equal(normalizeTag('  #Liburan Bali! '), 'liburan-bali')
+  assert.deepEqual(parseTagInput('Kantor, #kantor; Dinas Luar\n'), ['kantor', 'dinas-luar'])
+  assert.equal(splitIssue(100, [{ categoryId: 'a', amount: 60 }]), 'Pecahan minimal dua kategori.')
+  assert.match(
+    splitIssue(100, [
+      { categoryId: 'a', amount: 60 },
+      { categoryId: 'b', amount: 30 },
+    ])!,
+    /kurang/,
+  )
+  assert.match(
+    splitIssue(100, [
+      { categoryId: 'a', amount: 60 },
+      { categoryId: 'a', amount: 40 },
+    ])!,
+    /sekali/,
+  )
+
+  await resetMasterData()
+  const sAccount = DEFAULT_ACCOUNTS[0]
+  const sCats = DEFAULT_CATEGORIES.filter((item) => item.type === 'expense')
+  const receiptUrl = 'data:image/jpeg;base64,/9j/AAAA'
+  const splitRows = await saveTransaction(null, {
+    type: 'expense',
+    amount: 150_000,
+    accountId: sAccount.id,
+    categoryId: sCats[0].id,
+    occurredAt: '2026-11-10',
+    note: 'Belanja bulanan',
+    tags: ['Rumah', 'rumah', 'Bulanan'],
+    newReceiptDataUrl: receiptUrl,
+    parts: [
+      { categoryId: sCats[0].id, amount: 100_000 },
+      { categoryId: sCats[1].id, amount: 50_000 },
+    ],
+  })
+  assert.equal(splitRows.length, 2)
+  assert.equal(new Set(splitRows.map((row) => row.splitGroupId)).size, 1)
+  assert.ok(splitRows[0].splitGroupId)
+  assert.deepEqual(splitRows[0].tags, ['rumah', 'bulanan'])
+  assert.equal(splitRows[0].receiptId, splitRows[1].receiptId)
+  assert.equal(await db.receipts.count(), 1)
+  assert.equal(await db.transactions.where('tags').equals('rumah').count(), 2)
+  assert.deepEqual(collectTags(await db.transactions.toArray()).map((item) => item.tag), ['bulanan', 'rumah'])
+  await assert.rejects(
+    saveTransaction(null, {
+      type: 'expense',
+      amount: 100,
+      accountId: sAccount.id,
+      categoryId: sCats[0].id,
+      occurredAt: '2026-11-10',
+      parts: [
+        { categoryId: sCats[0].id, amount: 60 },
+        { categoryId: sCats[1].id, amount: 30 },
+      ],
+    }),
+    /kurang/,
+  )
+  assert.equal(await db.transactions.count(), 2)
+
+  // Backup menyertakan struk & split, lalu bisa dipulihkan.
+  const splitBackup = await buildBackup()
+  assert.equal(splitBackup.receipts?.length, 1)
+  validateBackup(JSON.parse(JSON.stringify(splitBackup)))
+  assert.throws(
+    () =>
+      validateBackup({
+        ...splitBackup,
+        transactions: splitBackup.transactions.map((row) => ({ ...row, receiptId: 'hilang' })),
+      }),
+    /foto struk/,
+  )
+  assert.throws(
+    () =>
+      validateBackup({
+        ...splitBackup,
+        receipts: [{ ...splitBackup.receipts![0], dataUrl: 'javascript:alert(1)' }],
+      }),
+    /foto struk/,
+  )
+
+  // Ubah split menjadi nominal berbeda dengan struk yang sama: grup dipertahankan, struk tidak yatim.
+  const groupId = splitRows[0].splitGroupId
+  const kept = await saveTransaction(splitRows[0], {
+    type: 'expense',
+    amount: 200_000,
+    accountId: sAccount.id,
+    categoryId: sCats[0].id,
+    occurredAt: '2026-11-10',
+    note: 'Belanja bulanan',
+    tags: ['rumah'],
+    receiptId: splitRows[0].receiptId,
+    parts: [
+      { categoryId: sCats[0].id, amount: 120_000 },
+      { categoryId: sCats[1].id, amount: 80_000 },
+    ],
+  })
+  assert.equal(kept[0].splitGroupId, groupId)
+  assert.equal(await db.transactions.count(), 2)
+  assert.equal(await db.receipts.count(), 1)
+
+  // Menggabungkan kembali menjadi satu transaksi biasa dan mengganti struk.
+  const merged = await saveTransaction(kept[0], {
+    type: 'expense',
+    amount: 200_000,
+    accountId: sAccount.id,
+    categoryId: sCats[0].id,
+    occurredAt: '2026-11-10',
+    newReceiptDataUrl: 'data:image/jpeg;base64,/9j/BBBB',
+  })
+  assert.equal(merged.length, 1)
+  assert.equal(merged[0].splitGroupId, undefined)
+  assert.equal(merged[0].tags, undefined)
+  assert.equal(await db.transactions.count(), 1)
+  assert.equal(await db.receipts.count(), 1)
+  assert.equal((await db.receipts.toArray())[0].dataUrl.endsWith('BBBB'), true)
+
+  // Menghapus transaksi terakhir ikut menghapus struknya.
+  await deleteTransaction(merged[0].id)
+  assert.equal(await db.receipts.count(), 0)
+
+  // Menghapus satu bagian split menghapus seluruh grup.
+  const again2 = await saveTransaction(null, {
+    type: 'expense',
+    amount: 90,
+    accountId: sAccount.id,
+    categoryId: sCats[0].id,
+    occurredAt: '2026-11-10',
+    parts: [
+      { categoryId: sCats[0].id, amount: 40 },
+      { categoryId: sCats[1].id, amount: 50 },
+    ],
+  })
+  await deleteTransaction(again2[0].id)
+  assert.equal(await db.transactions.count(), 0)
+
+  // Restore backup dengan struk & split.
+  await restoreBackup(JSON.parse(JSON.stringify(splitBackup)))
+  assert.equal(await db.transactions.count(), 2)
+  assert.equal(await db.receipts.count(), 1)
+  const oldBackup = { ...splitBackup, version: 7 as const, receipts: undefined, transactions: splitBackup.transactions.map(({ receiptId: _r, ...row }) => row) }
+  validateBackup(oldBackup)
+  await restoreBackup(oldBackup)
+  assert.equal(await db.receipts.count(), 0)
 
   await db.delete()
   console.log('Semua verifikasi data lulus.')

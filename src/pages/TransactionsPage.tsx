@@ -4,10 +4,10 @@ import { ChevronLeft, ChevronRight, MessageCircle, Plus, SearchX } from 'lucide-
 import type { Transaction, TransactionWithRefs } from '../types'
 import { useTransactions } from '../hooks/useTransactions'
 import { useAllAccounts } from '../hooks/useAccounts'
-import { useBudgets } from '../hooks/useBudgets'
 import { useAllCategories } from '../hooks/useCategories'
 import { computeTotals, withRefs } from '../lib/analytics'
-import { newExpenseBudgetAlert } from '../lib/budget'
+import { collectTags } from '../lib/tags'
+import { splitMembers } from '../lib/split'
 import { createTransaction, deleteTransaction } from '../db/transactions'
 import type { ResolvedAiDraft } from '../lib/groq'
 import { errorMessage } from '../lib/utils'
@@ -22,6 +22,7 @@ import { TransactionTable } from '../components/transactions/TransactionTable'
 import { TransactionCard } from '../components/transactions/TransactionCard'
 import { TransactionForm } from '../components/transactions/TransactionForm'
 import { AiChatModal } from '../components/transactions/AiChatModal'
+import { FavoritesBar } from '../components/favorites/FavoritesBar'
 
 const PAGE_SIZE = 15
     
@@ -32,13 +33,13 @@ const emptyFilters: TransactionFilterState = {
   categoryId: 'all',
   dateFrom: '',
   dateTo: '',
+  tag: 'all',
 }
 
 export function TransactionsPage() {
   const transactions = useTransactions()
   const accounts = useAllAccounts()
   const categories = useAllCategories()
-  const budgets = useBudgets()
   const { toast } = useToast()
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -81,14 +82,17 @@ export function TransactionsPage() {
       if (filters.categoryId !== 'all' && row.categoryId !== filters.categoryId) return false
       if (filters.dateFrom && row.occurredAt < filters.dateFrom) return false
       if (filters.dateTo && row.occurredAt > filters.dateTo) return false
+      if (filters.tag !== 'all' && !row.tags?.includes(filters.tag)) return false
       if (search) {
-        const haystack = `${row.note ?? ''} ${row.categoryName} ${row.accountName}`.toLowerCase()
+        const haystack =
+          `${row.note ?? ''} ${row.categoryName} ${row.accountName} ${(row.tags ?? []).join(' ')}`.toLowerCase()
         if (!haystack.includes(search)) return false
       }
       return true
     })
   }, [rows, filters])
 
+  const allTags = useMemo(() => collectTags(transactions), [transactions])
   const summary = useMemo(() => computeTotals(filtered), [filtered])
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
 
@@ -145,8 +149,6 @@ export function TransactionsPage() {
     }
     await createTransaction(input)
     toast('Transaksi berhasil disimpan.')
-    const alert = newExpenseBudgetAlert(budgets, transactions, categories, input)
-    if (alert) toast(alert.message, alert.type)
     setChatOpen(false)
     setPage(1)
   }
@@ -196,11 +198,14 @@ export function TransactionsPage() {
         </div>
       </div>
 
+      <FavoritesBar onOpenInForm={handleChatApply} />
+
       <TransactionFilters
         filters={filters}
         onChange={changeFilters}
         accounts={accounts}
         categories={categories}
+        tags={allTags}
       />
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl bg-white px-3.5 py-2.5 text-xs shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-800">
@@ -331,7 +336,13 @@ export function TransactionsPage() {
           deleting
             ? `Transaksi "${deleting.note || deleting.categoryName}" sebesar ${formatRupiah(
                 deleting.amount,
-              )} akan dihapus permanen dari perangkat ini.`
+              )} akan dihapus permanen dari perangkat ini.${
+                deleting.splitGroupId
+                  ? ` Transaksi ini bagian dari struk yang dipecah, jadi ${
+                      splitMembers(deleting, transactions).length
+                    } pecahannya ikut dihapus.`
+                  : ''
+              }`
             : ''
         }
         confirmLabel="Hapus"

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
 import {
   AlertTriangle,
+  BellRing,
   Camera,
   CheckCircle2,
   DatabaseBackup,
@@ -74,6 +75,7 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { MasterDataSection } from '../components/settings/MasterDataSection'
+import { BudgetAlertSettings } from '../components/settings/BudgetAlertSettings'
 
 export function SettingsPage() {
   const location = useLocation()
@@ -422,7 +424,8 @@ export function SettingsPage() {
 
   async function handleClearTransactions() {
     try {
-      await db.transaction('rw', db.transactions, db.transfers, async () => {
+      await db.transaction('rw', db.transactions, db.transfers, db.receipts, async () => {
+        await db.receipts.clear()
         await db.transactions.clear()
         await db.transfers.clear()
       })
@@ -681,6 +684,14 @@ export function SettingsPage() {
             onClick={() => setTheme('system' as ThemeMode)}
           />
         </div>
+      </Section>
+
+      <Section
+        icon={<BellRing className="h-5 w-5" />}
+        title="Notifikasi budget"
+        description="Peringatan saat pemakaian budget kategori mencapai 80% dan 100%."
+      >
+        <BudgetAlertSettings />
       </Section>
 
       <Section

@@ -1,5 +1,6 @@
 import { Search, X } from 'lucide-react'
 import type { Account, Category, ReportType } from '../../types'
+import type { TagCount } from '../../lib/tags'
 import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
 import { Button } from '../ui/Button'
@@ -11,6 +12,7 @@ export interface TransactionFilterState {
   categoryId: string
   dateFrom: string
   dateTo: string
+  tag: string
 }
 
 interface TransactionFiltersProps {
@@ -18,6 +20,7 @@ interface TransactionFiltersProps {
   onChange: (filters: TransactionFilterState) => void
   accounts: Account[]
   categories: Category[]
+  tags?: TagCount[]
 }
 
 export function TransactionFilters({
@@ -25,6 +28,7 @@ export function TransactionFilters({
   onChange,
   accounts,
   categories,
+  tags = [],
 }: TransactionFiltersProps) {
   const visibleCategories =
     filters.type === 'all'
@@ -43,6 +47,7 @@ export function TransactionFilters({
       categoryId: 'all',
       dateFrom: '',
       dateTo: '',
+      tag: 'all',
     })
   }
 
@@ -98,6 +103,20 @@ export function TransactionFilters({
             </option>
           ))}
         </Select>
+        {tags.length > 0 && (
+          <Select
+            label="Tag"
+            value={filters.tag}
+            onChange={(event) => update({ tag: event.target.value })}
+          >
+            <option value="all">Semua tag</option>
+            {tags.map((item) => (
+              <option key={item.tag} value={item.tag}>
+                #{item.tag} ({item.count})
+              </option>
+            ))}
+          </Select>
+        )}
         <div className="grid grid-cols-2 gap-2">
           <Input
             label="Dari"

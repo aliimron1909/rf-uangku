@@ -205,7 +205,10 @@ export function MasterDataSection() {
     try {
       if (editingCategory) {
         const typeChanged = categoryType !== editingCategory.type
-        await db.transaction('rw', db.categories, db.budgets, db.recurringTransactions, async () => {
+        await db.transaction(
+          'rw',
+          [db.categories, db.budgets, db.recurringTransactions, db.favorites],
+          async () => {
           await db.categories.update(editingCategory.id, {
             name,
             type: categoryType,
@@ -218,11 +221,13 @@ export function MasterDataSection() {
               .where('categoryId')
               .equals(editingCategory.id)
               .modify({ active: false, updatedAt: new Date().toISOString() })
+            await db.favorites.where('categoryId').equals(editingCategory.id).delete()
           }
-        })
+          },
+        )
         toast(
           typeChanged
-            ? 'Kategori diperbarui. Budget dihapus dan aturan berulang dijeda karena jenis berubah.'
+            ? 'Kategori diperbarui. Budget dan favorit dihapus serta aturan berulang dijeda karena jenis berubah.'
             : 'Kategori berhasil diperbarui.',
         )
       } else {
@@ -330,6 +335,15 @@ export function MasterDataSection() {
         setDeletingAccount(null)
         return
       }
+      const usedByFavorite = await db.favorites
+        .where('accountId')
+        .equals(deletingAccount.id)
+        .count()
+      if (usedByFavorite > 0) {
+        toast('Rekening masih dipakai template favorit. Hapus atau ubah favorit itu dulu.', 'error')
+        setDeletingAccount(null)
+        return
+      }
       const usedByTransfer =
         (await db.transfers.where('fromAccountId').equals(deletingAccount.id).count()) +
         (await db.transfers.where('toAccountId').equals(deletingAccount.id).count())
@@ -387,6 +401,15 @@ export function MasterDataSection() {
         .count()
       if (usedByRecurring > 0) {
         toast('Kategori masih dipakai aturan berulang. Hapus atau ubah aturan itu dulu.', 'error')
+        setDeletingCategory(null)
+        return
+      }
+      const usedByFavorite = await db.favorites
+        .where('categoryId')
+        .equals(deletingCategory.id)
+        .count()
+      if (usedByFavorite > 0) {
+        toast('Kategori masih dipakai template favorit. Hapus atau ubah favorit itu dulu.', 'error')
         setDeletingCategory(null)
         return
       }

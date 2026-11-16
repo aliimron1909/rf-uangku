@@ -1,5 +1,8 @@
 import { db } from './db'
 import { createId } from '../lib/utils'
+import { normalizeTags } from '../lib/tags'
+import { splitIssue, type SplitPart } from '../lib/split'
+import { isReceiptDataUrl } from '../lib/receipts'
 import type { Transaction, TxType } from '../types'
 
 export interface TransactionInput {
@@ -9,29 +12,150 @@ export interface TransactionInput {
   categoryId: string
   occurredAt: string
   note?: string
+  tags?: string[]
+  /** Struk yang sudah tersimpan dan ingin dipertahankan. */
+  receiptId?: string
+}
+
+export interface SaveTransactionInput extends TransactionInput {
+  /** Foto struk baru (data URL terkompres). Menggantikan `receiptId` bila diisi. */
+  newReceiptDataUrl?: string
+  /** Dua pecahan atau lebih = split; `amount` adalah total struk. */
+  parts?: SplitPart[]
+}
+
+function buildRow(
+  base: Pick<Transaction, 'id' | 'createdAt' | 'updatedAt'> & Partial<Transaction>,
+  input: TransactionInput,
+  categoryId: string,
+  amount: number,
+  receiptId: string | undefined,
+): Transaction {
+  const tags = normalizeTags(input.tags)
+  const row: Transaction = {
+    id: base.id,
+    type: input.type,
+    amount,
+    accountId: input.accountId,
+    categoryId,
+    occurredAt: input.occurredAt,
+    note: input.note?.trim() || '',
+    createdAt: base.createdAt,
+    updatedAt: base.updatedAt,
+  }
+  if (base.recurringId) row.recurringId = base.recurringId
+  if (base.splitGroupId) row.splitGroupId = base.splitGroupId
+  if (tags.length > 0) row.tags = tags
+  if (receiptId) row.receiptId = receiptId
+  return row
+}
+
+async function deleteOrphanReceipts(receiptIds: Iterable<string | undefined>): Promise<void> {
+  for (const receiptId of new Set(receiptIds)) {
+    if (!receiptId) continue
+    const stillUsed = await db.transactions.where('receiptId').equals(receiptId).count()
+    if (stillUsed === 0) await db.receipts.delete(receiptId)
+  }
 }
 
 export async function createTransaction(input: TransactionInput): Promise<Transaction> {
-  const now = new Date().toISOString()
-  const transaction: Transaction = {
-    id: createId(),
-    ...input,
-    note: input.note?.trim() || '',
-    createdAt: now,
-    updatedAt: now,
-  }
-  await db.transactions.add(transaction)
-  return transaction
+  const saved = await saveTransaction(null, input)
+  return saved[0]
 }
 
 export async function updateTransaction(id: string, input: TransactionInput): Promise<void> {
-  await db.transactions.update(id, {
-    ...input,
-    note: input.note?.trim() || '',
-    updatedAt: new Date().toISOString(),
+  const existing = await db.transactions.get(id)
+  if (!existing) throw new Error('Transaksi tidak ditemukan.')
+  await saveTransaction(existing, input)
+}
+
+/**
+ * Menyimpan transaksi baru atau perubahan transaksi lama dalam satu transaksi database.
+ * Mendukung split (beberapa baris dengan `splitGroupId` sama) dan foto struk. Mengubah
+ * transaksi biasa menjadi split, atau sebaliknya, menggantikan baris lama.
+ */
+export async function saveTransaction(
+  existing: Transaction | null,
+  input: SaveTransactionInput,
+): Promise<Transaction[]> {
+  const parts = input.parts && input.parts.length >= 2 ? input.parts : null
+  if (parts) {
+    const issue = splitIssue(input.amount, parts)
+    if (issue) throw new Error(issue)
+  }
+  if (input.newReceiptDataUrl !== undefined && !isReceiptDataUrl(input.newReceiptDataUrl)) {
+    throw new Error('Foto struk tidak valid atau terlalu besar.')
+  }
+
+  return db.transaction('rw', db.transactions, db.receipts, async () => {
+    const now = new Date().toISOString()
+    let members: Transaction[] = []
+    if (existing) {
+      const current = await db.transactions.get(existing.id)
+      if (!current) throw new Error('Transaksi tidak ditemukan. Mungkin sudah dihapus.')
+      members = current.splitGroupId
+        ? await db.transactions.where('splitGroupId').equals(current.splitGroupId).toArray()
+        : [current]
+    }
+    const oldReceiptIds = members.map((member) => member.receiptId)
+
+    let receiptId = input.receiptId
+    if (input.newReceiptDataUrl) {
+      receiptId = createId()
+      await db.receipts.add({ id: receiptId, dataUrl: input.newReceiptDataUrl, createdAt: now })
+    }
+
+    const createdAt = members[0]?.createdAt ?? now
+    const rows: Transaction[] = []
+    if (parts) {
+      const splitGroupId = members[0]?.splitGroupId ?? createId()
+      for (const part of parts) {
+        rows.push(
+          buildRow(
+            { id: createId(), createdAt, updatedAt: now, splitGroupId },
+            input,
+            part.categoryId,
+            part.amount,
+            receiptId,
+          ),
+        )
+      }
+    } else {
+      const reuse = members.length === 1 && !members[0].splitGroupId ? members[0] : null
+      rows.push(
+        buildRow(
+          {
+            id: reuse?.id ?? createId(),
+            createdAt,
+            updatedAt: now,
+            recurringId: reuse?.recurringId,
+          },
+          input,
+          input.categoryId,
+          input.amount,
+          receiptId,
+        ),
+      )
+    }
+
+    const keepIds = new Set(rows.map((row) => row.id))
+    const removeIds = members.map((member) => member.id).filter((id) => !keepIds.has(id))
+    if (removeIds.length > 0) await db.transactions.bulkDelete(removeIds)
+    await db.transactions.bulkPut(rows)
+    await deleteOrphanReceipts(oldReceiptIds)
+    return rows
   })
 }
 
+/** Menghapus transaksi; bila bagian dari split, seluruh pecahan struk ikut terhapus. */
 export async function deleteTransaction(id: string): Promise<void> {
-  await db.transactions.delete(id)
+  await db.transaction('rw', db.transactions, db.receipts, async () => {
+    const current = await db.transactions.get(id)
+    if (!current) return
+    const members = current.splitGroupId
+      ? await db.transactions.where('splitGroupId').equals(current.splitGroupId).toArray()
+      : [current]
+    await db.transactions.bulkDelete(members.map((member) => member.id))
+    await deleteOrphanReceipts(members.map((member) => member.receiptId))
+  })
 }
