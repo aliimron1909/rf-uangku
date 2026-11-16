@@ -13,6 +13,12 @@ Aplikasi PWA keuangan pribadi yang **local-first**: semua data tersimpan di HP, 
 - **Isi cepat AI (Groq)** — tulis “makan siang 25rb pakai Gopay”, AI mengisi form. Tetap bisa diperiksa sebelum disimpan. Model chat aktif bisa dicari langsung dari Groq (butuh internet).
 - **Chat AI transaksi** — ngobrol dengan AI untuk menyiapkan transaksi. AI bisa bertanya balik jika nominal/jenis belum jelas, lalu draft bisa diperiksa di form atau disimpan langsung.
 - **Budget bulanan dengan riwayat** — atur limit per kategori pengeluaran, lihat progres, status aman/hampir penuh/terlampaui, dan ringkasan di dashboard. Limit berlaku mulai bulan dipilih dan berlanjut ke bulan berikutnya; mengubahnya tidak mengubah bulan-bulan lalu. Bisa membuka bulan lain dengan tombol panah.
+- **Favorit** — simpan transaksi rutin (kopi, bensin) dan catat dengan satu ketukan, lengkap dengan tombol *Urungkan*.
+- **Notifikasi budget** — peringatan saat pemakaian budget kategori mencapai 80% dan 100% (di dalam aplikasi, plus notifikasi sistem bila diizinkan).
+- **Tag dan split** — beri label bebas (#liburan) dan pecah satu struk ke beberapa kategori.
+- **Foto struk** — lampirkan foto struk (dikompres, tersimpan lokal, ikut backup JSON).
+- **Insight bulanan** — di Dashboard, mis. "Pengeluaran Makan naik 30%"; ringkasan AI Groq opsional (hanya angka agregat yang dikirim).
+- **Ikon rekening dan kategori** — pilih ikon sendiri di Pengaturan.
 - **Transfer antar rekening** — pindahkan saldo antar rekening (misalnya BCA ke e-wallet). Hanya mengubah saldo per rekening; tidak dihitung sebagai pemasukan atau pengeluaran.
 - **Target tabungan** — buat target (nama, nominal, tenggat opsional), catat setoran atau pengambilan dana, lihat progres dan saran setoran per bulan.
 - **Hutang & piutang** — catat hutang saya dan piutang, jatuh tempo, serta cicilan/pembayaran sebagian. Bisa dikaitkan ke rekening agar saldo ikut berubah (tanpa memengaruhi laporan). Pengingat muncul di dashboard saat jatuh tempo mendekati atau terlewat.
@@ -154,6 +160,14 @@ Buka menu **Rencana**:
 Transaksi berulang dibuat otomatis saat aplikasi dibuka atau dilanjutkan. Tidak ada proses background saat aplikasi tertutup, jadi transaksi yang jatuh tempo akan dibuat saat aplikasi dibuka kembali. Transaksi hasil generate tetap bisa diedit/dihapus dan tidak dibuat ulang setelah dihapus.
 
 > **Riwayat limit per bulan.** Setiap limit punya bulan mulai berlaku. Saat kamu menyimpan limit di bulan tertentu, limit itu dipakai di bulan tersebut dan bulan-bulan berikutnya sampai kamu mengubahnya lagi; bulan sebelumnya tetap memakai limit lama. Tombol **Hentikan** (ikon tempat sampah) menghentikan budget mulai bulan yang sedang dibuka tanpa menghapus riwayat bulan lalu. Budget dari versi sebelumnya otomatis dianggap berlaku sejak awal, jadi tampilan lama tidak berubah.
+
+### Favorit, tag, split, dan struk
+
+- **Favorit**: di halaman Transaksi, ketuk chip favorit untuk langsung mencatatnya hari ini (muncul *Urungkan* beberapa detik). *Kelola* untuk menambah, mengubah, atau mengisi form dari favorit. Dari form transaksi, centang *Simpan juga sebagai favorit*.
+- **Tag**: ketik di kolom Tag (pisahkan koma/Enter), lalu saring lewat filter *Tag*.
+- **Split**: centang *Pecah ke beberapa kategori*, isi nominal per kategori sampai total pas. Setiap pecahan tetap tercatat sebagai transaksi biasa sehingga laporan dan budget otomatis benar. Mengubah atau menghapus satu pecahan berlaku untuk seluruh struk.
+- **Foto struk**: di form, tekan *Ambil / pilih foto struk*. Lihat lewat tombol *Struk* di daftar.
+- **Notifikasi budget**: aktif secara bawaan; atur di Pengaturan. Karena data lokal tanpa server, peringatan hanya muncul saat aplikasi dibuka.
 
 ### Transfer antar rekening
 
