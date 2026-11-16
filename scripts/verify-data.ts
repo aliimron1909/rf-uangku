@@ -35,6 +35,7 @@ import { deriveSyncKey, randomSalt, createSyncProfile, unlockSyncProfile } from 
 import {
   SYNC_CURSOR_KEY,
   SYNC_TABLE_NAMES,
+  markLocalChanges,
   syncOnce,
   type PushRow,
   type RemoteRow,
@@ -1271,11 +1272,13 @@ async function main() {
   await db.accounts.update('acc-bca', { name: 'Edit B' })
   await doSync() // memberi B waktu versi lebih awal, tetapi belum sempat diterima A
   await db.accounts.update('acc-bca', { name: 'Edit B2' }) // perubahan B yang belum terkirim
+  await markLocalChanges(now) // mencatat waktu edit walau tanpa jaringan
 
   const deviceB2 = await saveDevice()
   await loadDevice(deviceA)
   await doSync() // A menerima 'Edit B'
   await db.accounts.update('acc-bca', { name: 'Edit A' })
+  await markLocalChanges(now)
   await doSync() // A lebih baru
   await loadDevice(deviceB2)
   await doSync()

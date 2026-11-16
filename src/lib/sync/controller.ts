@@ -5,7 +5,7 @@ import { errorMessage } from '../utils'
 import { consumePendingOAuth, getAccessToken, loadSession, signOut, startGoogleLogin } from './auth'
 import { getSupabaseConfig } from './config'
 import { createSyncProfile, unlockSyncProfile } from './crypto'
-import { SYNC_TABLE_NAMES, resetSyncLocalState, syncOnce } from './engine'
+import { SYNC_TABLE_NAMES, markLocalChanges, resetSyncLocalState, syncOnce } from './engine'
 import { SupabaseRemote, SyncAuthError } from './supabaseRemote'
 
 const KEY_SETTING = 'syncKey'
@@ -168,7 +168,14 @@ export async function startAutoSync(): Promise<void> {
   let timer: number | undefined
   const schedule = () => {
     window.clearTimeout(timer)
-    timer = window.setTimeout(() => void syncNow(), DEBOUNCE_MS)
+    timer = window.setTimeout(() => {
+      // Catat waktu perubahan segera (juga saat offline), baru sinkronkan bila memungkinkan.
+      void (async () => {
+        const key = await getSetting<CryptoKey | null>(KEY_SETTING, null)
+        if (key) await markLocalChanges().catch(() => undefined)
+        await syncNow()
+      })()
+    }, DEBOUNCE_MS)
   }
 
   // Hanya perubahan pada tabel data yang memicu sinkronisasi (bukan pengaturan/status).

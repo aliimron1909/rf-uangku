@@ -72,6 +72,66 @@ const PUSH_BATCH_ROWS = 50
 const PUSH_BATCH_CHARS = 1_500_000
 
 /**
+ * Mendeteksi perubahan lokal dengan membandingkan hash record dengan catatan terakhir.
+ * Mengubah `state` dan mengembalikan baris yang perlu disimpan.
+ */
+async function scanLocal(
+  state: Map<string, SyncStateRow>,
+  now: () => number,
+): Promise<SyncStateRow[]> {
+  const changed: SyncStateRow[] = []
+  const timestamp = (previous?: SyncStateRow) => Math.max(now(), (previous?.ts ?? 0) + 1)
+  for (const name of SYNC_TABLE_NAMES) {
+    const records = await tableFor(name).toArray()
+    const seen = new Set<string>()
+    for (const record of records) {
+      const key = recordKey(name, record.id)
+      seen.add(key)
+      const hash = hashRecord(record)
+      const existing = state.get(key)
+      if (!existing || existing.deleted || existing.hash !== hash) {
+        const row: SyncStateRow = {
+          key,
+          hash,
+          ts: timestamp(existing),
+          pushed: false,
+          deleted: false,
+        }
+        state.set(key, row)
+        changed.push(row)
+      }
+    }
+    const prefix = `${name}|`
+    for (const [key, existing] of state) {
+      if (!key.startsWith(prefix) || existing.deleted || seen.has(key)) continue
+      const row: SyncStateRow = {
+        key,
+        hash: '',
+        ts: timestamp(existing),
+        pushed: false,
+        deleted: true,
+      }
+      state.set(key, row)
+      changed.push(row)
+    }
+  }
+  return changed
+}
+
+/**
+ * Mencatat perubahan lokal beserta waktunya tanpa memakai jaringan. Dipanggil segera setelah
+ * data berubah (walau offline) supaya waktu versi mencerminkan saat edit, bukan saat sinkron.
+ */
+export async function markLocalChanges(now: () => number = Date.now): Promise<number> {
+  const state = new Map<string, SyncStateRow>(
+    (await db.syncState.toArray()).map((row) => [row.key, row]),
+  )
+  const changed = await scanLocal(state, now)
+  if (changed.length > 0) await db.syncState.bulkPut(changed)
+  return changed.length
+}
+
+/**
  * Satu putaran sinkronisasi dua arah.
  *
  * - Perubahan lokal dideteksi dengan membandingkan hash record dengan catatan terakhir
@@ -148,43 +208,7 @@ export async function syncOnce(options: {
 
   if (firstSync) await pull(true)
 
-  // Deteksi perubahan lokal.
-  const changed: SyncStateRow[] = []
-  const timestamp = (previous?: SyncStateRow) => Math.max(now(), (previous?.ts ?? 0) + 1)
-  for (const name of SYNC_TABLE_NAMES) {
-    const records = await tableFor(name).toArray()
-    const seen = new Set<string>()
-    for (const record of records) {
-      const key = recordKey(name, record.id)
-      seen.add(key)
-      const hash = hashRecord(record)
-      const existing = state.get(key)
-      if (!existing || existing.deleted || existing.hash !== hash) {
-        const row: SyncStateRow = {
-          key,
-          hash,
-          ts: timestamp(existing),
-          pushed: false,
-          deleted: false,
-        }
-        state.set(key, row)
-        changed.push(row)
-      }
-    }
-    const prefix = `${name}|`
-    for (const [key, existing] of state) {
-      if (!key.startsWith(prefix) || existing.deleted || seen.has(key)) continue
-      const row: SyncStateRow = {
-        key,
-        hash: '',
-        ts: timestamp(existing),
-        pushed: false,
-        deleted: true,
-      }
-      state.set(key, row)
-      changed.push(row)
-    }
-  }
+  const changed = await scanLocal(state, now)
   if (changed.length > 0) await db.syncState.bulkPut(changed)
 
   if (!firstSync) await pull(false)
