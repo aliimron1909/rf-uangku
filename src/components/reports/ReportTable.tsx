@@ -1,6 +1,7 @@
 import type { TransactionWithRefs } from '../../types'
 import { formatDate } from '../../lib/dates'
 import { formatSignedRupiah } from '../../lib/format'
+import { tagsLabel } from '../../lib/tags'
 import { Badge } from '../ui/Badge'
 
 interface ReportTableProps {
@@ -51,6 +52,11 @@ export function ReportTable({ transactions }: ReportTableProps) {
                   <p className="max-w-[220px] truncate text-xs text-slate-500 dark:text-slate-400">
                     {transaction.note || '-'}
                   </p>
+                  {transaction.tags && transaction.tags.length > 0 && (
+                    <p className="max-w-[220px] truncate text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                      {tagsLabel(transaction.tags)}
+                    </p>
+                  )}
                 </td>
                 <td
                   className={`whitespace-nowrap px-4 py-2.5 text-right text-sm font-bold ${
@@ -96,6 +102,12 @@ export function ReportTable({ transactions }: ReportTableProps) {
               </div>
               <p className="mt-1 text-[10px] text-slate-400 dark:text-slate-500">
                 {formatDate(transaction.occurredAt, 'dd MMM yyyy')}
+                {transaction.tags && transaction.tags.length > 0 && (
+                  <span className="ml-2 font-semibold text-emerald-600 dark:text-emerald-400">
+                    {tagsLabel(transaction.tags)}
+                  </span>
+                )}
+                {transaction.splitGroupId && ' · split'}
               </p>
             </div>
           </div>

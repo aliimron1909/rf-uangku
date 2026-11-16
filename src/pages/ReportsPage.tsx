@@ -6,6 +6,7 @@ import { useAllAccounts } from '../hooks/useAccounts'
 import { useAllCategories } from '../hooks/useCategories'
 import { useProfile } from '../hooks/useProfile'
 import { computeTotals, withRefs } from '../lib/analytics'
+import { collectTags, tagSummary } from '../lib/tags'
 import { presetRange } from '../lib/dates'
 import { formatRupiah } from '../lib/format'
 import { downloadReportPdf } from '../lib/pdf'
@@ -45,6 +46,7 @@ export function ReportsPage() {
   const [customEnd, setCustomEnd] = useState(initialRange.end)
   const [type, setType] = useState<ReportType>('all')
   const [accountId, setAccountId] = useState('all')
+  const [tag, setTag] = useState('all')
   const [downloading, setDownloading] = useState(false)
 
   const range = useMemo(
@@ -58,9 +60,10 @@ export function ReportsPage() {
         if (transaction.occurredAt < range.start || transaction.occurredAt > range.end) return false
         if (type !== 'all' && transaction.type !== type) return false
         if (accountId !== 'all' && transaction.accountId !== accountId) return false
+        if (tag !== 'all' && !transaction.tags?.includes(tag)) return false
         return true
       }),
-    [transactions, range, type, accountId],
+    [transactions, range, type, accountId, tag],
   )
 
   const rows = useMemo(
@@ -68,11 +71,14 @@ export function ReportsPage() {
     [reportTransactions, accounts, categories],
   )
   const totals = useMemo(() => computeTotals(reportTransactions), [reportTransactions])
+  const allTags = useMemo(() => collectTags(transactions), [transactions])
+  const tagRows = useMemo(() => tagSummary(reportTransactions), [reportTransactions])
 
-  const accountLabel =
+  const baseAccountLabel =
     accountId === 'all'
       ? 'Semua rekening'
       : accounts.find((account) => account.id === accountId)?.name ?? 'Semua rekening'
+  const accountLabel = tag === 'all' ? baseAccountLabel : `${baseAccountLabel} | Tag #${tag}`
 
   async function handlePdf() {
     if (rows.length === 0) return
@@ -182,6 +188,16 @@ export function ReportsPage() {
             <option value="income">Pemasukan saja</option>
             <option value="expense">Pengeluaran saja</option>
           </Select>
+          {allTags.length > 0 && (
+            <Select label="Tag" value={tag} onChange={(event) => setTag(event.target.value)}>
+              <option value="all">Semua tag</option>
+              {allTags.map((item) => (
+                <option key={item.tag} value={item.tag}>
+                  #{item.tag} ({item.count})
+                </option>
+              ))}
+            </Select>
+          )}
           <Select
             label="Rekening"
             value={accountId}
@@ -215,6 +231,35 @@ export function ReportsPage() {
         <ReportStat label="Selisih" value={totals.net} tone={totals.net >= 0 ? 'net' : 'expense'} prefix={totals.net >= 0 ? '+' : ''} />
         <ReportStat label="Jumlah Transaksi" value={totals.count} tone="neutral" isCount />
       </div>
+
+      {tagRows.length > 0 && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
+          <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Ringkasan per tag</h3>
+          <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+            Transaksi dengan beberapa tag dihitung di setiap tagnya.
+          </p>
+          <div className="mt-3 divide-y divide-slate-100 dark:divide-slate-800">
+            {tagRows.map((row) => (
+              <div key={row.tag} className="flex items-center justify-between gap-3 py-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">
+                    #{row.tag}
+                  </p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">{row.count} transaksi</p>
+                </div>
+                <div className="shrink-0 text-right text-xs font-bold">
+                  {row.expense > 0 && (
+                    <p className="text-rose-600 dark:text-rose-400">-{formatRupiah(row.expense)}</p>
+                  )}
+                  {row.income > 0 && (
+                    <p className="text-emerald-600 dark:text-emerald-400">+{formatRupiah(row.income)}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5 dark:border-slate-800 sm:px-5">

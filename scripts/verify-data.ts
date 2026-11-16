@@ -12,7 +12,7 @@ import {
   saveTransaction,
   updateTransaction,
 } from '../src/db/transactions'
-import { collectTags, normalizeTag, parseTagInput } from '../src/lib/tags'
+import { collectTags, normalizeTag, parseTagInput, tagSummary, tagsLabel } from '../src/lib/tags'
 import { splitIssue } from '../src/lib/split'
 import { stopBudget, upsertBudget } from '../src/db/budgets'
 import {
@@ -1434,6 +1434,25 @@ async function main() {
     [],
   )
   assert.equal(csvFlipped.rows[0].type, 'expense')
+
+
+  // ---- Ringkasan per tag ----
+  const tagTx = (id: string, type: 'income' | 'expense', amount: number, tags?: string[]) => ({
+    id, type, amount, accountId: 'x', categoryId: 'y', occurredAt: '2026-11-01', createdAt: '', updatedAt: '', tags,
+  })
+  const summary = tagSummary([
+    tagTx('1', 'expense', 100, ['bali', 'liburan']),
+    tagTx('2', 'expense', 50, ['bali']),
+    tagTx('3', 'income', 70, ['liburan']),
+    tagTx('4', 'expense', 999),
+  ])
+  assert.deepEqual(summary.map((row) => row.tag), ['bali', 'liburan'])
+  assert.equal(summary[0].expense, 150)
+  assert.equal(summary[0].count, 2)
+  assert.equal(summary[1].expense, 100)
+  assert.equal(summary[1].income, 70)
+  assert.equal(tagsLabel(['a', 'b']), '#a #b')
+  assert.equal(tagsLabel(undefined), '')
 
   await db.delete()
   console.log('Semua verifikasi data lulus.')
