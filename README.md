@@ -15,6 +15,12 @@ Aplikasi PWA keuangan pribadi yang **local-first**: semua data tersimpan di HP, 
 - **Budget bulanan dengan riwayat** — atur limit per kategori pengeluaran, lihat progres, status aman/hampir penuh/terlampaui, dan ringkasan di dashboard. Limit berlaku mulai bulan dipilih dan berlanjut ke bulan berikutnya; mengubahnya tidak mengubah bulan-bulan lalu. Bisa membuka bulan lain dengan tombol panah.
 - **Favorit** — simpan transaksi rutin (kopi, bensin) dan catat dengan satu ketukan, lengkap dengan tombol *Urungkan*.
 - **Notifikasi budget** — peringatan saat pemakaian budget kategori mencapai 80% dan 100% (di dalam aplikasi, plus notifikasi sistem bila diizinkan).
+- **Tempat sampah**: transaksi yang dihapus disimpan 30 hari di *Sampah* (halaman Transaksi); bisa dipulihkan, termasuk seluruh pecahan split dan foto struknya.
+- **Impor CSV**: tombol *Impor* di halaman Transaksi. Pilih rekening, cocokkan kolom, tinjau (duplikat dilewati), lalu impor. Hasil impor diberi tag `impor`.
+- **Laporan per tag**: filter tag dan kartu *Ringkasan per tag* di halaman Laporan; PDF/CSV memuat tag dan penanda split.
+- **Status sinkron**: ikon awan di bilah atas menunjukkan status sinkron (offline, menyinkronkan, galat); ketuk untuk membuka pengaturan.
+- **Kekayaan bersih**: grafik 12 bulan di Dashboard (saldo rekening + piutang − hutang).
+- **Pengingat tagihan**: transaksi berulang bertipe pengeluaran yang jatuh tempo dalam 7 hari tampil di Dashboard dan memicu notifikasi sekali per tagihan; atur di Pengaturan > Notifikasi.
 - **Tag dan split** — beri label bebas (#liburan) dan pecah satu struk ke beberapa kategori.
 - **Foto struk** — lampirkan foto struk (dikompres, tersimpan lokal, ikut backup JSON).
 - **Insight bulanan** — di Dashboard, mis. "Pengeluaran Makan naik 30%"; ringkasan AI Groq opsional (hanya angka agregat yang dikirim).
