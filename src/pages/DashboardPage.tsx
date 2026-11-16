@@ -12,6 +12,7 @@ import { AccountBalances } from '../components/dashboard/AccountBalances'
 import { BudgetOverview } from '../components/dashboard/BudgetOverview'
 import { TransferSection } from '../components/transfers/TransferSection'
 import { DebtReminders } from '../components/dashboard/DebtReminders'
+import { BillReminders } from '../components/dashboard/BillReminders'
 import { NetWorthCard } from '../components/dashboard/NetWorthCard'
 import { InsightsCard } from '../components/dashboard/InsightsCard'
 import { useAllCategories } from '../hooks/useCategories'
@@ -110,6 +111,8 @@ export function DashboardPage() {
       )}
 
       <DebtReminders />
+
+      <BillReminders />
 
       <SummaryCards
         balance={balance}

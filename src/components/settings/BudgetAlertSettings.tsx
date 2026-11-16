@@ -3,6 +3,7 @@ import { BellRing } from 'lucide-react'
 import { setSetting } from '../../db/db'
 import { useSetting } from '../../hooks/useSetting'
 import { BUDGET_ALERTS_ENABLED_KEY } from '../../lib/budgetAlerts'
+import { BILL_REMINDERS_ENABLED_KEY } from '../../lib/billReminders'
 import { errorMessage } from '../../lib/utils'
 import { useToast } from '../../contexts/ToastContext'
 import { Button } from '../ui/Button'
@@ -10,13 +11,14 @@ import { Button } from '../ui/Button'
 export function BudgetAlertSettings() {
   const { toast } = useToast()
   const enabled = useSetting<boolean>(BUDGET_ALERTS_ENABLED_KEY, true)
+  const billsEnabled = useSetting<boolean>(BILL_REMINDERS_ENABLED_KEY, true)
   const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>(
     typeof Notification === 'undefined' ? 'unsupported' : Notification.permission,
   )
 
-  async function toggle(next: boolean) {
+  async function toggle(next: boolean, key = BUDGET_ALERTS_ENABLED_KEY) {
     try {
-      await setSetting(BUDGET_ALERTS_ENABLED_KEY, next)
+      await setSetting(key, next)
     } catch (caught) {
       toast(errorMessage(caught), 'error')
     }
@@ -41,6 +43,18 @@ export function BudgetAlertSettings() {
           type="checkbox"
           checked={enabled}
           onChange={(event) => void toggle(event.target.checked)}
+          className="h-5 w-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+        />
+      </label>
+
+      <label className="flex cursor-pointer items-center justify-between gap-3">
+        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+          Ingatkan tagihan berulang 7 hari sebelum jatuh tempo
+        </span>
+        <input
+          type="checkbox"
+          checked={billsEnabled}
+          onChange={(event) => void toggle(event.target.checked, BILL_REMINDERS_ENABLED_KEY)}
           className="h-5 w-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
         />
       </label>

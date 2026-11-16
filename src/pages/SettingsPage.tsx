@@ -700,8 +700,8 @@ export function SettingsPage() {
 
       <Section
         icon={<BellRing className="h-5 w-5" />}
-        title="Notifikasi budget"
-        description="Peringatan saat pemakaian budget kategori mencapai 80% dan 100%."
+        title="Notifikasi"
+        description="Peringatan budget (80% dan 100%) dan pengingat tagihan berulang."
       >
         <BudgetAlertSettings />
       </Section>

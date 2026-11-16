@@ -101,6 +101,11 @@ import {
   nextOccurrenceAfter,
   nextOccurrenceOnOrAfter,
 } from '../src/lib/recurrence'
+import {
+  billReminderMessage,
+  evaluateBillReminders,
+  upcomingBills,
+} from '../src/lib/billReminders'
 import { netWorthSeries, trimLeadingEmpty } from '../src/lib/networth'
 import { profileInitials } from '../src/lib/profile'
 import { isValidPin, savePin, verifyPin, hasPin } from '../src/lib/pin'
@@ -1486,6 +1491,42 @@ async function main() {
     assert.equal(series[3].netWorth, 1500 + 400 - 200)
     assert.equal(series[3].asOf, '2026-11-16')
     assert.equal(trimLeadingEmpty(netWorthSeries([], [], [], [], '2026-11-16', 3)).length, 3)
+  }
+
+
+  // --- Pengingat tagihan ---
+  {
+    const mk = (id: string, nextRunAt: string, extra: Record<string, unknown> = {}) =>
+      ({
+        id, type: 'expense', amount: 100000, accountId: 'a', categoryId: 'c', note: id,
+        frequency: 'monthly', interval: 1, startDate: '2026-01-01', nextRunAt,
+        active: true, createdAt: '', updatedAt: '', ...extra,
+      }) as unknown as import('../src/types').RecurringTransaction
+    const rules = [
+      mk('hari-ini', '2026-11-16'),
+      mk('lusa', '2026-11-18'),
+      mk('jauh', '2026-11-30'),
+      mk('nonaktif', '2026-11-17', { active: false }),
+      mk('pemasukan', '2026-11-17', { type: 'income' }),
+      mk('selesai', '2026-11-17', { endDate: '2026-11-10' }),
+    ]
+    const bills = upcomingBills(rules, '2026-11-16')
+    assert.deepEqual(bills.map((b) => b.rule.id), ['hari-ini', 'lusa'])
+    assert.equal(bills[1].daysUntil, 2)
+    const first = evaluateBillReminders(bills, undefined, true)
+    assert.equal(first.events.length, 2)
+    const second = evaluateBillReminders(bills, first.nextSeen, true)
+    assert.equal(second.events.length, 0)
+    // Setelah dijalankan, tanggal berikutnya berbeda -> pengingat baru
+    const advanced = upcomingBills([mk('hari-ini', '2026-11-20')], '2026-11-16')
+    assert.equal(evaluateBillReminders(advanced, first.nextSeen, true).events.length, 1)
+    // Notifikasi mati: tidak ada event, tapi tercatat sebagai sudah dilihat
+    const muted = evaluateBillReminders(bills, undefined, false)
+    assert.equal(muted.events.length, 0)
+    assert.equal(evaluateBillReminders(bills, muted.nextSeen, true).events.length, 0)
+    // Kunci tagihan yang tak relevan lagi dibuang
+    assert.deepEqual(evaluateBillReminders([], first.nextSeen, true).nextSeen, [])
+    assert.ok(billReminderMessage(bills[0]).body.includes('hari ini'))
   }
 
   await db.delete()

@@ -8,12 +8,14 @@ import { PageLoader } from '../ui/PageLoader'
 import { OfflineBanner } from '../pwa/OfflineBanner'
 import { useRecurringRunner } from '../../hooks/useRecurringRunner'
 import { useBudgetAlerts } from '../../hooks/useBudgetAlerts'
+import { useBillReminders } from '../../hooks/useBillReminders'
 import { startAutoSync } from '../../lib/sync/controller'
 import { purgeExpiredTrash } from '../../db/transactions'
 
 export function AppShell() {
   useRecurringRunner()
   useBudgetAlerts()
+  useBillReminders()
   useEffect(() => {
     void startAutoSync()
     void purgeExpiredTrash().catch(() => undefined)
