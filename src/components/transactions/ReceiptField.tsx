@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Camera, Trash2 } from 'lucide-react'
+import { Camera, ScanText, Trash2 } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../../db/db'
 import { processReceiptPhoto } from '../../lib/receipts'
@@ -12,12 +12,15 @@ interface ReceiptFieldProps {
   /** Foto baru (belum disimpan). */
   newDataUrl?: string
   onChange: (next: { receiptId?: string; newDataUrl?: string }) => void
+  /** Jika ada, tombol "Baca dengan AI" muncul dan mengirim foto ke fungsi ini. */
+  onExtract?: (dataUrl: string) => Promise<void>
 }
 
-export function ReceiptField({ receiptId, newDataUrl, onChange }: ReceiptFieldProps) {
+export function ReceiptField({ receiptId, newDataUrl, onChange, onExtract }: ReceiptFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState('')
+  const [extracting, setExtracting] = useState(false)
   const stored = useLiveQuery(
     async () => (receiptId ? db.receipts.get(receiptId) : undefined),
     [receiptId],
@@ -37,6 +40,19 @@ export function ReceiptField({ receiptId, newDataUrl, onChange }: ReceiptFieldPr
       setError(errorMessage(caught))
     } finally {
       setProcessing(false)
+    }
+  }
+
+  async function handleExtract() {
+    if (!onExtract || !preview) return
+    setExtracting(true)
+    setError('')
+    try {
+      await onExtract(preview)
+    } catch (caught) {
+      setError(errorMessage(caught))
+    } finally {
+      setExtracting(false)
     }
   }
 
@@ -74,6 +90,17 @@ export function ReceiptField({ receiptId, newDataUrl, onChange }: ReceiptFieldPr
               <Trash2 className="h-4 w-4" />
               Hapus
             </Button>
+            {onExtract && (
+              <Button
+                type="button"
+                size="sm"
+                loading={extracting}
+                onClick={() => void handleExtract()}
+              >
+                {!extracting && <ScanText className="h-4 w-4" />}
+                Baca dengan AI
+              </Button>
+            )}
           </div>
         </div>
       ) : (
@@ -90,6 +117,7 @@ export function ReceiptField({ receiptId, newDataUrl, onChange }: ReceiptFieldPr
       {error && <p className="text-xs text-rose-600 dark:text-rose-400">{error}</p>}
       <p className="text-[11px] text-slate-400 dark:text-slate-500">
         Foto dikecilkan dan disimpan di perangkat ini, ikut dalam backup JSON.
+        {onExtract ? ' Tombol Baca dengan AI mengirim foto ini ke Groq.' : ''}
       </p>
     </div>
   )

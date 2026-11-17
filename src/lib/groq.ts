@@ -481,3 +481,127 @@ export async function summarizeInsightsWithGroq(options: {
   if (!text) throw new Error('AI tidak mengembalikan ringkasan. Coba lagi.')
   return text.slice(0, 800)
 }
+
+export interface ReceiptReading {
+  amount: number
+  occurredAt: string
+  merchant: string
+  categoryName: string
+  note: string
+}
+
+/** Membaca objek JSON hasil AI untuk struk; null jika total tidak terbaca. */
+export function readReceiptResult(
+  object: Record<string, unknown>,
+  today: string,
+): ReceiptReading | null {
+  const amount = Number(object.total ?? object.amount)
+  if (!Number.isFinite(amount) || amount <= 0) return null
+  const date = String(object.date ?? object.occurredAt ?? '')
+  // Tanggal di masa depan hampir pasti salah baca; pakai hari ini.
+  const occurredAt = ISO_DATE.test(date) && date <= today ? date : today
+  const merchant = String(object.merchant ?? '').trim().slice(0, 60)
+  return {
+    amount: Math.round(amount),
+    occurredAt,
+    merchant,
+    categoryName: String(object.categoryName ?? '').trim(),
+    note: String(object.note ?? '').trim().slice(0, 80),
+  }
+}
+
+/** Cocokkan nama kategori hasil AI ke kategori pengeluaran aktif; jatuh ke "Lain-lain". */
+export function matchExpenseCategory(name: string, categories: Category[]): Category | null {
+  const active = categories.filter((item) => item.type === 'expense' && !item.archived)
+  const wanted = name.trim().toLowerCase()
+  return (
+    (wanted
+      ? (active.find((item) => item.name.toLowerCase() === wanted) ??
+        active.find((item) => {
+          const candidate = item.name.toLowerCase()
+          return candidate.includes(wanted) || wanted.includes(candidate)
+        }))
+      : undefined) ??
+    active.find((item) => item.name === 'Lain-lain') ??
+    active[0] ??
+    null
+  )
+}
+
+/**
+ * Membaca foto struk memakai model Groq yang mendukung gambar.
+ * Foto dikirim langsung dari browser ke Groq.
+ */
+export async function readReceiptWithGroq(options: {
+  apiKey: string
+  model: string
+  imageDataUrl: string
+  categories: Category[]
+  today?: string
+}): Promise<ReceiptReading> {
+  const today = options.today ?? todayISO()
+  const expenseCategories = options.categories
+    .filter((category) => category.type === 'expense' && !category.archived)
+    .map((category) => category.name)
+
+  const systemPrompt = `Kamu membaca foto struk belanja berbahasa Indonesia.
+Hari ini: ${today}.
+Kembalikan HANYA objek JSON valid tanpa markdown:
+{"total":number,"date":"YYYY-MM-DD","merchant":string,"categoryName":string,"note":string}
+Aturan:
+- "total" adalah jumlah akhir yang harus dibayar (setelah pajak/diskon), angka bulat Rupiah tanpa titik/koma.
+- "date" tanggal pada struk; jika tidak terbaca gunakan ${today}.
+- "merchant" nama toko/tempat, ringkas.
+- "categoryName" wajib salah satu dari: ${expenseCategories.join(', ')}.
+- "note" ringkasan barang utama, maksimal 80 karakter.
+- Jika total tidak terbaca jelas, isi "total" dengan 0. Jangan mengarang angka.`
+
+  const response = await fetch(GROQ_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${options.apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: options.model,
+      temperature: 0.1,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: systemPrompt },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Baca struk ini.' },
+            { type: 'image_url', image_url: { url: options.imageDataUrl } },
+          ],
+        },
+      ],
+    }),
+  })
+
+  if (!response.ok) {
+    const message = await readGroqError(response)
+    if (response.status === 400 || /image|vision|multimodal/i.test(message)) {
+      throw new Error(
+        'Model ini tidak bisa membaca gambar. Buka Pengaturan > AI Groq > Lanjutan dan isi model untuk baca struk.',
+      )
+    }
+    throw new Error(message)
+  }
+
+  const body = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>
+  }
+  const content = body?.choices?.[0]?.message?.content ?? ''
+  const cleaned = content.replace(/```json/gi, '').replace(/```/g, '').trim()
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(cleaned)
+  } catch {
+    throw new Error('AI tidak bisa membaca struk ini. Coba foto yang lebih jelas.')
+  }
+  const reading = readReceiptResult(parsed as Record<string, unknown>, today)
+  if (!reading) throw new Error('Total pada struk tidak terbaca. Coba foto yang lebih jelas.')
+  return reading
+}

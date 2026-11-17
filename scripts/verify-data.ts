@@ -108,6 +108,9 @@ import {
   upcomingBills,
 } from '../src/lib/billReminders'
 import { matchAccountName, readAiEntry, resolveAiTransfer } from '../src/lib/groq'
+import { shouldRemindToday } from '../src/lib/dailyReminder'
+import { moveCategory } from '../src/db/categories'
+import { matchExpenseCategory, readReceiptResult } from '../src/lib/groq'
 import { moveAccount } from '../src/db/accounts'
 import { moveInOrder } from '../src/lib/accountOrder'
 import { netWorthSeries, trimLeadingEmpty } from '../src/lib/networth'
@@ -1728,6 +1731,51 @@ async function main() {
     await db.recurringTransactions.clear()
     await db.goalContributions.clear()
     await db.goals.clear()
+  }
+
+
+  // --- Pengingat harian, urutan kategori, baca struk ---
+  {
+    const base = { enabled: true, time: '20:00', nowMinutes: 21 * 60, today: '2026-11-17', hasEntryToday: false } as const
+    assert.equal(shouldRemindToday(base), true)
+    assert.equal(shouldRemindToday({ ...base, enabled: false }), false)
+    assert.equal(shouldRemindToday({ ...base, nowMinutes: 19 * 60 + 59 }), false)
+    assert.equal(shouldRemindToday({ ...base, nowMinutes: 20 * 60 }), true)
+    assert.equal(shouldRemindToday({ ...base, hasEntryToday: true }), false)
+    assert.equal(shouldRemindToday({ ...base, lastReminded: '2026-11-17' }), false)
+    assert.equal(shouldRemindToday({ ...base, lastReminded: '2026-11-16' }), true)
+    assert.equal(shouldRemindToday({ ...base, time: 'rusak', nowMinutes: 20 * 60 }), true) // jatuh ke 20:00
+
+    await db.categories.clear()
+    const mkCat = (id: string, type: 'income' | 'expense', sortOrder: number, archived = false) =>
+      ({ id, name: id, type, color: '#000', sortOrder, archived, createdAt: '' }) as import('../src/types').Category
+    await db.categories.bulkAdd([
+      mkCat('e1', 'expense', 1), mkCat('i1', 'income', 2), mkCat('e2', 'expense', 3),
+      mkCat('e-arsip', 'expense', 4, true), mkCat('e3', 'expense', 5), mkCat('i2', 'income', 6),
+    ])
+    assert.equal(await moveCategory('e3', 'up'), true)
+    const order = async (type: string) =>
+      (await db.categories.orderBy('sortOrder').toArray()).filter((c) => c.type === type).map((c) => c.id)
+    assert.deepEqual(await order('expense'), ['e1', 'e3', 'e2', 'e-arsip'])
+    assert.deepEqual(await order('income'), ['i1', 'i2']) // jenis lain tidak terganggu
+    assert.equal(await moveCategory('e1', 'up'), false)
+    assert.equal(await moveCategory('e-arsip', 'up'), false)
+    assert.equal(await moveCategory('i1', 'down'), true)
+    assert.deepEqual(await order('income'), ['i2', 'i1'])
+    const catList = await db.categories.toArray()
+    assert.equal(matchExpenseCategory('E2', catList)?.id, 'e2')
+    assert.equal(matchExpenseCategory('tidak ada', catList)?.type, 'expense')
+    assert.equal(matchExpenseCategory('e-arsip', catList)?.archived, false)
+    await db.categories.clear()
+
+    const r = readReceiptResult({ total: '125000.4', date: '2026-11-10', merchant: ' Toko Maju ', categoryName: 'Belanja', note: 'Beras, minyak' }, '2026-11-17')
+    assert.equal(r?.amount, 125000)
+    assert.equal(r?.occurredAt, '2026-11-10')
+    assert.equal(r?.merchant, 'Toko Maju')
+    assert.equal(readReceiptResult({ total: 0 }, '2026-11-17'), null)
+    assert.equal(readReceiptResult({ total: 'abc' }, '2026-11-17'), null)
+    assert.equal(readReceiptResult({ total: 5000, date: '2030-01-01' }, '2026-11-17')?.occurredAt, '2026-11-17')
+    assert.equal(readReceiptResult({ total: 5000, date: 'kemarin' }, '2026-11-17')?.occurredAt, '2026-11-17')
   }
 
   await db.delete()
