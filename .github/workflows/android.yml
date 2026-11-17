@@ -84,8 +84,18 @@ jobs:
       - name: Bangun proyek Android
         run: bubblewrap update --skipVersionUpgrade --manifest=./twa-manifest.json
 
-      - name: Bangun APK
-        run: bubblewrap build --skipPwaValidation --manifest=./twa-manifest.json
+      - name: Bangun APK (Gradle)
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleRelease
+          UNSIGNED=$(find app/build/outputs/apk/release -name '*.apk' | head -n 1)
+          echo "APK tanpa tanda tangan: $UNSIGNED"
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)"
+          "$BUILD_TOOLS/zipalign" -p -f 4 "$UNSIGNED" aligned.apk
+          "$BUILD_TOOLS/apksigner" sign --ks signing.keystore --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass env:BUBBLEWRAP_KEYSTORE_PASSWORD --key-pass env:BUBBLEWRAP_KEY_PASSWORD \
+            --out app-release-signed.apk aligned.apk
+          "$BUILD_TOOLS/apksigner" verify --print-certs app-release-signed.apk | head -n 3
 
       - name: Periksa sidik jari terhadap assetlinks.json
         run: |
@@ -102,7 +112,6 @@ jobs:
           name: rf-uangku-apk
           path: |
             android/twa/app-release-signed.apk
-            android/twa/app-release-bundle.aab
           retention-days: 30
 
       - name: Terbitkan ke Releases
