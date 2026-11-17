@@ -1,12 +1,11 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { BellRing, BellOff, Send } from 'lucide-react'
-import { useSetting } from '../../hooks/useSetting'
 import {
-  PUSH_ENABLED_KEY,
   disablePush,
   enablePush,
+  getPushState,
   getVapidPublicKey,
-  pushSupported,
+  type PushState,
   sendTestPush,
 } from '../../lib/push'
 import { useSyncState } from '../../lib/sync/controller'
@@ -18,8 +17,19 @@ import { Button } from '../ui/Button'
 export function PushReminderSettings() {
   const { toast } = useToast()
   const sync = useSyncState()
-  const active = useSetting<boolean>(PUSH_ENABLED_KEY, false)
+  const [state, setState] = useState<PushState>('inactive')
   const [busy, setBusy] = useState(false)
+  const active = state === 'active'
+
+  const refresh = useCallback(() => {
+    void getPushState().then(setState)
+  }, [])
+
+  useEffect(() => {
+    refresh()
+    document.addEventListener('visibilitychange', refresh)
+    return () => document.removeEventListener('visibilitychange', refresh)
+  }, [refresh])
 
   if (!sync.configured || !getVapidPublicKey()) return null
 
@@ -31,10 +41,11 @@ export function PushReminderSettings() {
       toast(errorMessage(caught), 'error')
     } finally {
       setBusy(false)
+      refresh()
     }
   }
 
-  const note = !pushSupported()
+  const note = state === 'unsupported'
     ? 'Browser ini tidak mendukung notifikasi push. Di iPhone, pasang aplikasi ke Layar Utama dulu (iOS 16.4+).'
     : !sync.email
       ? 'Masuk dengan Google di Sinkronisasi cloud untuk memakai pengingat dari server.'
@@ -45,7 +56,7 @@ export function PushReminderSettings() {
   return (
     <div className="space-y-2 rounded-xl bg-slate-50 p-3 dark:bg-slate-800/60">
       <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300">{note}</p>
-      {pushSupported() && sync.email && (
+      {state !== 'unsupported' && sync.email && (
         <div className="flex flex-wrap gap-2">
           {active ? (
             <>
@@ -55,7 +66,12 @@ export function PushReminderSettings() {
                 onClick={() =>
                   void run(async () => {
                     const sent = await sendTestPush()
-                    toast(sent > 0 ? 'Tes terkirim. Cek notifikasimu.' : 'Tidak ada perangkat terdaftar.', sent > 0 ? 'success' : 'error')
+                    toast(
+                      sent > 0
+                        ? 'Tes terkirim. Cek notifikasimu.'
+                        : 'Server tidak punya langganan yang berlaku. Tekan Matikan lalu Aktifkan lagi.',
+                      sent > 0 ? 'success' : 'error',
+                    )
                   })
                 }
               >
