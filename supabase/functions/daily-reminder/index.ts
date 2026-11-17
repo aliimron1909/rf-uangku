@@ -128,8 +128,18 @@ async function hasEntryOn(userId: string, date: string): Promise<boolean> {
   return false
 }
 
+// Aplikasi memanggil fungsi ini dari browser (tes), jadi perlu CORS dan jawaban untuk preflight.
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-cron-secret',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+const reply = (body: string, status: number) => new Response(body, { status, headers: CORS })
+const replyJson = (body: unknown) => Response.json(body, { headers: CORS })
+
 Deno.serve(async (request) => {
-  if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 })
+  if (request.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  if (request.method !== 'POST') return reply('Method not allowed', 405)
 
   const cronSecret = Deno.env.get('CRON_SECRET')
   const isCron = Boolean(cronSecret) && request.headers.get('x-cron-secret') === cronSecret
@@ -138,7 +148,7 @@ Deno.serve(async (request) => {
     // Tes dari aplikasi: harus membawa token login pengguna.
     const token = (request.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '')
     const { data } = token ? await supabase.auth.getUser(token) : { data: { user: null } }
-    if (!data.user) return new Response('Unauthorized', { status: 401 })
+    if (!data.user) return reply('Unauthorized', 401)
     const sent = await sendToUser(
       data.user.id,
       JSON.stringify({
@@ -148,7 +158,7 @@ Deno.serve(async (request) => {
         url: '/',
       }),
     )
-    return Response.json({ test: true, sent })
+    return replyJson({ test: true, sent })
   }
 
   const now = new Date()
@@ -156,7 +166,7 @@ Deno.serve(async (request) => {
     .from('reminder_settings')
     .select('user_id,remind_time,timezone,last_sent_date')
     .eq('enabled', true)
-  if (error) return new Response(error.message, { status: 500 })
+  if (error) return reply(error.message, 500)
 
   let notified = 0
   for (const row of settings ?? []) {
@@ -179,5 +189,5 @@ Deno.serve(async (request) => {
       notified += 1
     }
   }
-  return Response.json({ checked: settings?.length ?? 0, notified })
+  return replyJson({ checked: settings?.length ?? 0, notified })
 })
