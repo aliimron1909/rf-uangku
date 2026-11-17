@@ -67,6 +67,8 @@ export default defineConfig({
         navigateFallback: 'index.html',
         cleanupOutdatedCaches: true,
         clientsClaim: true,
+        // Penangan notifikasi push (public/push-sw.js), lihat docs/PUSH.md.
+        importScripts: ['push-sw.js'],
       },
       devOptions: {
         enabled: false,

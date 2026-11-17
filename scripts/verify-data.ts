@@ -56,6 +56,7 @@ import {
   type SyncRemote,
 } from '../src/lib/sync/engine'
 import { hashRecord, stableStringify } from '../src/lib/sync/stable'
+import { isReminderDue, localParts } from '../supabase/functions/daily-reminder/logic'
 import type { Account, BudgetProgress, Debt, DebtPayment, Transaction } from '../src/types'
 import {
   defaultAccountIconKey,
@@ -1344,6 +1345,25 @@ async function main() {
   assert.ok(reupload.pushed >= 1)
   assert.ok(remote.rows.has(`transactions|${syncTx.id}`))
 
+
+  // ---- Pengingat push dari server ----
+  assert.deepEqual(localParts(new Date('2026-11-17T13:30:00Z'), 'Asia/Jakarta'), {
+    date: '2026-11-17',
+    minutes: 20 * 60 + 30,
+  })
+  assert.equal(localParts(new Date('2026-11-17T20:00:00Z'), 'Asia/Jakarta').date, '2026-11-18')
+  assert.equal(localParts(new Date('2026-11-17T13:30:00Z'), 'Zona/Tidak-ada').minutes, 20 * 60 + 30)
+  const dueBase = { enabled: true, remindTime: '20:00', timeZone: 'Asia/Jakarta', lastSentDate: null }
+  assert.equal(isReminderDue({ ...dueBase, now: new Date('2026-11-17T12:59:00Z') }).due, false) // 19:59
+  assert.equal(isReminderDue({ ...dueBase, now: new Date('2026-11-17T13:00:00Z') }).due, true) // 20:00
+  assert.equal(isReminderDue({ ...dueBase, now: new Date('2026-11-17T15:59:00Z') }).due, true) // 22:59
+  assert.equal(isReminderDue({ ...dueBase, now: new Date('2026-11-17T16:00:00Z') }).due, false) // 23:00, lewat jendela
+  assert.equal(
+    isReminderDue({ ...dueBase, lastSentDate: '2026-11-17', now: new Date('2026-11-17T13:30:00Z') }).due,
+    false,
+  )
+  assert.equal(isReminderDue({ ...dueBase, enabled: false, now: new Date('2026-11-17T13:30:00Z') }).due, false)
+  assert.equal(isReminderDue({ ...dueBase, remindTime: '25:00', now: new Date('2026-11-17T13:30:00Z') }).due, false)
 
   // ---- Impor CSV ----
   assert.equal(detectDelimiter('a;b;c\n1;2;3'), ';')

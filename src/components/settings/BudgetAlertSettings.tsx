@@ -10,9 +10,11 @@ import {
   DEFAULT_REMINDER_TIME,
   isValidReminderTime,
 } from '../../lib/dailyReminder'
+import { syncReminderToServer } from '../../lib/push'
 import { errorMessage } from '../../lib/utils'
 import { useToast } from '../../contexts/ToastContext'
 import { Button } from '../ui/Button'
+import { PushReminderSettings } from './PushReminderSettings'
 
 export function BudgetAlertSettings() {
   const { toast } = useToast()
@@ -27,6 +29,7 @@ export function BudgetAlertSettings() {
   async function toggle(next: boolean, key = BUDGET_ALERTS_ENABLED_KEY) {
     try {
       await setSetting(key, next)
+      if (key === DAILY_REMINDER_ENABLED_KEY) await syncReminderToServer()
     } catch (caught) {
       toast(errorMessage(caught), 'error')
     }
@@ -87,15 +90,16 @@ export function BudgetAlertSettings() {
               value={isValidReminderTime(dailyTime) ? dailyTime : DEFAULT_REMINDER_TIME}
               onChange={(event) => {
                 if (isValidReminderTime(event.target.value)) {
-                  void setSetting(DAILY_REMINDER_TIME_KEY, event.target.value).catch((caught) =>
-                    toast(errorMessage(caught), 'error'),
-                  )
+                  void setSetting(DAILY_REMINDER_TIME_KEY, event.target.value)
+                    .then(() => syncReminderToServer())
+                    .catch((caught) => toast(errorMessage(caught), 'error'))
                 }
               }}
               className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             />
           </label>
         )}
+        {dailyEnabled && <PushReminderSettings />}
       </div>
 
       <div className="rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">
@@ -103,7 +107,7 @@ export function BudgetAlertSettings() {
         {permission === 'granted' && 'Notifikasi sistem aktif.'}
         {permission === 'denied' && 'Notifikasi sistem diblokir di pengaturan browser. Peringatan tetap muncul di dalam aplikasi.'}
         {permission === 'default' && 'Aktifkan izin agar peringatan juga tampil sebagai notifikasi sistem.'}
-        {' '}Karena data disimpan lokal tanpa server, peringatan hanya muncul saat aplikasi sedang dibuka atau kembali dibuka.
+        {' '}Peringatan anggaran dan tagihan muncul saat aplikasi dibuka. Pengingat harian bisa dikirim server lewat push bila diaktifkan di atas.
       </div>
 
       {permission === 'default' && (
