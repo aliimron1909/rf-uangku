@@ -2,7 +2,14 @@ import Dexie from 'dexie'
 import { useSyncExternalStore } from 'react'
 import { db, getSetting, setSetting } from '../../db/db'
 import { errorMessage } from '../utils'
-import { consumePendingOAuth, getAccessToken, loadSession, signOut, startGoogleLogin } from './auth'
+import {
+  consumePendingOAuth,
+  getAccessToken,
+  listenForNativeLogin,
+  loadSession,
+  signOut,
+  startGoogleLogin,
+} from './auth'
 import { getSupabaseConfig } from './config'
 import { SYNC_TABLE_NAMES, markLocalChanges, resetSyncLocalState, syncOnce } from './engine'
 import { SupabaseRemote, SyncAuthError } from './supabaseRemote'
@@ -142,6 +149,21 @@ export async function startAutoSync(): Promise<void> {
     }
   }
   await refreshSyncState()
+
+  listenForNativeLogin(() => {
+    void (async () => {
+      const config = getSupabaseConfig()
+      if (!config) return
+      try {
+        const failure = await consumePendingOAuth(config)
+        if (failure) setState({ status: 'error', error: failure })
+      } catch (caught) {
+        setState({ status: 'error', error: errorMessage(caught) })
+      }
+      await refreshSyncState()
+      void syncNow()
+    })()
+  })
 
   let timer: number | undefined
   const schedule = () => {
