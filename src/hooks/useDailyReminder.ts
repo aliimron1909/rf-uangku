@@ -10,6 +10,7 @@ import {
 } from '../lib/dailyReminder'
 import { todayISO } from '../lib/dates'
 import { showSystemNotification } from '../lib/notify'
+import { PUSH_ENABLED_KEY, syncReminderToServer } from '../lib/push'
 import { errorMessage } from '../lib/utils'
 import { useToast } from '../contexts/ToastContext'
 
@@ -31,6 +32,8 @@ export function useDailyReminder(): void {
       try {
         const enabled = await getSetting<boolean>(DAILY_REMINDER_ENABLED_KEY, false)
         if (!enabled) return
+        // Bila push server aktif di perangkat ini, server yang mengirim pengingat (hindari ganda).
+        if (await getSetting<boolean>(PUSH_ENABLED_KEY, false)) return
         const time = await getSetting<string>(DAILY_REMINDER_TIME_KEY, DEFAULT_REMINDER_TIME)
         const lastReminded = await getSetting<string | undefined>(DAILY_REMINDER_LAST_KEY, undefined)
         const today = todayISO()
@@ -61,6 +64,7 @@ export function useDailyReminder(): void {
     }
 
     void check()
+    void syncReminderToServer().catch(() => undefined)
     const timer = window.setInterval(() => void check(), CHECK_INTERVAL_MS)
     const onVisible = () => {
       if (document.visibilityState === 'visible') void check()
