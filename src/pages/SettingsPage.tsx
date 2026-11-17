@@ -67,12 +67,14 @@ import { cn, errorMessage } from '../lib/utils'
 import {
   APP_VERSION,
   DEFAULT_GROQ_MODEL,
+  DEFAULT_GROQ_VISION_MODEL,
   GROQ_MODELS,
   PROFILE_NAME_MAX_LENGTH,
 } from '../lib/constants'
 import { profileInitials, processProfilePhoto } from '../lib/profile'
 import { Button } from '../components/ui/Button'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
+import { Collapsible } from '../components/ui/Collapsible'
 import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { MasterDataSection } from '../components/settings/MasterDataSection'
@@ -103,6 +105,7 @@ export function SettingsPage() {
 
   const groqKey = useSetting<string>('groqKey', '')
   const groqModel = useSetting<string>('groqModel', DEFAULT_GROQ_MODEL)
+  const groqVisionModel = useSetting<string>('groqVisionModel', DEFAULT_GROQ_VISION_MODEL)
   const lastBackupAt = useSetting<string>('lastBackupAt', '')
   const { name: profileName, photo: profilePhoto } = useProfile()
 
@@ -115,6 +118,7 @@ export function SettingsPage() {
 
   const [keyInput, setKeyInput] = useState(groqKey)
   const [modelInput, setModelInput] = useState(groqModel)
+  const [visionInput, setVisionInput] = useState(groqVisionModel)
   const [showKey, setShowKey] = useState(false)
   const [savingAi, setSavingAi] = useState(false)
   const [testing, setTesting] = useState(false)
@@ -151,6 +155,7 @@ export function SettingsPage() {
 
   useEffect(() => setKeyInput(groqKey), [groqKey])
   useEffect(() => setModelInput(groqModel), [groqModel])
+  useEffect(() => setVisionInput(groqVisionModel), [groqVisionModel])
   useEffect(() => setProfileNameInput(profileName), [profileName])
   useEffect(() => setProfilePhotoInput(profilePhoto), [profilePhoto])
 
@@ -213,6 +218,7 @@ export function SettingsPage() {
     try {
       await setSetting('groqKey', key)
       await setSetting('groqModel', model)
+      await setSetting('groqVisionModel', visionInput.trim() || DEFAULT_GROQ_VISION_MODEL)
       toast('Pengaturan AI disimpan.')
     } catch (caught) {
       toast(errorMessage(caught), 'error')
@@ -685,7 +691,7 @@ export function SettingsPage() {
         id="notifikasi"
         icon={<BellRing className="h-5 w-5" />}
         title="Notifikasi"
-        description="Peringatan budget (80% dan 100%) dan pengingat tagihan berulang."
+        description="Peringatan budget (80% dan 100%), tagihan berulang, dan pengingat catat harian."
       >
         <BudgetAlertSettings />
       </Section>
@@ -722,20 +728,6 @@ export function SettingsPage() {
             </button>
           </div>
 
-          <Input
-            label="Model Groq"
-            value={modelInput}
-            onChange={(event) => setModelInput(event.target.value)}
-            list="groq-models"
-            hint="Default: llama-3.3-70b-versatile. Tekan Cari model aktif untuk melihat daftar terbaru dari Groq."
-            spellCheck={false}
-          />
-          <datalist id="groq-models">
-            {GROQ_MODELS.map((model) => (
-              <option key={model} value={model} />
-            ))}
-          </datalist>
-
           <div className="flex flex-wrap gap-2">
             <Button size="sm" onClick={() => void saveAiSettings()} loading={savingAi}>
               <Save className="h-3.5 w-3.5" />
@@ -750,6 +742,41 @@ export function SettingsPage() {
               <TestTube2 className="h-3.5 w-3.5" />
               Tes koneksi
             </Button>
+            {groqKey && (
+              <Button size="sm" variant="ghost" onClick={() => setConfirmRemoveKey(true)}>
+                <Trash2 className="h-3.5 w-3.5" />
+                Hapus key
+              </Button>
+            )}
+          </div>
+
+          <Collapsible
+            title="Lanjutan"
+            description="Pilih model, baca struk, dan cari model aktif"
+          >
+          <Input
+            label="Model Groq"
+            value={modelInput}
+            onChange={(event) => setModelInput(event.target.value)}
+            list="groq-models"
+            hint="Default: llama-3.3-70b-versatile. Tekan Cari model aktif untuk melihat daftar terbaru dari Groq."
+            spellCheck={false}
+          />
+          <datalist id="groq-models">
+            {GROQ_MODELS.map((model) => (
+              <option key={model} value={model} />
+            ))}
+          </datalist>
+
+          <Input
+            label="Model untuk baca struk (gambar)"
+            value={visionInput}
+            onChange={(event) => setVisionInput(event.target.value)}
+            hint={`Harus model yang bisa membaca gambar. Default: ${DEFAULT_GROQ_VISION_MODEL}.`}
+            spellCheck={false}
+          />
+
+            <div className="flex flex-wrap gap-2">
             <Button
               size="sm"
               variant="outline"
@@ -759,13 +786,7 @@ export function SettingsPage() {
               <Search className="h-3.5 w-3.5" />
               Cari model aktif
             </Button>
-            {groqKey && (
-              <Button size="sm" variant="ghost" onClick={() => setConfirmRemoveKey(true)}>
-                <Trash2 className="h-3.5 w-3.5" />
-                Hapus key
-              </Button>
-            )}
-          </div>
+            </div>
 
           <p className="flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500">
             <WifiOff className="h-3.5 w-3.5" />
@@ -874,6 +895,8 @@ export function SettingsPage() {
             </div>
           )}
 
+          </Collapsible>
+
           {testResult && (
             <div className="flex items-start gap-2 rounded-xl bg-emerald-50 px-3 py-2.5 text-xs text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200">
               <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
@@ -944,10 +967,6 @@ export function SettingsPage() {
             <Upload className="h-4 w-4" />
             Pulihkan dari Backup
           </Button>
-          <Button variant="outline" onClick={() => setConfirmClearTx(true)} disabled={transactions.length === 0}>
-            <Trash2 className="h-4 w-4" />
-            Hapus Semua Transaksi
-          </Button>
         </div>
 
         <input
@@ -969,21 +988,41 @@ export function SettingsPage() {
           </p>
         </div>
 
-        <div className="mt-4 border-t border-slate-100 pt-4 dark:border-slate-800">
-          <p className="text-xs font-bold text-slate-700 dark:text-slate-200">Zona berbahaya</p>
-          <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
-            Reset ke data awal akan menghapus semua transaksi dan mengembalikan rekening/kategori
-            bawaan.
-          </p>
-          <Button
-            variant="danger"
-            size="sm"
-            className="mt-2"
-            onClick={() => setConfirmReset(true)}
+        <div className="mt-4">
+          <Collapsible
+            title="Lanjutan"
+            description="Hapus transaksi dan reset data"
+            danger
           >
-            <RefreshCw className="h-3.5 w-3.5" />
-            Reset ke data awal
+            <div>
+              <p className="text-xs font-bold text-slate-700 dark:text-slate-200">Hapus transaksi</p>
+              <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+                Menghapus seluruh transaksi. Rekening dan kategori tetap ada.
+              </p>
+              <div className="mt-2">
+          <Button variant="danger" size="sm" onClick={() => setConfirmClearTx(true)} disabled={transactions.length === 0}>
+            <Trash2 className="h-4 w-4" />
+            Hapus Semua Transaksi
           </Button>
+              </div>
+            </div>
+            <div className="border-t border-slate-100 pt-3 dark:border-slate-800">
+              <p className="text-xs font-bold text-slate-700 dark:text-slate-200">Zona berbahaya</p>
+              <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+                Reset ke data awal akan menghapus semua transaksi dan mengembalikan rekening/kategori
+                bawaan.
+              </p>
+              <Button
+                variant="danger"
+                size="sm"
+                className="mt-2"
+                onClick={() => setConfirmReset(true)}
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                Reset ke data awal
+              </Button>
+            </div>
+          </Collapsible>
         </div>
       </Section>
   )

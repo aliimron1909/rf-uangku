@@ -11,7 +11,14 @@ import { createFavorite } from '../../db/favorites'
 import { FAVORITE_NAME_MAX_LENGTH, suggestFavoriteName } from '../../lib/favorites'
 import { todayISO } from '../../lib/dates'
 import { formatNumberInput, parseNumberInput } from '../../lib/format'
-import type { ResolvedAiDraft, ResolvedAiTransfer } from '../../lib/groq'
+import {
+  matchExpenseCategory,
+  readReceiptWithGroq,
+  type ResolvedAiDraft,
+  type ResolvedAiTransfer,
+} from '../../lib/groq'
+import { DEFAULT_GROQ_VISION_MODEL } from '../../lib/constants'
+import { useSetting } from '../../hooks/useSetting'
 import { createId, errorMessage } from '../../lib/utils'
 import { useToast } from '../../contexts/ToastContext'
 import { Button } from '../ui/Button'
@@ -54,6 +61,8 @@ export function TransactionForm({
   const categories = useCategories()
   const allCategories = useAllCategories()
   const { toast } = useToast()
+  const groqKey = useSetting<string>('groqKey', '')
+  const groqVisionModel = useSetting<string>('groqVisionModel', DEFAULT_GROQ_VISION_MODEL)
   const allTransactions = useTransactions()
   const initialMembers = transaction ? splitMembers(transaction, allTransactions) : []
   const initialTotal = initialMembers.reduce((sum, item) => sum + item.amount, 0)
@@ -202,6 +211,24 @@ export function TransactionForm({
     setOccurredAt(draft.occurredAt)
     setNote(draft.note)
     setErrors({})
+  }
+
+  async function extractReceipt(dataUrl: string) {
+    const reading = await readReceiptWithGroq({
+      apiKey: groqKey,
+      model: groqVisionModel.trim() || DEFAULT_GROQ_VISION_MODEL,
+      imageDataUrl: dataUrl,
+      categories: allCategories,
+    })
+    const category = matchExpenseCategory(reading.categoryName, allCategories)
+    if (type !== 'expense') changeType('expense')
+    setAmountInput(formatNumberInput(String(reading.amount)))
+    setOccurredAt(reading.occurredAt)
+    if (category) setCategoryId(category.id)
+    const detail = [reading.merchant, reading.note].filter(Boolean).join(' · ')
+    if (detail) setNote(detail)
+    setErrors({})
+    toast('Struk terbaca. Periksa lagi sebelum menyimpan.')
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -432,6 +459,7 @@ export function TransactionForm({
           setReceiptId(next.receiptId)
           setNewReceipt(next.newDataUrl)
         }}
+        onExtract={groqKey && !splitMode ? extractReceipt : undefined}
       />
 
       {!splitMode && (

@@ -6,6 +6,8 @@ export const DEFAULT_PROFILE_NAME = 'RF'
 export const PROFILE_NAME_MAX_LENGTH = 40
 
 export const DEFAULT_GROQ_MODEL = 'llama-3.3-70b-versatile'
+/** Model Groq yang bisa membaca gambar (untuk baca struk). Bisa diganti di Pengaturan > AI > Lanjutan. */
+export const DEFAULT_GROQ_VISION_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct'
 
 export const GROQ_MODELS = [
   'llama-3.3-70b-versatile',
