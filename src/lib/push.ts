@@ -42,11 +42,39 @@ function toBase64Url(buffer: ArrayBuffer | null): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
+export type PushState = 'unsupported' | 'inactive' | 'active'
+
+/** Keadaan nyata di perangkat ini: izin, langganan, dan penanda lokal harus sama-sama ada. */
+export async function getPushState(): Promise<PushState> {
+  if (!pushSupported()) return 'unsupported'
+  if (!(await getSetting<boolean>(PUSH_ENABLED_KEY, false))) return 'inactive'
+  if (Notification.permission !== 'granted') return 'inactive'
+  try {
+    const registration = await navigator.serviceWorker.getRegistration()
+    return (await registration?.pushManager.getSubscription()) ? 'active' : 'inactive'
+  } catch {
+    return 'inactive'
+  }
+}
+
 /** Mengirim jam, status, dan zona waktu pengingat ke server (bila push aktif dan sudah login). */
 export async function syncReminderToServer(): Promise<void> {
   if (!getSupabaseConfig()) return
   if (!(await getSetting<boolean>(PUSH_ENABLED_KEY, false))) return
   if (!(await loadSession())) return
+  // Daftarkan ulang langganan perangkat ini (server membuang yang sudah tidak berlaku).
+  if (Notification.permission === 'granted') {
+    const registration = await navigator.serviceWorker.getRegistration()
+    const subscription = await registration?.pushManager.getSubscription()
+    if (subscription) {
+      await makeRemote().upsertPushSubscription({
+        endpoint: subscription.endpoint,
+        p256dh: toBase64Url(subscription.getKey('p256dh')),
+        auth: toBase64Url(subscription.getKey('auth')),
+        userAgent: navigator.userAgent,
+      })
+    }
+  }
   const [enabled, time] = await Promise.all([
     getSetting<boolean>(DAILY_REMINDER_ENABLED_KEY, false),
     getSetting<string>(DAILY_REMINDER_TIME_KEY, DEFAULT_REMINDER_TIME),
