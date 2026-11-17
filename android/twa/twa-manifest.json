@@ -13,6 +13,7 @@
   "navigationDividerColorDark": "#020617",
   "backgroundColor": "#020617",
   "enableNotifications": true,
+  "minSdkVersion": 24,
   "startUrl": "/",
   "iconUrl": "https://rf-uangku.vercel.app/icons/icon-512.png",
   "maskableIconUrl": "https://rf-uangku.vercel.app/icons/maskable-512.png",
