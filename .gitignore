@@ -23,3 +23,7 @@ android/rf-uangku-pwabuilder.zip
 # Build artifacts (upload to GitHub Releases instead)
 android/*.apk
 android/*.aab
+
+# Hasil bangun APK (CI)
+android/twa/*
+!android/twa/twa-manifest.json
