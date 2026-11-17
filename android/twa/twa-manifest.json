@@ -1,0 +1,33 @@
+{
+  "packageId": "com.rf_uangku.twa",
+  "host": "rf-uangku.vercel.app",
+  "name": "RF Uangku — Manajemen Keuangan Pribadi",
+  "launcherName": "RF Uangku",
+  "display": "standalone",
+  "orientation": "portrait",
+  "themeColor": "#065f46",
+  "themeColorDark": "#065f46",
+  "navigationColor": "#020617",
+  "navigationColorDark": "#020617",
+  "navigationDividerColor": "#020617",
+  "navigationDividerColorDark": "#020617",
+  "backgroundColor": "#020617",
+  "enableNotifications": true,
+  "startUrl": "/",
+  "iconUrl": "https://rf-uangku.vercel.app/icons/icon-512.png",
+  "maskableIconUrl": "https://rf-uangku.vercel.app/icons/maskable-512.png",
+  "webManifestUrl": "https://rf-uangku.vercel.app/manifest.webmanifest",
+  "appVersionName": "1.1.0",
+  "appVersion": "1.1.0",
+  "appVersionCode": 100,
+  "fallbackType": "customtabs",
+  "splashScreenFadeOutDuration": 300,
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "signingKey": {
+    "path": "./signing.keystore",
+    "alias": "android"
+  },
+  "generatorApp": "bubblewrap-cli"
+}

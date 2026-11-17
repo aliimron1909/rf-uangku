@@ -1,0 +1,116 @@
+name: Build APK
+
+# Membangun APK Android (TWA yang membuka https://rf-uangku.vercel.app) di server GitHub.
+# Jalankan manual: tab Actions > Build APK > Run workflow. Panduan: docs/ANDROID.md
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/android.yml'
+      - 'android/twa/twa-manifest.json'
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: android/twa
+    env:
+      PUBLISH: ${{ github.event_name == 'workflow_dispatch' && github.ref_name == github.event.repository.default_branch }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Pasang Bubblewrap
+        run: npm install -g @bubblewrap/cli
+
+      - name: Siapkan Android SDK
+        run: |
+          mkdir -p ~/.bubblewrap
+          printf '{"jdkPath":"%s","androidSdkPath":"%s"}' "$JAVA_HOME" "$ANDROID_HOME" > ~/.bubblewrap/config.json
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+
+      - name: Siapkan kunci tanda tangan
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ] && [ -n "$KEYSTORE_PASSWORD" ] && [ -n "$KEY_ALIAS" ]; then
+            printf '%s' "$KEYSTORE_B64" | tr -d ' \n\r' | base64 -d > signing.keystore
+            [ -n "$KEY_PASSWORD" ] || KEY_PASSWORD="$KEYSTORE_PASSWORD"
+          else
+            echo "::warning::Secret kunci belum diisi. APK ditandatangani kunci sementara: bisa dipasang, tetapi bukan APK final (lihat docs/ANDROID.md)."
+            KEYSTORE_PASSWORD="sementara-$RANDOM$RANDOM"
+            KEY_PASSWORD="$KEYSTORE_PASSWORD"
+            KEY_ALIAS="android"
+            keytool -genkeypair -keystore signing.keystore -alias "$KEY_ALIAS" -keyalg RSA -keysize 2048 \
+              -validity 10000 -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" \
+              -dname "CN=RF Uangku sementara" > /dev/null
+            echo "TEMP_KEY=1" >> "$GITHUB_ENV"
+          fi
+          echo "::add-mask::$KEYSTORE_PASSWORD"
+          echo "::add-mask::$KEY_PASSWORD"
+          {
+            echo "BUBBLEWRAP_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
+            echo "BUBBLEWRAP_KEY_PASSWORD=$KEY_PASSWORD"
+            echo "KEY_ALIAS=$KEY_ALIAS"
+          } >> "$GITHUB_ENV"
+          keytool -list -v -keystore signing.keystore -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" \
+            | grep 'SHA256:' | sed 's/.*SHA256: *//' > fingerprint.txt
+          echo "Sidik jari SHA-256: $(cat fingerprint.txt)"
+
+      - name: Atur versi dan alias
+        run: |
+          VERSION=$(node -p "require('../../package.json').version")
+          jq --arg alias "$KEY_ALIAS" --arg v "$VERSION" --argjson code "$((100 + GITHUB_RUN_NUMBER))" \
+            '.signingKey.alias=$alias | .appVersionName=$v | .appVersion=$v | .appVersionCode=$code' \
+            twa-manifest.json > tmp.json && mv tmp.json twa-manifest.json
+          echo "APP_VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Bangun proyek Android
+        run: bubblewrap update --skipVersionUpgrade --manifest=./twa-manifest.json
+
+      - name: Bangun APK
+        run: bubblewrap build --skipPwaValidation --manifest=./twa-manifest.json
+
+      - name: Periksa sidik jari terhadap assetlinks.json
+        run: |
+          FP=$(cat fingerprint.txt)
+          if grep -q "$FP" ../../public/.well-known/assetlinks.json; then
+            echo "Sidik jari cocok dengan public/.well-known/assetlinks.json."
+          else
+            echo "::warning::Sidik jari $FP tidak ada di public/.well-known/assetlinks.json. Tanpa itu aplikasi menampilkan bilah alamat browser."
+          fi
+
+      - name: Unggah hasil
+        uses: actions/upload-artifact@v4
+        with:
+          name: rf-uangku-apk
+          path: |
+            android/twa/app-release-signed.apk
+            android/twa/app-release-bundle.aab
+          retention-days: 30
+
+      - name: Terbitkan ke Releases
+        if: env.PUBLISH == 'true' && env.TEMP_KEY != '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app-release-signed.apk rf-uangku.apk
+          gh release create "apk-v${APP_VERSION}-${GITHUB_RUN_NUMBER}" rf-uangku.apk \
+            --title "RF Uangku APK v${APP_VERSION} (#${GITHUB_RUN_NUMBER})" \
+            --notes "APK Android (TWA) untuk https://rf-uangku.vercel.app. Sidik jari SHA-256: $(cat fingerprint.txt)"
