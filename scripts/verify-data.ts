@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import 'fake-indexeddb/auto'
 import assert from 'node:assert/strict'
 import { db, getSetting, setSetting } from '../src/db/db'
@@ -1364,6 +1365,17 @@ async function main() {
   )
   assert.equal(isReminderDue({ ...dueBase, enabled: false, now: new Date('2026-11-17T13:30:00Z') }).due, false)
   assert.equal(isReminderDue({ ...dueBase, remindTime: '25:00', now: new Date('2026-11-17T13:30:00Z') }).due, false)
+
+  // Edge Function mandiri harus memuat salinan logika yang sama persis dengan logic.ts.
+  const fnSource = readFileSync('supabase/functions/daily-reminder/index.ts', 'utf8')
+  const inlined = fnSource.split('// logic:begin\n')[1]?.split('\n// logic:end')[0]?.trim()
+  const logicSource = readFileSync('supabase/functions/daily-reminder/logic.ts', 'utf8')
+    .split('\n')
+    .slice(2)
+    .join('\n')
+    .replace(/export /g, '')
+    .trim()
+  assert.equal(inlined, logicSource)
 
   // ---- Impor CSV ----
   assert.equal(detectDelimiter('a;b;c\n1;2;3'), ';')
