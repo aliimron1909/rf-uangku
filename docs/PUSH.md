@@ -13,25 +13,50 @@ kirim Web Push ke `push_subscriptions` → service worker (`public/push-sw.js`) 
 Satu jam pengingat per hari berlaku untuk semua perangkat akun. Pengingat dikirim maksimal
 sekali per hari dan hanya dalam 3 jam setelah jam pilihan.
 
-## Langkah pengaturan (sekali saja)
+## Langkah pengaturan (sekali saja, cukup dari HP)
 
-1. **Buat kunci VAPID** (di komputer mana pun yang punya Node): `npx web-push generate-vapid-keys`.
-   Catat *Public Key* dan *Private Key*. Private key jangan dibagikan.
-2. **Jalankan SQL**: tempel `supabase/push.sql` di SQL Editor lalu Run.
-3. **Pasang Supabase CLI** dan deploy fungsi dari folder proyek:
-   ```
-   supabase login
-   supabase link --project-ref <ID-PROYEK>
-   supabase secrets set VAPID_PUBLIC_KEY=<public> VAPID_PRIVATE_KEY=<private> \
-     VAPID_SUBJECT=mailto:emailmu@example.com CRON_SECRET=<teks-acak-panjang>
-   supabase functions deploy daily-reminder --no-verify-jwt
-   ```
-4. **Jadwalkan**: di **Database → Extensions** aktifkan `pg_cron` dan `pg_net`, lalu di SQL Editor
-   jalankan bagian jadwal yang dikomentari di akhir `push.sql` setelah mengganti
-   `<ID-PROYEK>` dan `<CRON_SECRET>` (sama dengan langkah 3).
-5. **Vercel**: tambahkan env `VITE_VAPID_PUBLIC_KEY` = public key, lalu Redeploy.
-6. **Di aplikasi**: Pengaturan → Notifikasi → nyalakan *Ingatkan jika belum mencatat hari ini* →
-   *Aktifkan pengingat push* → izinkan notifikasi → *Kirim tes*.
+Semua langkah bisa dilakukan lewat browser HP (Chrome). Untuk dashboard Supabase dan Vercel,
+nyalakan **Situs desktop** di menu Chrome (⋮) agar tampilannya lengkap.
+
+### 1. Buat kunci VAPID (di HP)
+Buka `https://<alamat-aplikasimu>/vapid.html`, tekan **Buat kunci baru**, lalu simpan
+**Public Key** dan **Private Key** di catatan pribadi. Private key jangan dibagikan.
+(Pengguna komputer bisa memakai `npx web-push generate-vapid-keys`.)
+
+### 2. Jalankan SQL
+Supabase → **SQL Editor** → **New query** → tempel isi `supabase/push.sql` → **Run**.
+
+### 3. Isi secrets fungsi
+Supabase → **Edge Functions → Secrets** → tambahkan empat secret:
+
+| Nama | Isi |
+| --- | --- |
+| `VAPID_PUBLIC_KEY` | Public Key |
+| `VAPID_PRIVATE_KEY` | Private Key |
+| `VAPID_SUBJECT` | `mailto:emailmu@example.com` |
+| `CRON_SECRET` | teks acak panjang buatanmu (mis. 32 huruf/angka), catat untuk langkah 5 |
+
+### 4. Buat fungsi (lewat editor, tanpa CLI)
+Supabase → **Edge Functions → Deploy a new function → Via Editor**. Beri nama
+`daily-reminder`, hapus isi contoh, tempel **seluruh** isi `supabase/functions/daily-reminder/index.ts`,
+lalu **Deploy**. Setelah jadi, buka pengaturan fungsi dan **matikan Verify JWT**
+(fungsi memeriksa `x-cron-secret` / token login sendiri).
+
+### 5. Jadwalkan
+Supabase → **Database → Extensions**: aktifkan `pg_cron` dan `pg_net`. Lalu di **SQL Editor**
+jalankan bagian jadwal (yang dikomentari) di akhir `push.sql` setelah mengganti `<ID-PROYEK>`
+dan `<CRON_SECRET>`.
+
+### 6. Vercel
+**Project → Settings → Environment Variables**: tambahkan `VITE_VAPID_PUBLIC_KEY` = Public Key,
+lalu **Redeploy**.
+
+### 7. Di aplikasi
+Pengaturan → Notifikasi → nyalakan *Ingatkan jika belum mencatat hari ini* →
+*Aktifkan pengingat push* → izinkan notifikasi → *Kirim tes*.
+
+Pengguna komputer dapat memakai Supabase CLI untuk langkah 3–4:
+`supabase secrets set ...` dan `supabase functions deploy daily-reminder --no-verify-jwt`.
 
 ## Catatan
 - Hanya **public key** yang masuk ke aplikasi; private key dan `CRON_SECRET` hanya di Supabase.

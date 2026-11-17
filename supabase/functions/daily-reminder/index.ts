@@ -1,9 +1,64 @@
 // Edge Function Supabase: kirim notifikasi push "belum mencatat hari ini".
 // Dipanggil pg_cron tiap 5 menit (header x-cron-secret) atau oleh aplikasi untuk tes (JWT pengguna).
-// Deploy: supabase functions deploy daily-reminder --no-verify-jwt
+// Deploy: lewat Dashboard (Edge Functions > Via Editor, tempel seluruh berkas ini) atau CLI:
+//   supabase functions deploy daily-reminder --no-verify-jwt
+// Berkas ini sengaja mandiri (logika dari logic.ts disalin di bawah; tes memastikan keduanya sama).
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import webpush from 'npm:web-push@3.6.7'
-import { isReminderDue } from './logic.ts'
+
+// logic:begin
+/** Pengingat hanya dikirim dalam jendela ini setelah jam yang dipilih (menit). */
+const REMINDER_WINDOW_MINUTES = 180
+
+function isValidTime(value: unknown): value is string {
+  return typeof value === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value)
+}
+
+function timeToMinutes(time: string): number {
+  const [hours, minutes] = time.split(':').map(Number)
+  return hours * 60 + minutes
+}
+
+/** Tanggal (YYYY-MM-DD) dan menit-sejak-tengah-malam di zona waktu pengguna. */
+function localParts(now: Date, timeZone: string): { date: string; minutes: number } {
+  let formatter: Intl.DateTimeFormat
+  try {
+    formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    })
+  } catch {
+    return localParts(now, 'Asia/Jakarta')
+  }
+  const parts: Record<string, string> = {}
+  for (const part of formatter.formatToParts(now)) parts[part.type] = part.value
+  return {
+    date: `${parts.year}-${parts.month}-${parts.day}`,
+    minutes: Number(parts.hour) * 60 + Number(parts.minute),
+  }
+}
+
+/** Apakah jam/tanggal sudah memenuhi syarat kirim (sebelum memeriksa ada-tidaknya catatan hari ini). */
+function isReminderDue(input: {
+  enabled: boolean
+  remindTime: string
+  timeZone: string
+  lastSentDate: string | null
+  now: Date
+}): { due: boolean; today: string } {
+  const { date, minutes } = localParts(input.now, input.timeZone)
+  if (!input.enabled || !isValidTime(input.remindTime) || input.lastSentDate === date) {
+    return { due: false, today: date }
+  }
+  const elapsed = minutes - timeToMinutes(input.remindTime)
+  return { due: elapsed >= 0 && elapsed < REMINDER_WINDOW_MINUTES, today: date }
+}
+// logic:end
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,

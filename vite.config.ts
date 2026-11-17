@@ -65,6 +65,8 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
         navigateFallback: 'index.html',
+        // Halaman statis pembuat kunci VAPID tidak boleh diganti index.html.
+        navigateFallbackDenylist: [/^\/vapid\.html$/],
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         // Penangan notifikasi push (public/push-sw.js), lihat docs/PUSH.md.
