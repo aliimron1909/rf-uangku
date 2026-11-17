@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { AlertCircle, Cloud, CloudOff, KeyRound, RefreshCw } from 'lucide-react'
+import { AlertCircle, Cloud, CloudOff, RefreshCw } from 'lucide-react'
 import { useSyncState } from '../../lib/sync/controller'
 import { useOnlineStatus } from '../../hooks/useOnlineStatus'
 import { formatDateTime } from '../../lib/dates'
@@ -30,10 +30,6 @@ export function SyncIndicator() {
     tone = 'muted'
     label = 'Belum tersambung ke cloud'
     icon = <CloudOff className="h-5 w-5" />
-  } else if (!sync.hasKey) {
-    tone = 'warn'
-    label = 'Masukkan frasa sandi untuk mulai sinkronisasi'
-    icon = <KeyRound className="h-5 w-5" />
   } else if (sync.status === 'error') {
     tone = 'error'
     label = `Sinkronisasi gagal: ${sync.error ?? 'terjadi kesalahan'}`

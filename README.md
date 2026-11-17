@@ -24,7 +24,7 @@ Aplikasi PWA keuangan pribadi yang **local-first**: semua data tersimpan di HP, 
 - **Tag dan split** — beri label bebas (#liburan) dan pecah satu struk ke beberapa kategori.
 - **Foto struk** — lampirkan foto struk (dikompres, tersimpan lokal, ikut backup JSON).
 - **Insight bulanan** — di Dashboard, mis. "Pengeluaran Makan naik 30%"; ringkasan AI Groq opsional (hanya angka agregat yang dikirim).
-- **Sinkronisasi cloud (opsional)** — samakan data antar perangkat lewat Supabase dengan login Google dan enkripsi di perangkat. Panduan: [docs/SUPABASE.md](docs/SUPABASE.md).
+- **Sinkronisasi cloud (opsional)** — samakan data antar perangkat lewat Supabase dengan login Google; data tersimpan di akun Supabase milikmu. Panduan: [docs/SUPABASE.md](docs/SUPABASE.md).
 - **Ikon rekening dan kategori** — pilih ikon sendiri di Pengaturan.
 - **Transfer antar rekening** — pindahkan saldo antar rekening (misalnya BCA ke e-wallet). Hanya mengubah saldo per rekening; tidak dihitung sebagai pemasukan atau pengeluaran.
 - **Target tabungan** — buat target (nama, nominal, tenggat opsional), catat setoran atau pengambilan dana, lihat progres dan saran setoran per bulan.

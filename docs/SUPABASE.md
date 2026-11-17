@@ -6,15 +6,24 @@ Anda mengisi dua variabel lingkungan di bawah. Tanpa itu, aplikasi berjalan sepe
 ## Cara kerja singkat
 
 - Login memakai Google (lewat Supabase Auth).
-- Setiap record (transaksi, rekening, budget, foto struk, dst.) dienkripsi **di perangkat**
-  dengan AES-256-GCM. Kuncinya diturunkan dari **frasa sandi** yang Anda buat; frasa ini
-  tidak pernah dikirim ke server. Supabase hanya menyimpan teks sandi.
+- Setiap record (transaksi, rekening, budget, foto struk, dst.) disimpan sebagai JSON biasa
+  di proyek Supabase **milik Anda sendiri**. Tidak ada frasa sandi; keamanan dijaga oleh
+  login Google dan Row Level Security (hanya akun pemilik yang bisa membaca/menulis).
+  Karena tidak dienkripsi, pemilik proyek Supabase bisa membaca isinya di dashboard.
 - Perubahan dideteksi otomatis dan dikirim; perubahan dari perangkat lain diterima.
 - Konflik pada record yang sama: versi dengan waktu perubahan terbaru yang dipakai.
   Penghapusan ikut tersebar ke perangkat lain.
 - **Tidak ikut disinkronkan:** PIN, API key Groq, tema, dan pengaturan lain.
-- **Lupa frasa sandi = data cloud tidak bisa dibuka.** Data di perangkat tetap ada, dan
-  Anda bisa memilih *Hapus data cloud dan mulai ulang* di Pengaturan.
+- Opsi *Hapus data cloud lalu unggah ulang* di Pengaturan mengosongkan cloud dan mengirim
+  ulang data dari perangkat itu.
+
+## Migrasi dari versi terenkripsi
+
+1. **Unduh backup JSON** dulu (Pengaturan → Backup & Data).
+2. Jalankan `supabase/schema.sql` lagi di SQL Editor: data cloud lama (terenkripsi) dihapus
+   dan kolomnya diganti `data jsonb`.
+3. Buka aplikasi di HP; sinkronisasi pertama mengunggah ulang seluruh data perangkat itu.
+   Perangkat lain tinggal masuk lagi, otomatis menerima data dari cloud.
 
 ## Langkah pengaturan (sekali saja)
 
@@ -55,8 +64,8 @@ Jika Anda memakai integrasi Supabase di Vercel, variabel `NEXT_PUBLIC_SUPABASE_U
 Lalu **Redeploy**. Untuk pengembangan lokal, salin `.env.example` menjadi `.env.local`.
 
 ### 6. Pakai di aplikasi
-**Pengaturan → Sinkronisasi cloud → Masuk dengan Google → buat frasa sandi.**
-Di perangkat kedua, masuk dengan akun yang sama lalu masukkan frasa sandi yang sama.
+**Pengaturan → Sinkronisasi cloud → Masuk dengan Google.**
+Di perangkat kedua, masuk dengan akun yang sama.
 
 ## Catatan penting
 

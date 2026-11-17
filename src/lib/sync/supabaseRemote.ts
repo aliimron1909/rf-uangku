@@ -1,4 +1,3 @@
-import type { SyncProfile } from './crypto'
 import type { PushRow, RemoteRow, SyncRemote } from './engine'
 import type { SupabaseConfig } from './config'
 
@@ -13,8 +12,7 @@ export class SyncAuthError extends Error {
 
 interface ServerRow {
   record_key: string
-  payload: string | null
-  iv: string | null
+  data: unknown | null
   deleted: boolean
   client_ts: number | string
   server_ts: string
@@ -60,15 +58,14 @@ export class SupabaseRemote implements SyncRemote {
     for (let offset = 0; ; offset += PAGE_SIZE) {
       const filter = since ? `&server_ts=gte.${encodeURIComponent(since)}` : ''
       const response = await this.request(
-        `sync_records?select=record_key,payload,iv,deleted,client_ts,server_ts${filter}` +
+        `sync_records?select=record_key,data,deleted,client_ts,server_ts${filter}` +
           `&order=server_ts.asc,record_key.asc&limit=${PAGE_SIZE}&offset=${offset}`,
       )
       const page = (await response.json()) as ServerRow[]
       for (const row of page) {
         rows.push({
           key: row.record_key,
-          payload: row.payload,
-          iv: row.iv,
+          data: row.data,
           deleted: row.deleted,
           clientTs: Number(row.client_ts),
           serverTs: row.server_ts,
@@ -86,8 +83,7 @@ export class SupabaseRemote implements SyncRemote {
       body: JSON.stringify(
         rows.map((row) => ({
           record_key: row.key,
-          payload: row.payload,
-          iv: row.iv,
+          data: row.data,
           deleted: row.deleted,
           client_ts: row.clientTs,
         })),
@@ -95,36 +91,9 @@ export class SupabaseRemote implements SyncRemote {
     })
   }
 
-  async getProfile(): Promise<SyncProfile | null> {
-    const response = await this.request('sync_profile?select=salt,check_iv,check_payload&limit=1')
-    const rows = (await response.json()) as Array<{
-      salt: string
-      check_iv: string
-      check_payload: string
-    }>
-    const row = rows[0]
-    return row ? { salt: row.salt, checkIv: row.check_iv, checkPayload: row.check_payload } : null
-  }
-
-  async createProfile(profile: SyncProfile): Promise<void> {
-    await this.request('sync_profile', {
-      method: 'POST',
-      headers: { Prefer: 'return=minimal' },
-      body: JSON.stringify({
-        salt: profile.salt,
-        check_iv: profile.checkIv,
-        check_payload: profile.checkPayload,
-      }),
-    })
-  }
-
-  /** Menghapus seluruh data cloud milik pengguna (untuk memulai ulang bila lupa frasa sandi). */
+  /** Menghapus seluruh data cloud milik pengguna (untuk memulai ulang). */
   async deleteAll(): Promise<void> {
     await this.request('sync_records?record_key=not.is.null', {
-      method: 'DELETE',
-      headers: { Prefer: 'return=minimal' },
-    })
-    await this.request('sync_profile?salt=not.is.null', {
       method: 'DELETE',
       headers: { Prefer: 'return=minimal' },
     })

@@ -45,11 +45,11 @@ import {
 } from '../src/lib/csvImport'
 import { evaluateBudgetAlerts } from '../src/lib/budgetAlerts'
 import { factsSignature, monthlyInsights } from '../src/lib/insights'
-import { deriveSyncKey, randomSalt, createSyncProfile, unlockSyncProfile } from '../src/lib/sync/crypto'
 import {
   SYNC_CURSOR_KEY,
   SYNC_TABLE_NAMES,
   markLocalChanges,
+  resetSyncLocalState,
   syncOnce,
   type PushRow,
   type RemoteRow,
@@ -1220,10 +1220,6 @@ async function main() {
   assert.equal(hashRecord({ a: 1, b: 2 }), hashRecord({ b: 2, a: 1 }))
   assert.notEqual(hashRecord({ a: 1 }), hashRecord({ a: 2 }))
 
-  const created = await createSyncProfile('frasa-rahasia-1')
-  await assert.rejects(unlockSyncProfile('frasa-salah-99', created.profile), /salah/i)
-  await unlockSyncProfile('frasa-rahasia-1', created.profile)
-
   class MemoryRemote implements SyncRemote {
     rows = new Map<string, RemoteRow>()
     counter = 0
@@ -1242,10 +1238,9 @@ async function main() {
     }
   }
   const remote = new MemoryRemote()
-  const syncKey = await deriveSyncKey('frasa-rahasia-1', randomSalt())
   let clock = 5_000_000_000_000
   const now = () => (clock += 1000)
-  const doSync = (key = syncKey) => syncOnce({ remote, key, now })
+  const doSync = () => syncOnce({ remote, now })
 
   async function saveDevice() {
     const data: Record<string, unknown[]> = {}
@@ -1282,10 +1277,8 @@ async function main() {
   assert.equal(firstA.firstSync, true)
   assert.ok(firstA.pushed >= 1)
   assert.ok(remote.rows.has(`transactions|${syncTx.id}`))
-  for (const row of remote.rows.values()) {
-    assert.ok(!(row.payload ?? '').includes('nasi goreng'))
-    assert.ok(!atob(row.payload ?? '').includes('nasi goreng'))
-  }
+  const sentTx = remote.rows.get(`transactions|${syncTx.id}`)!
+  assert.equal((sentTx.data as { note: string }).note, 'Rahasia nasi goreng')
   const secondA = await doSync()
   assert.equal(secondA.pushed, 0)
   assert.equal(secondA.applied, 0)
@@ -1342,11 +1335,14 @@ async function main() {
   assert.equal(await db.transactions.get(txB.id), undefined)
   await loadDevice(deviceBdel)
 
-  // Kunci yang salah ditolak tanpa mengubah data lokal.
-  await wipeDevice()
-  await seedIfEmpty()
-  const wrongKey = await deriveSyncKey('frasa-lain-12345', randomSalt())
-  await assert.rejects(doSync(wrongKey), /Frasa sandi salah/)
+  // Cloud dikosongkan (migrasi dari versi terenkripsi): perangkat yang direset mengunggah ulang semuanya.
+  remote.rows.clear()
+  await loadDevice(deviceA)
+  await resetSyncLocalState()
+  const reupload = await doSync()
+  assert.equal(reupload.firstSync, true)
+  assert.ok(reupload.pushed >= 1)
+  assert.ok(remote.rows.has(`transactions|${syncTx.id}`))
 
 
   // ---- Impor CSV ----
