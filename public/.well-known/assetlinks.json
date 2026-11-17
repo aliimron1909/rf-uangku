@@ -1,8 +1,11 @@
 [{
-      "relation": ["delegate_permission/common.handle_all_urls"],
-      "target": {
-        "namespace": "android_app",
-        "package_name": "com.rf_uangku.twa",
-        "sha256_cert_fingerprints": ["1F:8C:C0:53:4A:86:08:24:89:51:23:34:BF:EB:DE:9B:93:2C:ED:35:22:96:80:25:41:CB:8D:B2:5B:F1:D3:F1"]
-      }
-    }]
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.rf_uangku.twa",
+    "sha256_cert_fingerprints": [
+      "1F:8C:C0:53:4A:86:08:24:89:51:23:34:BF:EB:DE:9B:93:2C:ED:35:22:96:80:25:41:CB:8D:B2:5B:F1:D3:F1",
+      "0D:86:32:FB:77:D4:C2:F4:78:7D:EE:F4:C1:C0:57:9B:F6:6A:9E:09:C9:0C:8A:6C:65:13:BF:1D:C0:57:28:58"
+    ]
+  }
+}]
