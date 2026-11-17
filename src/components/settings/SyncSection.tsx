@@ -1,49 +1,26 @@
-import { useEffect, useState } from 'react'
-import { CloudOff, KeyRound, LogOut, RefreshCw, Trash2 } from 'lucide-react'
+import { useState } from 'react'
+import { CloudOff, LogOut, RefreshCw, Trash2 } from 'lucide-react'
 import {
-  cloudHasProfile,
   disconnectSync,
   resetCloudData,
-  setupPassphrase,
   signInWithGoogle,
   syncNow,
   useSyncState,
 } from '../../lib/sync/controller'
-import { MIN_SYNC_PASSPHRASE_LENGTH } from '../../lib/sync/crypto'
 import { formatDateTime } from '../../lib/dates'
 import { errorMessage } from '../../lib/utils'
 import { useToast } from '../../contexts/ToastContext'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
-import { Input } from '../ui/Input'
 
 export function SyncSection() {
   const sync = useSyncState()
   const { toast } = useToast()
-  const [hasProfile, setHasProfile] = useState<boolean | null>(null)
-  const [passphrase, setPassphrase] = useState('')
-  const [confirm, setConfirm] = useState('')
-  const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [confirmDisconnect, setConfirmDisconnect] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
 
   const signedIn = Boolean(sync.email)
-  const needsPassphrase = signedIn && !sync.hasKey
-
-  useEffect(() => {
-    if (!needsPassphrase) {
-      setHasProfile(null)
-      return
-    }
-    let cancelled = false
-    cloudHasProfile()
-      .then((value) => !cancelled && setHasProfile(value))
-      .catch((caught) => !cancelled && setError(errorMessage(caught)))
-    return () => {
-      cancelled = true
-    }
-  }, [needsPassphrase])
 
   if (!sync.configured) {
     return (
@@ -58,35 +35,6 @@ export function SyncSection() {
         </p>
       </div>
     )
-  }
-
-  async function handleSetup(event: React.FormEvent) {
-    event.preventDefault()
-    setError('')
-    const creating = hasProfile === false
-    if (passphrase.length < MIN_SYNC_PASSPHRASE_LENGTH) {
-      setError(`Frasa sandi minimal ${MIN_SYNC_PASSPHRASE_LENGTH} karakter.`)
-      return
-    }
-    if (creating && passphrase !== confirm) {
-      setError('Konfirmasi frasa sandi tidak sama.')
-      return
-    }
-    setBusy(true)
-    try {
-      const result = await setupPassphrase(passphrase)
-      setPassphrase('')
-      setConfirm('')
-      toast(
-        result === 'created'
-          ? 'Frasa sandi dibuat. Sinkronisasi dimulai.'
-          : 'Berhasil dibuka. Sinkronisasi dimulai.',
-      )
-    } catch (caught) {
-      setError(errorMessage(caught))
-    } finally {
-      setBusy(false)
-    }
   }
 
   async function handleSyncNow() {
@@ -112,7 +60,7 @@ export function SyncSection() {
   async function handleReset() {
     try {
       await resetCloudData()
-      toast('Data cloud dihapus. Atur frasa sandi baru untuk mulai lagi.')
+      toast('Data cloud dihapus dan diunggah ulang dari perangkat ini.')
     } catch (caught) {
       toast(errorMessage(caught), 'error')
     } finally {
@@ -125,52 +73,15 @@ export function SyncSection() {
       {!signedIn && (
         <>
           <p className="text-sm text-slate-600 dark:text-slate-300">
-            Masuk dengan Google untuk menyimpan salinan terenkripsi datamu di cloud dan
-            menyamakannya di semua perangkat. Google hanya dipakai untuk login; isi data tidak
-            bisa dibaca server tanpa frasa sandimu.
+            Masuk dengan Google untuk menyimpan salinan datamu di akun Supabase milikmu sendiri dan
+            menyamakannya di semua perangkat. Hanya akun yang kamu pakai masuk yang bisa
+            membaca datanya.
           </p>
           <Button onClick={signInWithGoogle}>Masuk dengan Google</Button>
         </>
       )}
 
-      {needsPassphrase && (
-        <form onSubmit={(event) => void handleSetup(event)} className="space-y-3">
-          <p className="text-sm text-slate-600 dark:text-slate-300">
-            Masuk sebagai <strong>{sync.email}</strong>.{' '}
-            {hasProfile === false
-              ? 'Buat frasa sandi untuk mengenkripsi datamu. Frasa ini tidak bisa dipulihkan: jika hilang, data cloud tidak bisa dibuka.'
-              : hasProfile === true
-                ? 'Masukkan frasa sandi yang kamu buat di perangkat pertama.'
-                : 'Memeriksa akun...'}
-          </p>
-          {hasProfile !== null && (
-            <>
-              <Input
-                label="Frasa sandi"
-                type="password"
-                autoComplete={hasProfile ? 'current-password' : 'new-password'}
-                value={passphrase}
-                onChange={(event) => setPassphrase(event.target.value)}
-              />
-              {hasProfile === false && (
-                <Input
-                  label="Ulangi frasa sandi"
-                  type="password"
-                  autoComplete="new-password"
-                  value={confirm}
-                  onChange={(event) => setConfirm(event.target.value)}
-                />
-              )}
-              <Button type="submit" loading={busy}>
-                <KeyRound className="h-4 w-4" />
-                {hasProfile ? 'Buka dan mulai sinkron' : 'Buat dan mulai sinkron'}
-              </Button>
-            </>
-          )}
-        </form>
-      )}
-
-      {signedIn && sync.hasKey && (
+      {signedIn && (
         <div className="space-y-3">
           <div className="rounded-xl bg-slate-50 p-3 text-sm dark:bg-slate-800/60">
             <p className="font-semibold text-slate-800 dark:text-slate-100">{sync.email}</p>
@@ -210,7 +121,6 @@ export function SyncSection() {
           {sync.error}
         </p>
       )}
-      {error && <p className="text-xs text-rose-600 dark:text-rose-400">{error}</p>}
 
       {signedIn && (
         <button
@@ -219,14 +129,14 @@ export function SyncSection() {
           className="flex items-center gap-1.5 text-xs font-medium text-rose-600 hover:underline dark:text-rose-400"
         >
           <Trash2 className="h-3.5 w-3.5" />
-          Lupa frasa sandi? Hapus data cloud dan mulai ulang
+          Hapus data cloud lalu unggah ulang dari perangkat ini
         </button>
       )}
 
       <ConfirmDialog
         open={confirmDisconnect}
         title="Putuskan sinkronisasi?"
-        message="Kamu keluar dari akun dan kunci enkripsi dihapus dari perangkat ini. Data di perangkat ini dan di cloud tidak dihapus."
+        message="Kamu keluar dari akun. Data di perangkat ini dan di cloud tidak dihapus."
         confirmLabel="Putuskan"
         onCancel={() => setConfirmDisconnect(false)}
         onConfirm={() => void handleDisconnect()}
@@ -234,7 +144,7 @@ export function SyncSection() {
       <ConfirmDialog
         open={confirmReset}
         title="Hapus semua data cloud?"
-        message="Semua data terenkripsi milik akun ini di Supabase dihapus permanen, termasuk frasa sandi. Data di perangkat ini tidak berubah, tetapi perangkat lain tidak akan menerima apa pun sampai kamu mengatur frasa sandi baru."
+        message="Semua data milik akun ini di Supabase dihapus permanen, lalu data di perangkat ini diunggah ulang. Data di perangkat ini tidak berubah. Perangkat lain yang punya data berbeda ikut mengunggah versinya saat sinkron berikutnya."
         confirmLabel="Hapus data cloud"
         danger
         onCancel={() => setConfirmReset(false)}

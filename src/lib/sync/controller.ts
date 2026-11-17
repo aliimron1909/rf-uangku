@@ -4,11 +4,12 @@ import { db, getSetting, setSetting } from '../../db/db'
 import { errorMessage } from '../utils'
 import { consumePendingOAuth, getAccessToken, loadSession, signOut, startGoogleLogin } from './auth'
 import { getSupabaseConfig } from './config'
-import { createSyncProfile, unlockSyncProfile } from './crypto'
 import { SYNC_TABLE_NAMES, markLocalChanges, resetSyncLocalState, syncOnce } from './engine'
 import { SupabaseRemote, SyncAuthError } from './supabaseRemote'
 
-const KEY_SETTING = 'syncKey'
+const LEGACY_KEY_SETTING = 'syncKey'
+const FORMAT_SETTING = 'syncFormat'
+const SYNC_FORMAT = 2
 const LAST_SYNC_SETTING = 'syncLastAt'
 const DEBOUNCE_MS = 3000
 const INTERVAL_MS = 120_000
@@ -16,7 +17,6 @@ const INTERVAL_MS = 120_000
 export interface SyncState {
   configured: boolean
   email: string | null
-  hasKey: boolean
   status: 'idle' | 'syncing' | 'error'
   lastSyncAt: string | null
   error: string | null
@@ -25,7 +25,6 @@ export interface SyncState {
 let state: SyncState = {
   configured: getSupabaseConfig() !== null,
   email: null,
-  hasKey: false,
   status: 'idle',
   lastSyncAt: null,
   error: null,
@@ -58,35 +57,31 @@ function makeRemote() {
 }
 
 export async function refreshSyncState(): Promise<void> {
-  const [session, key, lastSyncAt] = await Promise.all([
+  const [session, lastSyncAt] = await Promise.all([
     loadSession(),
-    getSetting<CryptoKey | null>(KEY_SETTING, null),
     getSetting<string | null>(LAST_SYNC_SETTING, null),
   ])
   setState({
     configured: getSupabaseConfig() !== null,
     email: session?.email ?? null,
-    hasKey: key !== null,
     lastSyncAt,
   })
 }
 
 let running = false
 
-/** Menjalankan satu putaran sinkronisasi bila sudah masuk dan kunci tersedia. */
+/** Menjalankan satu putaran sinkronisasi bila sudah masuk. */
 export async function syncNow(): Promise<void> {
   if (running || !getSupabaseConfig()) return
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return
-  const [session, key] = await Promise.all([
-    loadSession(),
-    getSetting<CryptoKey | null>(KEY_SETTING, null),
-  ])
-  if (!session || !key) return
+  const session = await loadSession()
+  if (!session) return
 
   running = true
   setState({ status: 'syncing', error: null })
   try {
-    await syncOnce({ remote: makeRemote(), key })
+    await migrateSyncFormat()
+    await syncOnce({ remote: makeRemote() })
     const lastSyncAt = new Date().toISOString()
     await setSetting(LAST_SYNC_SETTING, lastSyncAt)
     setState({ status: 'idle', lastSyncAt })
@@ -102,49 +97,32 @@ export function signInWithGoogle(): void {
   startGoogleLogin(requireConfig())
 }
 
-/** Apakah akun ini sudah punya frasa sandi di cloud (perangkat lain sudah mengaturnya)? */
-export async function cloudHasProfile(): Promise<boolean> {
-  return (await makeRemote().getProfile()) !== null
-}
-
-/** Membuat frasa sandi baru atau membuka yang sudah ada, lalu menyimpan kunci di perangkat ini. */
-export async function setupPassphrase(passphrase: string): Promise<'created' | 'unlocked'> {
-  const remote = makeRemote()
-  const existing = await remote.getProfile()
-  let result: 'created' | 'unlocked'
-  let key: CryptoKey
-  if (existing) {
-    key = await unlockSyncProfile(passphrase, existing)
-    result = 'unlocked'
-  } else {
-    const created = await createSyncProfile(passphrase)
-    await remote.createProfile(created.profile)
-    key = created.key
-    result = 'created'
-  }
+/**
+ * Format lama (terenkripsi) diganti JSON biasa. Status sinkron lokal dilupakan sekali saja
+ * supaya seluruh data di perangkat diunggah ulang ke cloud yang sudah dikosongkan.
+ */
+async function migrateSyncFormat(): Promise<void> {
+  if ((await getSetting<number>(FORMAT_SETTING, 0)) === SYNC_FORMAT) return
   await resetSyncLocalState()
-  await setSetting(KEY_SETTING, key)
-  await refreshSyncState()
-  void syncNow()
-  return result
+  await db.settings.delete(LEGACY_KEY_SETTING)
+  await setSetting(FORMAT_SETTING, SYNC_FORMAT)
 }
 
 export async function disconnectSync(): Promise<void> {
   await signOut(getSupabaseConfig())
-  await db.settings.delete(KEY_SETTING)
   await db.settings.delete(LAST_SYNC_SETTING)
   await resetSyncLocalState()
   setState({ status: 'idle', error: null })
   await refreshSyncState()
 }
 
-/** Menghapus semua data cloud akun ini (data lokal tetap). Dipakai bila frasa sandi hilang. */
+/** Menghapus semua data cloud akun ini (data lokal tetap), lalu mengunggah ulang dari perangkat ini. */
 export async function resetCloudData(): Promise<void> {
   await makeRemote().deleteAll()
-  await db.settings.delete(KEY_SETTING)
   await db.settings.delete(LAST_SYNC_SETTING)
   await resetSyncLocalState()
   await refreshSyncState()
+  void syncNow()
 }
 
 let started = false
@@ -171,8 +149,7 @@ export async function startAutoSync(): Promise<void> {
     timer = window.setTimeout(() => {
       // Catat waktu perubahan segera (juga saat offline), baru sinkronkan bila memungkinkan.
       void (async () => {
-        const key = await getSetting<CryptoKey | null>(KEY_SETTING, null)
-        if (key) await markLocalChanges().catch(() => undefined)
+        if (await loadSession()) await markLocalChanges().catch(() => undefined)
         await syncNow()
       })()
     }, DEBOUNCE_MS)

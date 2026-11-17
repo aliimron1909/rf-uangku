@@ -1,7 +1,6 @@
 import type { Table } from 'dexie'
 import { db, getSetting, setSetting } from '../../db/db'
 import type { SyncStateRow } from '../../types'
-import { decryptJson, encryptJson } from './crypto'
 import { hashRecord } from './stable'
 
 /** Tabel data yang disinkronkan. Pengaturan (PIN, API key, tema) sengaja tidak ikut. */
@@ -27,8 +26,8 @@ export const SYNC_CURSOR_KEY = 'syncCursor'
 
 export interface RemoteRow {
   key: string
-  payload: string | null
-  iv: string | null
+  /** Isi record (JSON biasa); null untuk tombstone. */
+  data: unknown | null
   deleted: boolean
   clientTs: number
   serverTs: string
@@ -144,7 +143,6 @@ export async function markLocalChanges(now: () => number = Date.now): Promise<nu
  */
 export async function syncOnce(options: {
   remote: SyncRemote
-  key: CryptoKey
   now?: () => number
 }): Promise<SyncReport> {
   const now = options.now ?? Date.now
@@ -171,8 +169,7 @@ export async function syncOnce(options: {
 
       let record: { id: string } | null = null
       if (!row.deleted) {
-        if (row.payload === null || row.iv === null) continue
-        const value = await decryptJson(options.key, row.key, { payload: row.payload, iv: row.iv })
+        const value = row.data
         if (
           !value ||
           typeof value !== 'object' ||
@@ -235,20 +232,13 @@ export async function syncOnce(options: {
     if (!parsed) continue
     let pushRow: PushRow
     if (row.deleted) {
-      pushRow = { key: row.key, payload: null, iv: null, deleted: true, clientTs: row.ts }
+      pushRow = { key: row.key, data: null, deleted: true, clientTs: row.ts }
     } else {
       const record = await tableFor(parsed.table).get(parsed.id)
       if (!record) continue // Dihapus saat sinkronisasi berjalan; putaran berikutnya mengirim tombstone.
-      const encrypted = await encryptJson(options.key, row.key, record)
-      pushRow = {
-        key: row.key,
-        payload: encrypted.payload,
-        iv: encrypted.iv,
-        deleted: false,
-        clientTs: row.ts,
-      }
+      pushRow = { key: row.key, data: record, deleted: false, clientTs: row.ts }
     }
-    const size = (pushRow.payload?.length ?? 0) + 200
+    const size = (pushRow.data ? JSON.stringify(pushRow.data).length : 0) + 200
     if (batch.length >= PUSH_BATCH_ROWS || (batch.length > 0 && batchChars + size > PUSH_BATCH_CHARS)) {
       await flush()
     }

@@ -680,7 +680,7 @@ export function SettingsPage() {
         id="sinkronisasi"
         icon={<Cloud className="h-5 w-5" />}
         title="Sinkronisasi cloud"
-        description="Samakan data di beberapa perangkat lewat Supabase. Data dienkripsi di perangkat sebelum dikirim."
+        description="Samakan data di beberapa perangkat lewat Supabase. Login Google, data tersimpan di akun Supabase milikmu."
       >
         <SyncSection />
       </Section>
@@ -1110,7 +1110,7 @@ export function SettingsPage() {
           <p className="rounded-xl bg-slate-50 px-3 py-2.5 text-xs leading-relaxed text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
             <span className="font-semibold text-slate-700 dark:text-slate-200">Privat dan tetap jalan offline.</span>{' '}
             Data tersimpan di perangkat ini. Sinkronisasi antar perangkat bersifat opsional dan
-            dienkripsi di perangkat sebelum dikirim. Hanya teks yang Anda tulis ke fitur AI yang
+            memakai akun Supabase milikmu sendiri. Hanya teks yang Anda tulis ke fitur AI yang
             dikirim ke Groq.
           </p>
 
@@ -1164,7 +1164,7 @@ export function SettingsPage() {
       icon: <DatabaseBackup className="h-5 w-5" />,
       summary: `Backup: ${lastBackupLabel}`,
       sections: [
-        { id: 'sinkronisasi', title: 'Sinkronisasi cloud', description: 'Samakan data antar perangkat lewat Supabase', keywords: 'supabase google login sync enkripsi cloud' },
+        { id: 'sinkronisasi', title: 'Sinkronisasi cloud', description: 'Samakan data antar perangkat lewat Supabase', keywords: 'supabase google login sync cloud' },
         { id: 'backup', title: 'Backup & Data', description: 'Unduh, pulihkan, ekspor CSV, dan reset data', keywords: 'backup restore pulihkan ekspor csv json reset hapus impor' },
         { id: 'master', title: 'Rekening & Kategori', description: 'Kelola rekening dan kategori', keywords: 'rekening kategori akun master ikon warna' },
       ],
