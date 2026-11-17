@@ -46,7 +46,7 @@ export class SupabaseRemote implements SyncRemote {
         // abaikan
       }
       if (response.status === 404 || /relation .* does not exist|schema cache/i.test(detail)) {
-        throw new Error('Tabel sinkronisasi belum dibuat di Supabase. Jalankan supabase/schema.sql.')
+        throw new Error('Tabel belum dibuat di Supabase. Jalankan supabase/schema.sql dan supabase/push.sql.')
       }
       throw new Error(`Server sinkronisasi error (${response.status})${detail ? `: ${detail}` : ''}`)
     }
@@ -88,6 +88,48 @@ export class SupabaseRemote implements SyncRemote {
           client_ts: row.clientTs,
         })),
       ),
+    })
+  }
+
+  async upsertPushSubscription(sub: {
+    endpoint: string
+    p256dh: string
+    auth: string
+    userAgent: string
+  }): Promise<void> {
+    await this.request('push_subscriptions?on_conflict=user_id,endpoint', {
+      method: 'POST',
+      headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify({
+        endpoint: sub.endpoint,
+        p256dh: sub.p256dh,
+        auth: sub.auth,
+        user_agent: sub.userAgent.slice(0, 200),
+      }),
+    })
+  }
+
+  async deletePushSubscription(endpoint: string): Promise<void> {
+    await this.request(`push_subscriptions?endpoint=eq.${encodeURIComponent(endpoint)}`, {
+      method: 'DELETE',
+      headers: { Prefer: 'return=minimal' },
+    })
+  }
+
+  async saveReminderSettings(value: {
+    enabled: boolean
+    remindTime: string
+    timezone: string
+  }): Promise<void> {
+    await this.request('reminder_settings?on_conflict=user_id', {
+      method: 'POST',
+      headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify({
+        enabled: value.enabled,
+        remind_time: value.remindTime,
+        timezone: value.timezone,
+        updated_at: new Date().toISOString(),
+      }),
     })
   }
 

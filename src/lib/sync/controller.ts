@@ -51,7 +51,7 @@ function requireConfig() {
   return config
 }
 
-function makeRemote() {
+export function makeRemote() {
   const config = requireConfig()
   return new SupabaseRemote(config, () => getAccessToken(config))
 }
