@@ -1352,7 +1352,7 @@ function Section({ id, icon, title, description, children }: SectionProps) {
   return (
     <section
       id={id}
-      className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900"
+      className="rounded-3xl glass"
     >
       <div className="flex items-start gap-3 border-b border-slate-100 px-4 py-4 dark:border-slate-800 sm:px-5">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-300">
@@ -1402,7 +1402,7 @@ interface MiniStatProps {
 
 function MiniStat({ label, value, icon }: MiniStatProps) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <div className="flex items-center gap-3 rounded-3xl glass p-3.5">
       <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
         {icon}
       </span>

@@ -54,7 +54,7 @@ export function NetWorthCard({
   const change = last.netWorth - prev.netWorth
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
+    <div className="rounded-3xl glass p-4 sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="flex items-center gap-2 text-base font-bold text-slate-900 dark:text-slate-100">

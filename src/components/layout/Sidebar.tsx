@@ -6,7 +6,7 @@ import { APP_TAGLINE } from '../../lib/constants'
 
 export function Sidebar() {
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-slate-200 bg-white px-4 py-5 dark:border-slate-800 dark:bg-slate-900 lg:flex">
+    <aside className="glass-strong fixed inset-y-0 left-0 z-30 hidden w-64 flex-col rounded-r-3xl border-l-0 px-4 py-5 lg:flex">
       <Link to="/dashboard" className="flex items-center gap-3 px-2">
         <img src={assetUrl('logo.svg')} alt="RF Uangku" className="h-11 w-11 rounded-2xl shadow-sm" />
         <div>

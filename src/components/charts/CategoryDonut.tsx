@@ -16,7 +16,7 @@ export function CategoryDonut({ data, totalExpense, periodLabel }: CategoryDonut
   const isDark = resolvedTheme === 'dark'
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
+    <div className="rounded-3xl glass p-4 sm:p-5">
       <div>
         <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
           Pengeluaran per Kategori

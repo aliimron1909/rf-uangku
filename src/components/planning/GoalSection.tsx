@@ -106,7 +106,7 @@ export function GoalSection() {
 
   return (
     <div className="space-y-4">
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
+      <section className="rounded-3xl glass p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
@@ -141,7 +141,7 @@ export function GoalSection() {
       </section>
 
       {progress.length === 0 ? (
-        <section className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <section className="rounded-3xl glass">
           <EmptyState
             icon={<PiggyBank className="h-7 w-7" />}
             title="Belum ada target tabungan"
@@ -169,7 +169,7 @@ export function GoalSection() {
             return (
               <div
                 key={goal.id}
-                className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+                className="rounded-3xl glass p-4"
               >
                 <div className="flex items-start gap-3">
                   <span

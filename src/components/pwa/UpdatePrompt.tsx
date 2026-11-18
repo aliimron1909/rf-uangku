@@ -15,7 +15,7 @@ export function UpdatePrompt({ enabled = true }: UpdatePromptProps) {
   if (!enabled || !needRefresh) return null
 
   return (
-    <div className="fixed bottom-24 left-1/2 z-50 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded-2xl border border-emerald-200 bg-white p-4 shadow-2xl dark:border-emerald-900 dark:bg-slate-900 lg:bottom-6 lg:left-auto lg:right-6 lg:translate-x-0">
+    <div className="fixed bottom-32 left-1/2 z-50 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 glass-strong rounded-3xl p-4 shadow-2xl lg:bottom-6 lg:left-auto lg:right-6 lg:translate-x-0">
       <div className="flex items-start gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
           <RefreshCw className="h-5 w-5" />

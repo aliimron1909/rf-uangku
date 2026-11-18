@@ -12,7 +12,7 @@ interface RecentTransactionsProps {
 
 export function RecentTransactions({ transactions }: RecentTransactionsProps) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <div className="rounded-3xl glass">
       <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5 dark:border-slate-800 sm:px-5">
         <div>
           <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">

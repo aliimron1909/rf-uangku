@@ -52,7 +52,7 @@ export function TransactionFilters({
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-4">
+    <div className="rounded-3xl glass p-3.5 sm:p-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
         <div className="lg:col-span-2">
           <Input

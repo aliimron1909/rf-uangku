@@ -18,7 +18,7 @@ export function TransactionCard({ transaction, onEdit, onDelete }: TransactionCa
   const isIncome = transaction.type === 'income'
 
   return (
-    <div className="rounded-xl border border-slate-100 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900">
+    <div className="rounded-xl glass p-3.5">
       <div className="flex items-start gap-3">
         <EntityIcon
           icon={transaction.categoryIcon}
