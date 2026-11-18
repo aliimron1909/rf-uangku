@@ -151,6 +151,8 @@ jobs:
                   </intent-filter>
               </service>
           '''
+          if 'REQUEST_INSTALL_PACKAGES' not in s:
+              s = s.replace('<application', '<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />\n    <application', 1)
           if 'USE_BIOMETRIC' not in s:
               s = s.replace('<application', '<uses-permission android:name="android.permission.USE_BIOMETRIC" />\n    <application', 1)
           assert '</application>' in s
@@ -158,6 +160,18 @@ jobs:
           open(p, 'w').write(s)
           PY
           grep -c WidgetProvider $app/AndroidManifest.xml
+
+      - name: Izinkan berkas pembaruan lewat FileProvider
+        run: |
+          python3 - <<'PY'
+          p = 'android-native/app/src/main/res/xml/file_paths.xml'
+          s = open(p).read()
+          if 'cache-path' not in s:
+              s = s.replace('</paths>', '    <cache-path name="rf_updates" path="updates/" />\n</paths>', 1)
+              open(p, 'w').write(s)
+          PY
+          cat android-native/app/src/main/res/xml/file_paths.xml
+          grep -c "fileprovider" android-native/app/src/main/AndroidManifest.xml
 
       - name: Pasang ikon aplikasi
         run: |

@@ -1,23 +1,35 @@
-import { useEffect } from 'react'
-import { useToast } from '../../contexts/ToastContext'
-import { checkNativeUpdate, downloadUpdate, shouldAutoCheck } from '../../lib/nativeUpdate'
+import { useEffect, useState } from 'react'
+import { UpdateModal } from '../settings/UpdateModal'
+import {
+  checkNativeUpdate,
+  dismissUpdate,
+  isUpdateDismissed,
+  shouldAutoCheck,
+  type NativeUpdateInfo,
+} from '../../lib/nativeUpdate'
 
-/** Aplikasi native: memberi tahu bila ada versi baru di Releases GitHub. */
+/** Aplikasi native: menampilkan dialog bila ada versi baru di Releases GitHub (paling sering sekali per 6 jam). */
 export function NativeUpdateCheck() {
-  const { toast } = useToast()
+  const [update, setUpdate] = useState<NativeUpdateInfo | null>(null)
 
   useEffect(() => {
     if (!shouldAutoCheck()) return
     void checkNativeUpdate()
       .then((result) => {
-        if (result?.status !== 'available') return
-        const { update } = result
-        toast(`Versi baru tersedia (v${update.version}, build ${update.build}).`, 'info', {
-          action: { label: 'Unduh', onClick: () => void downloadUpdate(update) },
-        })
+        if (result?.status === 'available' && !isUpdateDismissed(result.update.build)) {
+          setUpdate(result.update)
+        }
       })
       .catch(() => undefined)
-  }, [toast])
+  }, [])
 
-  return null
+  return (
+    <UpdateModal
+      update={update}
+      onClose={() => {
+        if (update) dismissUpdate(update.build)
+        setUpdate(null)
+      }}
+    />
+  )
 }
