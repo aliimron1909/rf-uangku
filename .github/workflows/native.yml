@@ -33,9 +33,19 @@ jobs:
           cache: npm
 
       - name: Pasang dependensi dan bangun web
+        env:
+          # Kunci publik Supabase (bukan service_role). Isi sebagai secret repositori.
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
           npm ci
           npm run build
+
+      - name: Periksa konfigurasi Supabase
+        run: |
+          if [ -z "${{ secrets.SUPABASE_URL }}" ] || [ -z "${{ secrets.SUPABASE_ANON_KEY }}" ]; then
+            echo "::warning::Secret SUPABASE_URL / SUPABASE_ANON_KEY belum diisi: sinkronisasi cloud tidak aktif di APK ini (lihat docs/ANDROID.md)."
+          fi
 
       - name: Pasang Capacitor (tanpa mengubah package.json)
         run: |
@@ -62,6 +72,21 @@ jobs:
           open(p, 'w').write(s)
           PY
           grep -c rfuangku android-native/app/src/main/AndroidManifest.xml
+
+          # Android 15+ menggambar aplikasi di bawah status bar; tahan agar header tidak tertimpa jam/baterai.
+          python3 - <<'PY'
+          import re
+          p = 'android-native/app/src/main/res/values/styles.xml'
+          s = open(p).read()
+          items = '''
+              <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
+              <item name="android:statusBarColor">#020617</item>
+              <item name="android:navigationBarColor">#020617</item>'''
+          s, n = re.subn(r'(<style name="AppTheme\.NoActionBar"[^>]*>)', lambda m: m.group(1) + items, s, count=1)
+          assert n == 1, 'style AppTheme.NoActionBar tidak ditemukan'
+          open(p, 'w').write(s)
+          PY
+          cat android-native/app/src/main/res/values/styles.xml
 
       - name: Pasang ikon aplikasi
         run: |
