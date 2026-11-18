@@ -190,7 +190,8 @@ function normalizeType(value: unknown): TxType | null {
   return null
 }
 
-async function readGroqError(response: Response): Promise<string> {
+async function readGroqError(response: Response, model?: string): Promise<string> {
+  const modelLabel = model ? ` "${model}"` : ''
   let message = `Groq error (${response.status})`
   try {
     const body = (await response.json()) as { error?: { message?: string } }
@@ -200,11 +201,11 @@ async function readGroqError(response: Response): Promise<string> {
   }
   if (response.status === 401) return 'API key Groq tidak valid. Periksa di Pengaturan.'
   if (response.status === 404) {
-    return 'Model Groq tidak ditemukan atau sudah tidak aktif. Buka Pengaturan → AI Groq, tekan Cari model aktif, lalu pilih model lain.'
+    return `Model Groq${modelLabel} tidak ditemukan atau sudah tidak aktif. Buka Pengaturan → AI Groq, tekan Cari model aktif, pilih model lain, lalu tekan Tes.`
   }
   if (response.status === 429) return 'Kuota Groq sedang penuh. Coba lagi beberapa saat.'
   if (/model.*(not found|does not exist|decommission|not supported|invalid)/i.test(message)) {
-    return 'Model Groq tidak tersedia atau sudah tidak aktif. Buka Pengaturan → AI Groq, tekan Cari model aktif, lalu pilih model lain.'
+    return `Model Groq${modelLabel} tidak tersedia atau sudah tidak aktif. Buka Pengaturan → AI Groq, tekan Cari model aktif, pilih model lain, lalu tekan Tes.`
   }
   return message
 }
@@ -292,7 +293,7 @@ Jika ragu, gunakan kategori "Lain-lain" dan rekening "Tunai".`
   })
 
   if (!response.ok) {
-    throw new Error(await readGroqError(response))
+    throw new Error(await readGroqError(response, options.model))
   }
 
   const body = (await response.json()) as {
@@ -376,7 +377,7 @@ Rekening: ${accountNames.join(', ')}.`
   })
 
   if (!response.ok) {
-    throw new Error(await readGroqError(response))
+    throw new Error(await readGroqError(response, options.model))
   }
 
   const body = (await response.json()) as {
@@ -430,7 +431,7 @@ export async function testGroq(apiKey: string, model: string): Promise<string> {
   })
 
   if (!response.ok) {
-    throw new Error(await readGroqError(response))
+    throw new Error(await readGroqError(response, model))
   }
 
   const body = (await response.json()) as {
@@ -472,7 +473,7 @@ export async function summarizeInsightsWithGroq(options: {
     }),
   })
 
-  if (!response.ok) throw new Error(await readGroqError(response))
+  if (!response.ok) throw new Error(await readGroqError(response, options.model))
 
   const body = (await response.json()) as {
     choices?: Array<{ message?: { content?: string } }>
@@ -580,7 +581,7 @@ Aturan:
   })
 
   if (!response.ok) {
-    const message = await readGroqError(response)
+    const message = await readGroqError(response, options.model)
     if (response.status === 400 || /image|vision|multimodal/i.test(message)) {
       throw new Error(
         'Model ini tidak bisa membaca gambar. Buka Pengaturan > AI Groq > Lanjutan dan isi model untuk baca struk.',
