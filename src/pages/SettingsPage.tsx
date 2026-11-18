@@ -79,6 +79,8 @@ import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { MasterDataSection } from '../components/settings/MasterDataSection'
 import { BudgetAlertSettings } from '../components/settings/BudgetAlertSettings'
+import { WidgetSettings } from '../components/settings/WidgetSettings'
+import { isNativeApp } from '../lib/native'
 import { SyncSection } from '../components/settings/SyncSection'
 import { SettingsShell, type SettingsGroup } from '../components/settings/SettingsShell'
 
@@ -697,6 +699,17 @@ export function SettingsPage() {
       </Section>
   )
 
+  const secWidget = (
+      <Section
+        id="widget"
+        icon={<Palette className="h-5 w-5" />}
+        title="Widget layar utama"
+        description="Saldo, saldo per rekening, dan grafik tren di layar utama HP. Bisa menyembunyikan nominal."
+      >
+        <WidgetSettings />
+      </Section>
+  )
+
   const secAi = (
       <Section
         id="ai"
@@ -1150,11 +1163,15 @@ export function SettingsPage() {
       sections: [
         { id: 'tampilan', title: 'Tampilan', description: 'Tema terang, gelap, atau ikuti sistem', keywords: 'tema gelap terang dark light mode' },
         { id: 'notifikasi', title: 'Notifikasi', description: 'Peringatan budget dan pengingat tagihan', keywords: 'budget tagihan pengingat peringatan alert' },
+        ...(isNativeApp()
+          ? [{ id: 'widget', title: 'Widget layar utama', description: 'Saldo dan tren di layar utama HP', keywords: 'widget saldo sembunyikan tren rekening layar utama' }]
+          : []),
       ],
       content: (
         <>
           {secTampilan}
           {secNotif}
+          {isNativeApp() && secWidget}
         </>
       ),
     },

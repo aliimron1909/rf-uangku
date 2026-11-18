@@ -110,7 +110,7 @@ import {
   upcomingBills,
 } from '../src/lib/billReminders'
 import { matchAccountName, readAiEntry, resolveAiTransfer } from '../src/lib/groq'
-import { widgetTexts } from '../src/lib/nativeWidget'
+import { trendSummary, widgetTexts } from '../src/lib/nativeWidget'
 import { extractNativeUrl } from '../src/lib/native'
 import { planReminderTimes, shouldRemindToday } from '../src/lib/dailyReminder'
 import { moveCategory } from '../src/db/categories'
@@ -1776,10 +1776,26 @@ async function main() {
     assert.equal(shouldRemindToday({ ...base, lastReminded: '2026-11-16' }), true)
     assert.equal(shouldRemindToday({ ...base, time: 'rusak', nowMinutes: 20 * 60 }), true) // jatuh ke 20:00
 
-    const widget = widgetTexts({ balance: 1500000, income: 200000, expense: 50000 }, new Date(2026, 10, 18, 9, 5))
+    const widget = widgetTexts(
+      {
+        balance: 1500000, income: 200000, expense: 50000,
+        budget: { limit: 400000, spent: 100000 },
+        accounts: [{ name: 'BCA', balance: 1000000 }, { name: 'Dompet', balance: 500000 }],
+        trends: {},
+      },
+      new Date(2026, 10, 18, 9, 5),
+    )
     assert.ok(widget.balance.includes('1.500.000'))
-    assert.ok(widget.month.includes('50.000') && widget.month.includes('200.000'))
+    assert.ok(widget.expense.includes('50.000') && widget.income.includes('200.000'))
+    assert.equal(widget.budget, 'Budget 25% terpakai')
     assert.equal(widget.updated, 'Diperbarui 09.05')
+    assert.equal(JSON.parse(widget.accounts).length, 2)
+    assert.equal(JSON.parse(widget.accounts)[0].n, 'BCA')
+    assert.equal(
+      widgetTexts({ balance: 0, income: 0, expense: 0, budget: { limit: 0, spent: 0 }, accounts: [], trends: {} }, new Date()).budget,
+      '',
+    )
+    assert.ok(trendSummary([{ key: 'a', label: 'a', income: 100, expense: 40, net: 60 }, { key: 'b', label: 'b', income: 50, expense: 10, net: 40 }]).includes('150'))
     assert.equal(extractNativeUrl({ a: { url: 'rfuangku://new' } }, 'rfuangku://new'), 'rfuangku://new')
     assert.equal(extractNativeUrl('{"url":"rfuangku://auth#x"}', 'rfuangku://new'), undefined)
 

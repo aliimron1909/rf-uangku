@@ -2,7 +2,9 @@ import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDashboardData } from '../../hooks/useDashboard'
 import { NATIVE_NEW_LINK, extractNativeUrl, nativePlugin } from '../../lib/native'
-import { pushWidgetData } from '../../lib/nativeWidget'
+import { pushWidgetData, WIDGET_PERIODS, type WidgetPeriod } from '../../lib/nativeWidget'
+import { buildTrend } from '../../lib/dates'
+import type { Granularity, TrendPoint } from '../../types'
 
 interface AppPlugin {
   addListener(eventName: string, handler: (event: unknown) => void): unknown
@@ -11,15 +13,30 @@ interface AppPlugin {
 
 /** Aplikasi native: menyegarkan widget saldo dan membuka form transaksi saat tombol "+" widget diketuk. */
 export function NativeWidgetSync() {
-  const { balance, totals } = useDashboardData()
+  const { balance, totals, balances, budget, transactions } = useDashboardData()
   const navigate = useNavigate()
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      void pushWidgetData({ balance, income: totals.income, expense: totals.expense }).catch(() => undefined)
+      const granularity: Record<WidgetPeriod, Granularity> = {
+        daily: 'daily',
+        weekly: 'weekly',
+        monthly: 'monthly',
+        yearly: 'yearly',
+      }
+      const trends: Partial<Record<WidgetPeriod, TrendPoint[]>> = {}
+      for (const period of WIDGET_PERIODS) trends[period] = buildTrend(transactions, granularity[period]).data
+      void pushWidgetData({
+        balance,
+        income: totals.income,
+        expense: totals.expense,
+        budget: { limit: budget.limit, spent: budget.spent },
+        accounts: balances.map((account) => ({ name: account.name, balance: account.balance })),
+        trends,
+      }).catch(() => undefined)
     }, 800)
     return () => window.clearTimeout(timer)
-  }, [balance, totals.income, totals.expense])
+  }, [balance, totals.income, totals.expense, balances, budget.limit, budget.spent, transactions])
 
   useEffect(() => {
     const app = nativePlugin<AppPlugin>('App')
