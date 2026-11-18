@@ -169,7 +169,20 @@ async function fetchUser(config: SupabaseConfig, accessToken: string): Promise<{
   const response = await fetch(`${config.url}/auth/v1/user`, {
     headers: { apikey: config.anonKey, Authorization: `Bearer ${accessToken}` },
   })
-  if (!response.ok) throw new SyncAuthError('Login Google gagal diverifikasi. Coba lagi.')
+  if (!response.ok) {
+    // Alasan dari Supabase (tanpa token) agar penyebab kegagalan terlihat.
+    let reason = ''
+    try {
+      const body = (await response.json()) as Record<string, unknown>
+      reason = String(body.msg ?? body.message ?? body.error_description ?? body.error ?? '').slice(0, 120)
+    } catch {
+      reason = ''
+    }
+    noteNativeEvent(`verifikasi: HTTP ${response.status}, token ${accessToken.length} karakter`)
+    throw new SyncAuthError(
+      `Login Google gagal diverifikasi (HTTP ${response.status}${reason ? `: ${reason}` : ''}). Coba lagi.`,
+    )
+  }
   const user = (await response.json()) as { id: string; email?: string }
   return { id: user.id, email: user.email ?? '' }
 }
