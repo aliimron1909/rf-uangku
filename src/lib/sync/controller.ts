@@ -101,7 +101,11 @@ export async function syncNow(): Promise<void> {
 }
 
 export function signInWithGoogle(): void {
-  startGoogleLogin(requireConfig())
+  try {
+    startGoogleLogin(requireConfig())
+  } catch (caught) {
+    setState({ status: 'error', error: errorMessage(caught) })
+  }
 }
 
 /**
