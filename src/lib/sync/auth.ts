@@ -59,6 +59,29 @@ export function startGoogleLogin(config: SupabaseConfig): void {
 }
 
 /** Di aplikasi native: menangkap tautan rfuangku://auth#access_token=... dari login Google. */
+/** Mencari tautan rfuangku:// di data event; bentuk data dari jembatan native bisa berlapis. */
+function extractUrl(value: unknown, depth = 0): string | undefined {
+  if (depth > 3 || value == null) return undefined
+  if (typeof value === 'string') {
+    if (value.startsWith(NATIVE_AUTH_REDIRECT)) return value
+    if (value.startsWith('{')) {
+      try {
+        return extractUrl(JSON.parse(value), depth + 1)
+      } catch {
+        return undefined
+      }
+    }
+    return undefined
+  }
+  if (typeof value === 'object') {
+    for (const item of Object.values(value as Record<string, unknown>)) {
+      const found = extractUrl(item, depth + 1)
+      if (found) return found
+    }
+  }
+  return undefined
+}
+
 export function listenForNativeLogin(onToken: () => void): void {
   const app = nativePlugin<AppPlugin>('App')
   if (!app) {
@@ -94,9 +117,13 @@ export function listenForNativeLogin(onToken: () => void): void {
   }
   try {
     app.addListener('appUrlOpen', (event) => {
-      const url =
-        typeof event === 'string' ? event : (event as { url?: string } | null | undefined)?.url
-      if (!url) noteNativeEvent('appUrlOpen: data tanpa url')
+      const url = extractUrl(event)
+      if (!url) {
+        // Hanya nama kunci yang dicatat; isi event bisa memuat token login.
+        const keys = event && typeof event === 'object' ? Object.keys(event as object).join(',') : typeof event
+        noteNativeEvent(`appUrlOpen: url tidak ditemukan (bentuk: ${keys || 'kosong'})`)
+        return
+      }
       handle('appUrlOpen', url)
     })
     noteNativeEvent('listener login terpasang')
