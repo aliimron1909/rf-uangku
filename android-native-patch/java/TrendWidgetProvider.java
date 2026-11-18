@@ -9,6 +9,8 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.os.Bundle;
+import android.util.TypedValue;
 import android.util.Base64;
 import android.view.View;
 import android.widget.RemoteViews;
@@ -22,8 +24,13 @@ public class TrendWidgetProvider extends AppWidgetProvider {
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] ids) {
         for (int id : ids) {
-            manager.updateAppWidget(id, build(context));
+            manager.updateAppWidget(id, build(context, manager, id));
         }
+    }
+
+    @Override
+    public void onAppWidgetOptionsChanged(Context context, AppWidgetManager manager, int id, Bundle options) {
+        manager.updateAppWidget(id, build(context, manager, id));
     }
 
     @Override
@@ -38,10 +45,14 @@ public class TrendWidgetProvider extends AppWidgetProvider {
         super.onReceive(context, intent);
     }
 
-    static RemoteViews build(Context context) {
+    static RemoteViews build(Context context, AppWidgetManager manager, int id) {
         SharedPreferences prefs = WidgetStore.prefs(context);
+        float k = WidgetStore.scale(Math.min(WidgetStore.widthDp(manager, id) / 250f, WidgetStore.heightDp(manager, id, 170) / 170f), 0.85f, 1.6f);
         int period = prefs.getInt("trend_period", 2);
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_trend);
+        views.setTextViewTextSize(R.id.trend_title, TypedValue.COMPLEX_UNIT_SP, 13f * k);
+        views.setTextViewTextSize(R.id.trend_period, TypedValue.COMPLEX_UNIT_SP, 11f * k);
+        views.setTextViewTextSize(R.id.trend_summary, TypedValue.COMPLEX_UNIT_SP, 13f * k);
         views.setTextViewText(R.id.trend_period, LABELS[period] + "  ▸");
         String summary = prefs.getString("sum_" + KEYS[period], "");
         views.setTextViewText(R.id.trend_summary, summary.isEmpty() ? "Buka aplikasi untuk memuat" : WidgetStore.hidden(context) ? "Nominal disembunyikan" : summary);
@@ -72,7 +83,7 @@ public class TrendWidgetProvider extends AppWidgetProvider {
         AppWidgetManager manager = AppWidgetManager.getInstance(context);
         int[] ids = manager.getAppWidgetIds(new ComponentName(context, TrendWidgetProvider.class));
         for (int id : ids) {
-            manager.updateAppWidget(id, build(context));
+            manager.updateAppWidget(id, build(context, manager, id));
         }
     }
 }

@@ -4,15 +4,19 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_bg"
-    android:padding="16dp">
+    android:padding="18dp">
 
     <TextView
         android:id="@+id/widget_title"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_alignParentStart="true"
+        android:layout_centerVertical="false"
+        android:fontFamily="sans-serif-medium"
+        android:letterSpacing="0.04"
         android:text="Saldo total"
         android:textColor="#B3FFFFFF"
-        android:textSize="12sp" />
+        android:textSize="13sp" />
 
     <TextView
         android:id="@+id/widget_eye"
@@ -20,13 +24,14 @@
         android:layout_height="wrap_content"
         android:layout_alignParentEnd="true"
         android:background="@drawable/widget_chip_bg"
-        android:paddingStart="10dp"
-        android:paddingEnd="10dp"
-        android:paddingTop="3dp"
-        android:paddingBottom="3dp"
+        android:fontFamily="sans-serif-medium"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp"
         android:text="Sembunyikan"
         android:textColor="#FFFFFF"
-        android:textSize="10sp" />
+        android:textSize="11sp" />
 
     <TextView
         android:id="@+id/widget_balance"
@@ -34,53 +39,86 @@
         android:layout_height="wrap_content"
         android:layout_below="@id/widget_title"
         android:layout_marginTop="2dp"
+        android:fontFamily="sans-serif-black"
         android:maxLines="1"
         android:text="Rp –"
         android:textColor="#FFFFFF"
-        android:textSize="26sp"
-        android:textStyle="bold" />
+        android:textSize="30sp" />
 
-    <TextView
-        android:id="@+id/widget_month"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:id="@+id/widget_flow"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_below="@id/widget_balance"
-        android:layout_toStartOf="@id/widget_add"
-        android:layout_marginTop="4dp"
-        android:maxLines="1"
-        android:text="Buka aplikasi untuk memuat"
-        android:textColor="#E6FFFFFF"
-        android:textSize="12sp" />
+        android:layout_marginTop="6dp"
+        android:orientation="horizontal">
+        <TextView
+            android:id="@+id/widget_expense"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:fontFamily="sans-serif-medium"
+            android:maxLines="1"
+            android:text="Buka aplikasi untuk memuat"
+            android:textColor="#FDA4AF"
+            android:textSize="13sp" />
+        <TextView
+            android:id="@+id/widget_income"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:fontFamily="sans-serif-medium"
+            android:maxLines="1"
+            android:textColor="#86EFAC"
+            android:textSize="13sp" />
+    </LinearLayout>
 
-    <TextView
-        android:id="@+id/widget_budget"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:id="@+id/widget_budget_group"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@id/widget_month"
-        android:layout_toStartOf="@id/widget_add"
-        android:layout_marginTop="2dp"
-        android:maxLines="1"
-        android:textColor="#CCFFFFFF"
-        android:textSize="12sp" />
+        android:layout_below="@id/widget_flow"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="54dp"
+        android:orientation="vertical">
+        <ProgressBar
+            android:id="@+id/widget_progress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="6dp"
+            android:max="100"
+            android:progress="0"
+            android:progressDrawable="@drawable/widget_progress" />
+        <TextView
+            android:id="@+id/widget_budget"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:fontFamily="sans-serif"
+            android:maxLines="1"
+            android:textColor="#CCFFFFFF"
+            android:textSize="11sp" />
+    </LinearLayout>
 
     <TextView
         android:id="@+id/widget_updated"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
+        android:fontFamily="sans-serif"
         android:textColor="#80FFFFFF"
         android:textSize="10sp" />
 
     <TextView
         android:id="@+id/widget_add"
-        android:layout_width="44dp"
-        android:layout_height="44dp"
+        android:layout_width="46dp"
+        android:layout_height="46dp"
         android:layout_alignParentEnd="true"
         android:layout_alignParentBottom="true"
         android:background="@drawable/widget_add_bg"
+        android:fontFamily="sans-serif-light"
         android:gravity="center"
         android:text="+"
         android:textColor="#FFFFFF"
-        android:textSize="26sp"
-        android:textStyle="bold" />
+        android:textSize="28sp" />
 </RelativeLayout>
