@@ -44,10 +44,12 @@ export function startGoogleLogin(config: SupabaseConfig): void {
     // Google menolak login di WebView; buka di Custom Tab lalu kembali lewat tautan khusus.
     const url = `${config.url}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(NATIVE_AUTH_REDIRECT)}`
     const browser = nativePlugin<BrowserPlugin>('Browser')
-    if (browser) {
-      void browser.open({ url })
-      return
+    if (!browser) {
+      // Jangan jatuh ke login web: itu mengarahkan ke situs, bukan kembali ke aplikasi.
+      throw new Error('Plugin browser native tidak ditemukan. Pasang APK native terbaru lalu coba lagi.')
     }
+    void browser.open({ url }).catch(() => undefined)
+    return
   }
   const redirectTo = `${window.location.origin}${import.meta.env.BASE_URL}settings`
   window.location.assign(
