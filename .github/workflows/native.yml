@@ -41,6 +41,21 @@ jobs:
           npm ci
           npm run build
 
+      - name: Tolak kunci rahasia Supabase
+        env:
+          KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          # Kunci secret/service_role tidak boleh masuk ke APK (bisa dibongkar siapa pun).
+          if printf '%s' "$KEY" | grep -q '^sb_secret_'; then
+            echo "::error::SUPABASE_ANON_KEY berisi kunci SECRET (sb_secret_...). Pakai kunci anon/publishable."; exit 1
+          fi
+          payload=$(printf '%s' "$KEY" | cut -d. -f2 | tr '_-' '/+')
+          pad=$(( (4 - ${#payload} % 4) % 4 ))
+          payload="$payload$(printf '=%.0s' $(seq 1 $pad))"
+          if [ "$pad" -lt 4 ] && printf '%s' "$payload" | base64 -d 2>/dev/null | grep -q '"role":"service_role"'; then
+            echo "::error::SUPABASE_ANON_KEY berisi kunci service_role. Pakai kunci anon/publishable."; exit 1
+          fi
+
       - name: Periksa konfigurasi Supabase
         run: |
           if [ -z "${{ secrets.SUPABASE_URL }}" ] || [ -z "${{ secrets.SUPABASE_ANON_KEY }}" ]; then
