@@ -130,11 +130,31 @@ export function listenForNativeLogin(onToken: () => void): void {
   } catch (caught) {
     noteNativeEvent(`listener gagal: ${caught instanceof Error ? caught.message : 'galat'}`)
   }
-  // Bila aplikasi sempat dimatikan sistem saat pengguna login di browser, tautannya menjadi URL peluncuran.
-  void app
-    .getLaunchUrl?.()
-    .then((launch) => handle('peluncuran', launch?.url))
-    .catch(() => undefined)
+  // Bila sistem mematikan aplikasi saat pengguna login di browser, tautan balik menjadi URL peluncuran.
+  // Diperiksa saat mulai dan setiap aplikasi kembali aktif; tiap tautan hanya diproses sekali.
+  const seen = new Set<string>()
+  const checkLaunch = (source: string): void => {
+    void app
+      .getLaunchUrl?.()
+      .then((launch) => {
+        const url = extractUrl(launch)
+        if (!url) {
+          const keys = launch && typeof launch === 'object' ? Object.keys(launch as object).join(',') : typeof launch
+          noteNativeEvent(`${source}: tanpa tautan (bentuk: ${keys || 'kosong'})`)
+          return
+        }
+        if (seen.has(url)) return
+        seen.add(url)
+        handle(source, url)
+      })
+      .catch((caught) =>
+        noteNativeEvent(`${source}: getLaunchUrl gagal (${caught instanceof Error ? caught.message : 'galat'})`),
+      )
+  }
+  checkLaunch('peluncuran')
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') checkLaunch('kembali aktif')
+  })
 }
 
 interface TokenResponse {
