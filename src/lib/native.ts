@@ -36,13 +36,28 @@ export function isNativeApp(): boolean {
   }
 }
 
+let lastNativeEvent = ''
+const listeners = new Set<() => void>()
+
+/** Mencatat kejadian terakhir (tautan balik login dsb.) agar terlihat di layar Pengaturan. */
+export function noteNativeEvent(text: string): void {
+  const time = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  lastNativeEvent = `${time} ${text}`
+  listeners.forEach((listener) => listener())
+}
+
+export function subscribeNativeEvents(listener: () => void): () => void {
+  listeners.add(listener)
+  return () => listeners.delete(listener)
+}
+
 /** Ringkasan untuk membantu mencari masalah plugin di aplikasi native. */
 export function nativeDiagnostics(): string {
   if (!isNativeApp()) return ''
   const cap = capacitor()
   const has = (name: string) => (nativePlugin(name) ? 'ada' : 'tidak ada')
   const bridge = `${cap?.nativePromise ? 'promise' : '-'}/${cap?.nativeCallback ? 'callback' : '-'}`
-  return `Native: ya (${cap?.getPlatform?.() ?? '?'}) · plugin Browser: ${has('Browser')} · plugin App: ${has('App')} · jembatan: ${bridge}`
+  return `Native: ya (${cap?.getPlatform?.() ?? '?'}) · plugin Browser: ${has('Browser')} · plugin App: ${has('App')} · jembatan: ${bridge}${lastNativeEvent ? ` · ${lastNativeEvent}` : ''}`
 }
 
 const registered = new Map<string, unknown>()
