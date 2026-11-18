@@ -1354,7 +1354,7 @@ interface SectionProps {
   id?: string
   icon: ReactNode
   title: string
-  description: string
+  description?: string
   children: ReactNode
 }
 
