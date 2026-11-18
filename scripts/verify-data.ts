@@ -1799,6 +1799,34 @@ async function main() {
     assert.equal(extractNativeUrl({ a: { url: 'rfuangku://new' } }, 'rfuangku://new'), 'rfuangku://new')
     assert.equal(extractNativeUrl('{"url":"rfuangku://auth#x"}', 'rfuangku://new'), undefined)
 
+    // Parser notifikasi bank/e-wallet
+    const raw = (text: string, pkg = 'id.co.bri.brimo', title = 'Info', time = new Date(2026, 10, 18, 10, 0).getTime()) =>
+      ({ id: `${pkg}:${time}:${text.length}`, pkg, title, text, time })
+    assert.equal(parseIdrAmount('1.250.000'), 1250000)
+    assert.equal(parseIdrAmount('1.250.000,50'), 1250000)
+    assert.equal(parseIdrAmount('50,000'), 50000)
+    assert.equal(parseIdrAmount('75000'), 75000)
+    assert.equal(parseIdrAmount('15.000,5'), 15000)
+    const out = parseBankNotification(raw('Transfer ke BUDI berhasil sebesar Rp 250.000. Saldo Rp 1.000.000'))
+    assert.equal(out?.type, 'expense')
+    assert.equal(out?.amount, 250000)
+    assert.equal(out?.source, 'BRImo')
+    assert.equal(out?.occurredAt, '2026-11-18')
+    const inc = parseBankNotification(raw('Anda menerima Rp1.500.000 dari ANI', 'id.dana', 'DANA'))
+    assert.equal(inc?.type, 'income')
+    assert.equal(inc?.amount, 1500000)
+    assert.equal(inc?.source, 'DANA')
+    assert.equal(parseBankNotification(raw('Kode OTP Anda 123456, jangan bagikan. Rp 50.000')), null)
+    assert.equal(parseBankNotification(raw('Top up GoPay Rp 100.000 berhasil', 'com.gojek.app')), null)
+    assert.equal(parseBankNotification(raw('Saldo Anda saat ini Rp 2.000.000')), null)
+    assert.equal(parseBankNotification(raw('Pembayaran QRIS di KOPI KENANGAN Rp 28.000', 'ovo.id'))?.type, 'expense')
+    const first = parseBankNotification(raw('Pembayaran Rp 28.000 berhasil'))!
+    const twin = { ...first, id: 'lain', time: first.time + 30_000 }
+    const later = { ...first, id: 'nanti', time: first.time + 10 * 60_000 }
+    assert.equal(mergePending([first], [twin]).length, 1)
+    assert.equal(mergePending([first], [first]).length, 1)
+    assert.equal(mergePending([first], [later]).length, 2)
+
     const now = new Date(2026, 10, 18, 15, 0)
     const plan = (over: Partial<Parameters<typeof planReminderTimes>[0]> = {}) =>
       planReminderTimes({ enabled: true, time: '20:00', now, hasEntryToday: false, ...over })

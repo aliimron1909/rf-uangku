@@ -23,6 +23,7 @@ import { Modal } from '../components/ui/Modal'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { TransactionFilters, type TransactionFilterState } from '../components/transactions/TransactionFilters'
 import { TransactionTable } from '../components/transactions/TransactionTable'
+import { getPendingNotifs, removePendingNotif } from '../lib/nativeBankNotif'
 import { TransactionCard } from '../components/transactions/TransactionCard'
 import { TransactionForm } from '../components/transactions/TransactionForm'
 import { AiChatModal } from '../components/transactions/AiChatModal'
@@ -55,6 +56,7 @@ export function TransactionsPage() {
   const [editing, setEditing] = useState<Transaction | null>(null)
   const [chatDraft, setChatDraft] = useState<ResolvedAiDraft | null>(null)
   const [chatTransfer, setChatTransfer] = useState<ResolvedAiTransfer | null>(null)
+  const [notifId, setNotifId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<TransactionWithRefs | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [trashOpen, setTrashOpen] = useState(false)
@@ -69,6 +71,31 @@ export function TransactionsPage() {
       setFormOpen(true)
     }
   }, [searchParams])
+
+  // Transaksi terdeteksi dari notifikasi bank: buka form berisi nominal, jenis, dan catatan; rekening dan kategori dipilih pengguna.
+  useEffect(() => {
+    const id = searchParams.get('notif')
+    if (!id) return
+    void getPendingNotifs().then((list) => {
+      const item = list.find((entry) => entry.id === id)
+      const next = new URLSearchParams(searchParams)
+      next.delete('notif')
+      setSearchParams(next, { replace: true })
+      if (!item) return
+      setEditing(null)
+      setChatTransfer(null)
+      setNotifId(item.id)
+      setChatDraft({
+        type: item.type,
+        amount: item.amount,
+        accountId: '',
+        categoryId: '',
+        occurredAt: item.occurredAt,
+        note: item.note,
+      })
+      setFormOpen(true)
+    })
+  }, [searchParams, setSearchParams])
 
   useEffect(() => {
     if (searchParams.get('chat') !== '1') return
@@ -114,10 +141,16 @@ export function TransactionsPage() {
   const firstRow = filtered.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1
   const lastRow = Math.min(page * PAGE_SIZE, filtered.length)
 
+  function savedForm() {
+    if (notifId) void removePendingNotif(notifId)
+    closeForm()
+  }
+
   function closeForm() {
     setFormOpen(false)
     setEditing(null)
     setChatDraft(null)
+    setNotifId(null)
     if (searchParams.get('new')) {
       const next = new URLSearchParams(searchParams)
       next.delete('new')
@@ -361,7 +394,7 @@ export function TransactionsPage() {
           transaction={editing}
           initialDraft={chatDraft}
           initialTransfer={chatTransfer}
-          onSaved={closeForm}
+          onSaved={savedForm}
           onCancel={closeForm}
         />
       </Modal>

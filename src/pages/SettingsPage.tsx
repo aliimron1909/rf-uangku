@@ -699,6 +699,7 @@ export function SettingsPage() {
       </Section>
   )
 
+<<<<<<< HEAD
   const secWidget = (
       <Section
         id="widget"
@@ -707,6 +708,16 @@ export function SettingsPage() {
         description="Saldo, saldo per rekening, dan grafik tren di layar utama HP. Bisa menyembunyikan nominal."
       >
         <WidgetSettings />
+=======
+  const secBankNotif = (
+      <Section
+        id="notifikasi-bank"
+        icon={<BellRing className="h-5 w-5" />}
+        title="Baca notifikasi bank & e-wallet"
+        description="Sarankan transaksi otomatis dari notifikasi bank dan e-wallet. Diproses di HP, kamu tinjau dulu sebelum disimpan."
+      >
+        <BankNotifSettings />
+>>>>>>> 2c8a2d1 (feat: deteksi transaksi dari notifikasi bank dan e-wallet (diproses di HP, ditinjau sebelum disimpan))
       </Section>
   )
 
