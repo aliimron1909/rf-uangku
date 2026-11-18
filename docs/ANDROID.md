@@ -46,3 +46,17 @@ sebelum menghapus aplikasi lama.
 ## Catatan
 - Notifikasi push dari Supabase tetap bekerja di APK (notifikasi didelegasikan ke Chrome).
 - Jangan commit keystore atau `signing-key-info.txt` ke repositori.
+
+## Aplikasi native (Capacitor) — `Build APK Native`
+
+APK terpisah (ID `com.rf_uangku.app`) yang membundel seluruh web di dalamnya. Selain empat
+secret kunci di atas, tambahkan dua secret agar sinkronisasi Supabase aktif:
+
+| Nama | Isi |
+| --- | --- |
+| `SUPABASE_URL` | Project URL Supabase (sama dengan `VITE_SUPABASE_URL` di Vercel) |
+| `SUPABASE_ANON_KEY` | anon public key (sama dengan `VITE_SUPABASE_ANON_KEY` di Vercel; bukan `service_role`) |
+
+Di Supabase → **Authentication → URL Configuration → Redirect URLs**, tambahkan `rfuangku://auth`
+agar login Google bisa kembali ke aplikasi. Data aplikasi native terpisah dari versi web/TWA;
+samakan lewat sinkronisasi atau backup JSON.
