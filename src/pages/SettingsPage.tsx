@@ -81,6 +81,7 @@ import { MasterDataSection } from '../components/settings/MasterDataSection'
 import { BudgetAlertSettings } from '../components/settings/BudgetAlertSettings'
 import { WidgetSettings } from '../components/settings/WidgetSettings'
 import { BankNotifSettings } from '../components/settings/BankNotifSettings'
+import { NativeUpdateRow } from '../components/settings/NativeUpdateRow'
 import { isNativeApp } from '../lib/native'
 import { SyncSection } from '../components/settings/SyncSection'
 import { SettingsShell, type SettingsGroup } from '../components/settings/SettingsShell'
@@ -1097,6 +1098,7 @@ export function SettingsPage() {
               </span>
             )}
           </div>
+          {isNativeApp() && <NativeUpdateRow />}
 
           <div className="rounded-xl bg-slate-50 px-3 py-2.5 text-[11px] leading-relaxed text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
             <p className="font-semibold text-slate-700 dark:text-slate-200">Android / Chrome:</p>
