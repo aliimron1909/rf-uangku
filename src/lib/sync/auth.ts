@@ -36,6 +36,7 @@ interface BrowserPlugin {
 }
 interface AppPlugin {
   addListener(event: 'appUrlOpen', handler: (event: { url: string }) => void): unknown
+  getLaunchUrl?(): Promise<{ url?: string } | undefined>
 }
 
 export function startGoogleLogin(config: SupabaseConfig): void {
@@ -58,18 +59,21 @@ export function startGoogleLogin(config: SupabaseConfig): void {
 export function listenForNativeLogin(onToken: () => void): void {
   const app = nativePlugin<AppPlugin>('App')
   if (!app) return
-  app.addListener('appUrlOpen', (event) => {
-    if (!event.url.startsWith(NATIVE_AUTH_REDIRECT)) return
-    const index = event.url.indexOf('#')
+  const handle = (url: string | undefined): void => {
+    if (!url || !url.startsWith(NATIVE_AUTH_REDIRECT)) return
+    const index = url.indexOf('#')
     if (index < 0) return
     try {
-      sessionStorage.setItem(PENDING_KEY, event.url.slice(index + 1))
+      sessionStorage.setItem(PENDING_KEY, url.slice(index + 1))
     } catch {
       return
     }
     void nativePlugin<BrowserPlugin>('Browser')?.close().catch(() => undefined)
     onToken()
-  })
+  }
+  app.addListener('appUrlOpen', (event) => handle(event.url))
+  // Bila aplikasi sempat dimatikan sistem saat pengguna login di browser, tautannya menjadi URL peluncuran.
+  void app.getLaunchUrl?.().then((launch) => handle(launch?.url)).catch(() => undefined)
 }
 
 interface TokenResponse {
