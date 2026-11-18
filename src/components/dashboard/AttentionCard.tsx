@@ -111,7 +111,7 @@ export function AttentionCard({ backupOld, lastBackupLabel }: AttentionCardProps
   if (rows.length === 0) return null
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <section className="rounded-3xl glass">
       <p className="px-4 pt-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
         Perlu perhatian
       </p>

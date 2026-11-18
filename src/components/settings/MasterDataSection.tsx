@@ -463,7 +463,7 @@ export function MasterDataSection() {
   }
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <section className="rounded-3xl glass">
       <div className="flex items-start gap-3 border-b border-slate-100 px-4 py-4 dark:border-slate-800 sm:px-5">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-300">
           <Landmark className="h-5 w-5" />

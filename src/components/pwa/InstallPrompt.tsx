@@ -43,7 +43,7 @@ export function InstallPrompt({ enabled = true }: InstallPromptProps) {
   }
 
   return (
-    <div className="fixed bottom-24 left-1/2 z-50 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-slate-800 dark:bg-slate-900 lg:bottom-6 lg:left-auto lg:right-6 lg:translate-x-0">
+    <div className="fixed bottom-32 left-1/2 z-50 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 glass-strong rounded-3xl p-4 shadow-2xl lg:bottom-6 lg:left-auto lg:right-6 lg:translate-x-0">
       <div className="flex items-start gap-3">
         <img src={assetUrl('logo.svg')} alt="" className="h-11 w-11 rounded-xl shadow-sm" />
         <div className="flex-1">

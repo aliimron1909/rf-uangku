@@ -2,10 +2,11 @@ import { NavLink } from 'react-router-dom'
 import { NAV_ITEMS } from './nav'
 import { cn } from '../../lib/utils'
 
+/** Bilah navigasi mengambang berbentuk kapsul dengan efek kaca. */
 export function BottomNav() {
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 lg:hidden">
-      <div className="mx-auto grid max-w-lg grid-cols-5">
+    <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] lg:hidden">
+      <div className="glass-strong pointer-events-auto mx-auto grid max-w-lg grid-cols-5 gap-1 rounded-full p-1.5">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon
           return (
@@ -14,10 +15,10 @@ export function BottomNav() {
               to={item.to}
               className={({ isActive }) =>
                 cn(
-                  'flex flex-col items-center gap-1 px-1 py-2.5 text-[11px] font-semibold transition',
+                  'flex flex-col items-center gap-0.5 rounded-full px-1 py-2 text-[10px] font-semibold transition',
                   isActive
-                    ? 'text-emerald-600 dark:text-emerald-400'
-                    : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300',
+                    ? 'bg-emerald-500/20 text-emerald-700 shadow-[inset_0_1px_0_rgb(255_255_255/0.5)] dark:bg-emerald-400/20 dark:text-emerald-300'
+                    : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200',
                 )
               }
             >

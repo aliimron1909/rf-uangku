@@ -138,7 +138,7 @@ export function ReportsPage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
+      <div className="rounded-3xl glass p-4 sm:p-5">
         <div className="flex items-center gap-2">
           <CalendarDays className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
           <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">Periode Laporan</h3>
@@ -233,7 +233,7 @@ export function ReportsPage() {
       </div>
 
       {tagRows.length > 0 && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
+        <div className="rounded-3xl glass p-4 sm:p-5">
           <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Ringkasan per tag</h3>
           <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
             Transaksi dengan beberapa tag dihitung di setiap tagnya.
@@ -261,7 +261,7 @@ export function ReportsPage() {
         </div>
       )}
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="overflow-hidden rounded-3xl glass">
         <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5 dark:border-slate-800 sm:px-5">
           <div>
             <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Rincian Transaksi</h3>
@@ -319,7 +319,7 @@ const toneClasses: Record<ReportStatProps['tone'], string> = {
 
 function ReportStat({ label, value, tone, prefix = '', isCount }: ReportStatProps) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <div className="rounded-3xl glass p-3.5">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
         {label}
       </p>

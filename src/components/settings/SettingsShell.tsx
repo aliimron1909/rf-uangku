@@ -132,7 +132,7 @@ export function SettingsShell({ groups, targetId, top }: SettingsShellProps) {
       </div>
 
       {trimmed ? (
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="rounded-3xl glass">
           {results.length === 0 ? (
             <p className="px-4 py-6 text-center text-sm text-slate-500 dark:text-slate-400">
               Tidak ada pengaturan yang cocok dengan “{query.trim()}”.
@@ -166,7 +166,7 @@ export function SettingsShell({ groups, targetId, top }: SettingsShellProps) {
           <nav
             aria-label="Grup pengaturan"
             className={cn(
-              'rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm dark:border-slate-800 dark:bg-slate-900 md:sticky md:top-20',
+              'rounded-3xl glass p-1.5 md:sticky md:top-20',
               mobileOpen && 'hidden md:block',
             )}
           >

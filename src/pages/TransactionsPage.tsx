@@ -268,7 +268,7 @@ export function TransactionsPage() {
       </div>
 
       {transactions.length === 0 ? (
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="rounded-3xl glass">
           <EmptyState
             title="Belum ada transaksi"
             description="Mulai catat pemasukan atau pengeluaran pertama. Bisa juga pakai isi cepat AI."
@@ -287,7 +287,7 @@ export function TransactionsPage() {
           />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="rounded-3xl glass">
           <EmptyState
             icon={<SearchX className="h-7 w-7" />}
             title="Tidak ada transaksi yang cocok"
@@ -300,7 +300,7 @@ export function TransactionsPage() {
           />
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="overflow-hidden rounded-3xl glass">
           <TransactionTable transactions={paged} onEdit={openEdit} onDelete={setDeleting} />
           <div className="divide-y divide-slate-100 dark:divide-slate-800 md:hidden">
             {paged.map((transaction) => (

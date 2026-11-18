@@ -27,7 +27,7 @@ export function IconPicker({ label, value, color, onChange }: IconPickerProps) {
                 'flex h-9 w-full items-center justify-center rounded-lg border transition',
                 selected
                   ? 'border-transparent text-white shadow-sm'
-                  : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800',
+                  : 'border-slate-200 bg-white/60 backdrop-blur-md text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:bg-white/[0.06] dark:text-slate-400 dark:hover:bg-slate-800',
               )}
               style={selected ? { backgroundColor: color } : undefined}
             >

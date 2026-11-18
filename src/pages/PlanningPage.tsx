@@ -43,7 +43,7 @@ export function PlanningPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-4 gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="grid grid-cols-4 gap-1 rounded-3xl glass p-1">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button
             key={id}

@@ -38,7 +38,7 @@ export function CurrencyInput({
           onChange={(event) => onChange(formatNumberInput(event.target.value))}
           placeholder="0"
           className={cn(
-            'h-14 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-3 text-2xl font-bold tracking-tight text-slate-900 shadow-sm outline-none transition placeholder:text-slate-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-600',
+            'h-14 w-full rounded-xl border border-slate-200 bg-white/60 backdrop-blur-md pl-11 pr-3 text-2xl font-bold tracking-tight text-slate-900 shadow-sm outline-none transition placeholder:text-slate-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-600',
             error && 'border-rose-500 focus:border-rose-500 focus:ring-rose-500/20',
           )}
         />

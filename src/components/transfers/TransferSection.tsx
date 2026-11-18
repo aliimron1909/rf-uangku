@@ -77,7 +77,7 @@ export function TransferSection() {
   return (
     <div
       id="transfer"
-      className="scroll-mt-4 rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900"
+      className="scroll-mt-4 rounded-3xl glass"
     >
       <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3.5 dark:border-slate-800 sm:px-5">
         <div>

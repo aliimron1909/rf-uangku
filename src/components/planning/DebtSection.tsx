@@ -127,7 +127,7 @@ export function DebtSection() {
 
   return (
     <div className="space-y-4">
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
+      <section className="rounded-3xl glass p-4 sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
             Hutang &amp; piutang
@@ -169,7 +169,7 @@ export function DebtSection() {
         )}
       </section>
 
-      <div className="grid grid-cols-3 gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="grid grid-cols-3 gap-1 rounded-3xl glass p-1">
         {FILTERS.map((item) => (
           <button
             key={item.value}
@@ -188,7 +188,7 @@ export function DebtSection() {
       </div>
 
       {visible.length === 0 ? (
-        <section className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <section className="rounded-3xl glass">
           <EmptyState
             icon={<HandCoins className="h-7 w-7" />}
             title="Belum ada catatan"
@@ -218,7 +218,7 @@ export function DebtSection() {
               <div
                 key={debt.id}
                 className={cn(
-                  'rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900',
+                  'rounded-3xl glass p-4',
                   item.status === 'paid' && 'opacity-70',
                 )}
               >
