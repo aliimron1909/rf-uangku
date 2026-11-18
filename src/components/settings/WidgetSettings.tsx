@@ -40,12 +40,9 @@ export function WidgetSettings() {
           className="h-5 w-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
         />
       </label>
-      <div className="rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">
-        Tekan lama layar utama, pilih Widget, lalu cari RF Uangku. Ada tiga widget: <b>Saldo</b> (total, bulan ini,
-        budget, tombol tambah), <b>Saldo per rekening</b>, dan <b>Tren</b> (grafik pemasukan vs pengeluaran; ketuk
-        labelnya untuk ganti harian, mingguan, bulanan, tahunan). Tombol Sembunyikan di widget Saldo juga bisa dipakai
-        langsung tanpa membuka aplikasi.
-      </div>
+      <p className="text-xs text-slate-500 dark:text-slate-400">
+        Tambahkan lewat tekan lama layar utama → Widget → RF Uangku. Widget bisa diperbesar atau diperkecil.
+      </p>
     </div>
   )
 }

@@ -474,7 +474,6 @@ export function SettingsPage() {
         id="profil"
         icon={<UserRound className="h-5 w-5" />}
         title="Profil"
-        description="Nama dan foto hanya disimpan di perangkat ini."
       >
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
           <div className="flex flex-col items-center gap-2">
@@ -532,7 +531,7 @@ export function SettingsPage() {
               placeholder="Contoh: Rafi"
               leftIcon={<UserRound className="h-4 w-4" />}
               error={profileError}
-              hint={`Dipakai untuk sapaan dashboard dan laporan PDF. Maks. ${PROFILE_NAME_MAX_LENGTH} karakter.`}
+              hint={`Maks. ${PROFILE_NAME_MAX_LENGTH} karakter.`}
             />
             <div className="flex flex-wrap items-center gap-2">
               <Button
@@ -548,10 +547,6 @@ export function SettingsPage() {
                 {profilePhotoInput ? 'Foto siap disimpan.' : 'Belum ada foto profil.'}
               </span>
             </div>
-            <p className="rounded-xl bg-slate-50 px-3 py-2.5 text-[11px] leading-relaxed text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
-              Foto diperkecil otomatis ke 256×256 dan disimpan lokal. Foto profil tidak mengganti
-              ikon aplikasi/APK.
-            </p>
           </div>
         </div>
       </Section>
@@ -562,7 +557,6 @@ export function SettingsPage() {
         id="keamanan"
         icon={<ShieldCheck className="h-5 w-5" />}
         title="Keamanan"
-        description="PIN 4–6 digit untuk mengunci tampilan aplikasi."
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
@@ -572,9 +566,6 @@ export function SettingsPage() {
             <div>
               <p className="text-sm font-bold text-slate-800 dark:text-slate-100">
                 {hasPinConfigured ? 'PIN aktif' : 'PIN belum dibuat'}
-              </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                PIN hanya membatasi akses tampilan, bukan enkripsi database.
               </p>
             </div>
           </div>
@@ -597,11 +588,9 @@ export function SettingsPage() {
               <p className="text-sm font-bold text-slate-800 dark:text-slate-100">
                 {biometricEnabled ? 'Fingerprint aktif' : 'Fingerprint belum aktif'}
               </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {biometricSupported
-                  ? 'Buka aplikasi dengan sidik jari. PIN tetap menjadi cadangan.'
-                  : 'Perangkat atau browser ini belum mendukung fingerprint WebAuthn.'}
-              </p>
+              {!biometricSupported && (
+                <p className="text-xs text-slate-500 dark:text-slate-400">Tidak didukung di perangkat ini.</p>
+              )}
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -644,10 +633,6 @@ export function SettingsPage() {
           Lupa PIN? Dari layar kunci, pilih “Lupa PIN?” untuk mereset PIN dan fingerprint. Data
           transaksi tetap tersimpan. Jangan bagikan perangkat dalam keadaan terbuka.
         </p>
-        <p className="mt-2 rounded-xl bg-slate-50 px-3 py-2 text-[11px] leading-relaxed text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
-          Fingerprint terikat ke domain aplikasi ini dan hanya membuka tampilan, bukan mengenkripsi
-          database. Credential fingerprint tidak ikut backup JSON.
-        </p>
       </Section>
   )
 
@@ -656,7 +641,6 @@ export function SettingsPage() {
         id="tampilan"
         icon={<Palette className="h-5 w-5" />}
         title="Tampilan"
-        description="Pilih tema yang paling nyaman untuk mata."
       >
         <div className="grid grid-cols-3 gap-2">
           <ThemeButton
@@ -686,7 +670,6 @@ export function SettingsPage() {
         id="sinkronisasi"
         icon={<Cloud className="h-5 w-5" />}
         title="Sinkronisasi cloud"
-        description="Samakan data di beberapa perangkat lewat Supabase. Login Google, data tersimpan di akun Supabase milikmu."
       >
         <SyncSection />
       </Section>
@@ -697,7 +680,6 @@ export function SettingsPage() {
         id="notifikasi"
         icon={<BellRing className="h-5 w-5" />}
         title="Notifikasi"
-        description="Peringatan budget (80% dan 100%), tagihan berulang, dan pengingat catat harian."
       >
         <BudgetAlertSettings />
       </Section>
@@ -708,7 +690,6 @@ export function SettingsPage() {
         id="widget"
         icon={<Palette className="h-5 w-5" />}
         title="Widget layar utama"
-        description="Saldo, saldo per rekening, dan grafik tren di layar utama HP. Bisa menyembunyikan nominal."
       >
         <WidgetSettings />
       </Section>
@@ -719,7 +700,6 @@ export function SettingsPage() {
         id="notifikasi-bank"
         icon={<BellRing className="h-5 w-5" />}
         title="Baca notifikasi bank & e-wallet"
-        description="Sarankan transaksi otomatis dari notifikasi bank dan e-wallet. Diproses di HP, kamu tinjau dulu sebelum disimpan."
       >
         <BankNotifSettings />
       </Section>
@@ -730,7 +710,6 @@ export function SettingsPage() {
         id="ai"
         icon={<Sparkles className="h-5 w-5" />}
         title="AI Groq"
-        description="Isi cepat dan chat transaksi dengan bahasa sehari-hari. API key disimpan lokal di perangkat."
       >
         <div className="space-y-3">
           <div className="flex gap-2">
@@ -789,8 +768,8 @@ export function SettingsPage() {
             list="groq-models"
             hint={
               (modelInput.trim() || DEFAULT_GROQ_MODEL) !== groqModel
-                ? `Belum dipakai Chat AI (yang aktif: ${groqModel}). Tekan Tes atau Simpan untuk memakai model ini.`
-                : `Model yang dipakai Chat AI sekarang. Default: ${DEFAULT_GROQ_MODEL}. Tekan Cari model aktif untuk daftar terbaru dari Groq.`
+                ? `Belum dipakai Chat AI (yang aktif: ${groqModel}). Tekan Tes atau Simpan.`
+                : undefined
             }
             spellCheck={false}
           />
@@ -804,7 +783,7 @@ export function SettingsPage() {
             label="Model untuk baca struk (gambar)"
             value={visionInput}
             onChange={(event) => setVisionInput(event.target.value)}
-            hint={`Harus model yang bisa membaca gambar. Default: ${DEFAULT_GROQ_VISION_MODEL}.`}
+            hint={`Model yang bisa membaca gambar. Default: ${DEFAULT_GROQ_VISION_MODEL}.`}
             spellCheck={false}
           />
 
@@ -1069,7 +1048,6 @@ export function SettingsPage() {
         id="aplikasi"
         icon={<Smartphone className="h-5 w-5" />}
         title="Aplikasi"
-        description="Pasang RF Uangku di layar utama HP agar seperti aplikasi biasa."
       >
         <div className="space-y-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1078,7 +1056,7 @@ export function SettingsPage() {
                 {installed ? 'Sudah terpasang' : canInstall ? 'Siap dipasang' : 'Pasang manual'}
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Versi {APP_VERSION} · PWA offline-first
+                Versi {APP_VERSION}
               </p>
             </div>
             {installed ? (
@@ -1113,7 +1091,6 @@ export function SettingsPage() {
         id="tentang"
         icon={<Info className="h-5 w-5" />}
         title="Tentang RF Uangku"
-        description="Catat, rencanakan, dan pantau uang keluarga dalam satu aplikasi."
       >
         <div className="space-y-4">
           <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
@@ -1141,13 +1118,6 @@ export function SettingsPage() {
               </span>
             ))}
           </div>
-
-          <p className="rounded-xl bg-slate-50 px-3 py-2.5 text-xs leading-relaxed text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
-            <span className="font-semibold text-slate-700 dark:text-slate-200">Privat dan tetap jalan offline.</span>{' '}
-            Data tersimpan di perangkat ini. Sinkronisasi antar perangkat bersifat opsional dan
-            memakai akun Supabase milikmu sendiri. Hanya teks yang Anda tulis ke fitur AI yang
-            dikirim ke Groq.
-          </p>
 
           <div className="border-t border-slate-100 pt-3 text-center text-[11px] text-slate-400 dark:border-slate-800 dark:text-slate-500">
             <p className="font-semibold text-slate-600 dark:text-slate-300">
@@ -1384,7 +1354,7 @@ interface SectionProps {
   id?: string
   icon: ReactNode
   title: string
-  description: string
+  description?: string
   children: ReactNode
 }
 
@@ -1400,9 +1370,11 @@ function Section({ id, icon, title, description, children }: SectionProps) {
         </div>
         <div>
           <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{title}</h3>
-          <p className="mt-0.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-            {description}
-          </p>
+          {description && (
+            <p className="mt-0.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+              {description}
+            </p>
+          )}
         </div>
       </div>
       <div className="p-4 sm:p-5">{children}</div>
