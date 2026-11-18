@@ -110,6 +110,8 @@ import {
   upcomingBills,
 } from '../src/lib/billReminders'
 import { matchAccountName, readAiEntry, resolveAiTransfer } from '../src/lib/groq'
+import { widgetTexts } from '../src/lib/nativeWidget'
+import { extractNativeUrl } from '../src/lib/native'
 import { planReminderTimes, shouldRemindToday } from '../src/lib/dailyReminder'
 import { moveCategory } from '../src/db/categories'
 import { matchExpenseCategory, readReceiptResult } from '../src/lib/groq'
@@ -1773,6 +1775,13 @@ async function main() {
     assert.equal(shouldRemindToday({ ...base, lastReminded: '2026-11-17' }), false)
     assert.equal(shouldRemindToday({ ...base, lastReminded: '2026-11-16' }), true)
     assert.equal(shouldRemindToday({ ...base, time: 'rusak', nowMinutes: 20 * 60 }), true) // jatuh ke 20:00
+
+    const widget = widgetTexts({ balance: 1500000, income: 200000, expense: 50000 }, new Date(2026, 10, 18, 9, 5))
+    assert.ok(widget.balance.includes('1.500.000'))
+    assert.ok(widget.month.includes('50.000') && widget.month.includes('200.000'))
+    assert.equal(widget.updated, 'Diperbarui 09.05')
+    assert.equal(extractNativeUrl({ a: { url: 'rfuangku://new' } }, 'rfuangku://new'), 'rfuangku://new')
+    assert.equal(extractNativeUrl('{"url":"rfuangku://auth#x"}', 'rfuangku://new'), undefined)
 
     const now = new Date(2026, 10, 18, 15, 0)
     const plan = (over: Partial<Parameters<typeof planReminderTimes>[0]> = {}) =>

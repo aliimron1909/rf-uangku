@@ -97,6 +97,7 @@ jobs:
                   <category android:name="android.intent.category.DEFAULT" />
                   <category android:name="android.intent.category.BROWSABLE" />
                   <data android:scheme="rfuangku" android:host="auth" />
+                  <data android:scheme="rfuangku" android:host="new" />
               </intent-filter>'''
           i = s.index('</intent-filter>') + len('</intent-filter>')
           s = s[:i] + link + s[i:]
@@ -118,6 +119,32 @@ jobs:
           open(p, 'w').write(s)
           PY
           cat android-native/app/src/main/res/values/styles.xml
+
+      - name: Pasang widget saldo layar utama
+        run: |
+          app=android-native/app/src/main
+          cp android-native-patch/java/*.java $app/java/com/rf_uangku/app/
+          cp android-native-patch/res/layout/*.xml $app/res/layout/
+          mkdir -p $app/res/drawable $app/res/xml
+          cp android-native-patch/res/drawable/*.xml $app/res/drawable/
+          cp android-native-patch/res/xml/*.xml $app/res/xml/
+          cp android-native-patch/res/values-strings.xml $app/res/values/widget_strings.xml
+          python3 - <<'PY'
+          p = 'android-native/app/src/main/AndroidManifest.xml'
+          s = open(p).read()
+          receiver = '''
+              <receiver android:name=".BalanceWidgetProvider" android:exported="false">
+                  <intent-filter>
+                      <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                  </intent-filter>
+                  <meta-data android:name="android.appwidget.provider" android:resource="@xml/balance_widget_info" />
+              </receiver>
+          '''
+          assert '</application>' in s
+          s = s.replace('</application>', receiver + '</application>', 1)
+          open(p, 'w').write(s)
+          PY
+          grep -c BalanceWidgetProvider $app/AndroidManifest.xml
 
       - name: Pasang ikon aplikasi
         run: |
