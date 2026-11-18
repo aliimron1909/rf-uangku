@@ -80,6 +80,7 @@ import { Modal } from '../components/ui/Modal'
 import { MasterDataSection } from '../components/settings/MasterDataSection'
 import { BudgetAlertSettings } from '../components/settings/BudgetAlertSettings'
 import { WidgetSettings } from '../components/settings/WidgetSettings'
+import { BankNotifSettings } from '../components/settings/BankNotifSettings'
 import { isNativeApp } from '../lib/native'
 import { SyncSection } from '../components/settings/SyncSection'
 import { SettingsShell, type SettingsGroup } from '../components/settings/SettingsShell'
@@ -710,6 +711,17 @@ export function SettingsPage() {
       </Section>
   )
 
+  const secBankNotif = (
+      <Section
+        id="notifikasi-bank"
+        icon={<BellRing className="h-5 w-5" />}
+        title="Baca notifikasi bank & e-wallet"
+        description="Sarankan transaksi otomatis dari notifikasi bank dan e-wallet. Diproses di HP, kamu tinjau dulu sebelum disimpan."
+      >
+        <BankNotifSettings />
+      </Section>
+  )
+
   const secAi = (
       <Section
         id="ai"
@@ -1164,13 +1176,14 @@ export function SettingsPage() {
         { id: 'tampilan', title: 'Tampilan', description: 'Tema terang, gelap, atau ikuti sistem', keywords: 'tema gelap terang dark light mode' },
         { id: 'notifikasi', title: 'Notifikasi', description: 'Peringatan budget dan pengingat tagihan', keywords: 'budget tagihan pengingat peringatan alert' },
         ...(isNativeApp()
-          ? [{ id: 'widget', title: 'Widget layar utama', description: 'Saldo dan tren di layar utama HP', keywords: 'widget saldo sembunyikan tren rekening layar utama' }]
+          ? [{ id: 'notifikasi-bank', title: 'Baca notifikasi bank & e-wallet', description: 'Transaksi otomatis dari notifikasi', keywords: 'notifikasi bank ewallet dana ovo gopay bca bri otomatis baca deteksi' }, { id: 'widget', title: 'Widget layar utama', description: 'Saldo dan tren di layar utama HP', keywords: 'widget saldo sembunyikan tren rekening layar utama' }]
           : []),
       ],
       content: (
         <>
           {secTampilan}
           {secNotif}
+          {isNativeApp() && secBankNotif}
           {isNativeApp() && secWidget}
         </>
       ),

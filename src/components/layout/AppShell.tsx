@@ -11,6 +11,7 @@ import { useBudgetAlerts } from '../../hooks/useBudgetAlerts'
 import { useBillReminders } from '../../hooks/useBillReminders'
 import { useDailyReminder } from '../../hooks/useDailyReminder'
 import { NativeWidgetSync } from './NativeWidgetSync'
+import { NativeBankSync } from './NativeBankSync'
 import { isNativeApp } from '../../lib/native'
 import { startAutoSync } from '../../lib/sync/controller'
 import { purgeExpiredTrash } from '../../db/transactions'
@@ -46,6 +47,7 @@ export function AppShell() {
       </Link>
 
       {isNativeApp() && <NativeWidgetSync />}
+      {isNativeApp() && <NativeBankSync />}
       <BottomNav />
       <OfflineBanner />
     </div>
