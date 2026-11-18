@@ -1,0 +1,11 @@
+{
+  "appId": "com.rf_uangku.app",
+  "appName": "RF Uangku",
+  "webDir": "dist",
+  "android": {
+    "path": "android-native"
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

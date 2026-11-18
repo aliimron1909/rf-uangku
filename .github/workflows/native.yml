@@ -1,0 +1,135 @@
+name: Build APK Native
+
+# Membangun aplikasi Android native (Capacitor) dengan ID com.rf_uangku.app, terpisah dari APK TWA.
+# Seluruh web dibundel di dalam APK (jalan tanpa Chrome). Jalankan: Actions > Build APK Native > Run workflow.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/native.yml'
+      - 'capacitor.config.json'
+      - 'android-native-patch/**'
+
+permissions:
+  contents: write
+
+jobs:
+  native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      PUBLISH: ${{ github.event_name == 'workflow_dispatch' && github.ref_name == github.event.repository.default_branch }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Pasang dependensi dan bangun web
+        run: |
+          npm ci
+          npm run build
+
+      - name: Pasang Capacitor (tanpa mengubah package.json)
+        run: |
+          npm install --no-save --no-package-lock \
+            @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7 @capacitor/app@7 @capacitor/browser@7
+
+      - name: Buat proyek Android
+        run: |
+          npx cap add android
+          npx cap sync android
+          python3 - <<'PY'
+          import re
+          p = 'android-native/app/src/main/AndroidManifest.xml'
+          s = open(p).read()
+          link = '''
+              <intent-filter>
+                  <action android:name="android.intent.action.VIEW" />
+                  <category android:name="android.intent.category.DEFAULT" />
+                  <category android:name="android.intent.category.BROWSABLE" />
+                  <data android:scheme="rfuangku" android:host="auth" />
+              </intent-filter>'''
+          i = s.index('</intent-filter>') + len('</intent-filter>')
+          s = s[:i] + link + s[i:]
+          open(p, 'w').write(s)
+          PY
+          grep -c rfuangku android-native/app/src/main/AndroidManifest.xml
+
+      - name: Pasang ikon aplikasi
+        run: |
+          find android-native/app/src/main/res -name 'ic_launcher.png' -exec cp public/icons/icon-512.png {} \;
+          find android-native/app/src/main/res -name 'ic_launcher_round.png' -exec cp public/icons/icon-512.png {} \;
+          find android-native/app/src/main/res -name 'ic_launcher_foreground.png' -exec cp public/icons/maskable-512.png {} \;
+
+      - name: Siapkan kunci tanda tangan
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ] && [ -n "$KEYSTORE_PASSWORD" ] && [ -n "$KEY_ALIAS" ]; then
+            printf '%s' "$KEYSTORE_B64" | tr -d ' \n\r' | base64 -d > signing.keystore
+            [ -n "$KEY_PASSWORD" ] || KEY_PASSWORD="$KEYSTORE_PASSWORD"
+          else
+            echo "::warning::Secret kunci belum diisi. APK memakai kunci sementara (hanya uji coba)."
+            KEYSTORE_PASSWORD="sementara-$RANDOM$RANDOM"
+            KEY_PASSWORD="$KEYSTORE_PASSWORD"
+            KEY_ALIAS="android"
+            keytool -genkeypair -keystore signing.keystore -alias "$KEY_ALIAS" -keyalg RSA -keysize 2048 \
+              -validity 10000 -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" \
+              -dname "CN=RF Uangku sementara" > /dev/null
+            echo "TEMP_KEY=1" >> "$GITHUB_ENV"
+          fi
+          echo "::add-mask::$KEYSTORE_PASSWORD"
+          echo "::add-mask::$KEY_PASSWORD"
+          {
+            echo "KS_PASS=$KEYSTORE_PASSWORD"
+            echo "KEY_PASS=$KEY_PASSWORD"
+            echo "KEY_ALIAS=$KEY_ALIAS"
+          } >> "$GITHUB_ENV"
+
+      - name: Atur versi
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "APP_VERSION=$VERSION" >> "$GITHUB_ENV"
+          sed -i -E "s/versionCode [0-9]+/versionCode $((200 + GITHUB_RUN_NUMBER))/; s/versionName \"[^\"]*\"/versionName \"$VERSION\"/" \
+            android-native/app/build.gradle
+          grep -n "versionCode\|versionName" android-native/app/build.gradle
+
+      - name: Bangun APK (Gradle)
+        working-directory: android-native
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleRelease
+          UNSIGNED=$(find app/build/outputs/apk/release -name '*.apk' | head -n 1)
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)"
+          "$BUILD_TOOLS/zipalign" -p -f 4 "$UNSIGNED" "$GITHUB_WORKSPACE/aligned.apk"
+          "$BUILD_TOOLS/apksigner" sign --ks "$GITHUB_WORKSPACE/signing.keystore" --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass env:KS_PASS --key-pass env:KEY_PASS \
+            --out "$GITHUB_WORKSPACE/rf-uangku-native.apk" "$GITHUB_WORKSPACE/aligned.apk"
+          "$BUILD_TOOLS/apksigner" verify --print-certs "$GITHUB_WORKSPACE/rf-uangku-native.apk" | head -n 3
+
+      - name: Unggah hasil
+        uses: actions/upload-artifact@v4
+        with:
+          name: rf-uangku-native-apk
+          path: rf-uangku-native.apk
+          retention-days: 30
+
+      - name: Terbitkan ke Releases
+        if: env.PUBLISH == 'true' && env.TEMP_KEY != '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "native-v${APP_VERSION}-${GITHUB_RUN_NUMBER}" rf-uangku-native.apk \
+            --title "RF Uangku Native v${APP_VERSION} (#${GITHUB_RUN_NUMBER})" \
+            --notes "Aplikasi Android native (Capacitor), ID com.rf_uangku.app. Terpisah dari APK TWA; data tidak dibagi, samakan lewat sinkronisasi Supabase."

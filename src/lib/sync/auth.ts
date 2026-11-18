@@ -1,5 +1,6 @@
 import { db, getSetting, setSetting } from '../../db/db'
 import type { SupabaseConfig } from './config'
+import { NATIVE_AUTH_REDIRECT, isNativeApp, nativePlugin } from '../native'
 import { SyncAuthError } from './supabaseRemote'
 
 export const SYNC_SESSION_KEY = 'syncSession'
@@ -29,11 +30,46 @@ export function captureOAuthRedirect(): void {
   }
 }
 
+interface BrowserPlugin {
+  open(options: { url: string }): Promise<void>
+  close(): Promise<void>
+}
+interface AppPlugin {
+  addListener(event: 'appUrlOpen', handler: (event: { url: string }) => void): unknown
+}
+
 export function startGoogleLogin(config: SupabaseConfig): void {
+  if (isNativeApp()) {
+    // Google menolak login di WebView; buka di Custom Tab lalu kembali lewat tautan khusus.
+    const url = `${config.url}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(NATIVE_AUTH_REDIRECT)}`
+    const browser = nativePlugin<BrowserPlugin>('Browser')
+    if (browser) {
+      void browser.open({ url })
+      return
+    }
+  }
   const redirectTo = `${window.location.origin}${import.meta.env.BASE_URL}settings`
   window.location.assign(
     `${config.url}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`,
   )
+}
+
+/** Di aplikasi native: menangkap tautan rfuangku://auth#access_token=... dari login Google. */
+export function listenForNativeLogin(onToken: () => void): void {
+  const app = nativePlugin<AppPlugin>('App')
+  if (!app) return
+  app.addListener('appUrlOpen', (event) => {
+    if (!event.url.startsWith(NATIVE_AUTH_REDIRECT)) return
+    const index = event.url.indexOf('#')
+    if (index < 0) return
+    try {
+      sessionStorage.setItem(PENDING_KEY, event.url.slice(index + 1))
+    } catch {
+      return
+    }
+    void nativePlugin<BrowserPlugin>('Browser')?.close().catch(() => undefined)
+    onToken()
+  })
 }
 
 interface TokenResponse {

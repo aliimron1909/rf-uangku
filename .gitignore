@@ -27,3 +27,6 @@ android/*.aab
 # Hasil bangun APK (CI)
 android/twa/*
 !android/twa/twa-manifest.json
+
+# Proyek Android native (Capacitor) dibuat ulang oleh CI
+android-native/
