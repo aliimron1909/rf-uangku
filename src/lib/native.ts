@@ -4,6 +4,7 @@
  */
 interface CapacitorGlobal {
   isNativePlatform?: () => boolean
+  getPlatform?: () => string
   Plugins?: Record<string, unknown>
   registerPlugin?: (name: string) => unknown
 }
@@ -15,10 +16,24 @@ function capacitor(): CapacitorGlobal | null {
 
 export function isNativeApp(): boolean {
   try {
-    return capacitor()?.isNativePlatform?.() === true
+    const cap = capacitor()
+    if (!cap) return false
+    if (cap.isNativePlatform?.() === true) return true
+    const platform = cap.getPlatform?.()
+    if (platform === 'android' || platform === 'ios') return true
+    // Capacitor melayani aplikasi dari https://localhost; tidak dipakai oleh situs biasa.
+    return window.location.protocol === 'https:' && window.location.hostname === 'localhost'
   } catch {
     return false
   }
+}
+
+/** Ringkasan untuk membantu mencari masalah plugin di aplikasi native. */
+export function nativeDiagnostics(): string {
+  if (!isNativeApp()) return ''
+  const cap = capacitor()
+  const has = (name: string) => (nativePlugin(name) ? 'ada' : 'tidak ada')
+  return `Native: ya (${cap?.getPlatform?.() ?? '?'}) · plugin Browser: ${has('Browser')} · plugin App: ${has('App')}`
 }
 
 const registered = new Map<string, unknown>()

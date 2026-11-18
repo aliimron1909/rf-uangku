@@ -8,6 +8,7 @@ import {
   useSyncState,
 } from '../../lib/sync/controller'
 import { formatDateTime } from '../../lib/dates'
+import { nativeDiagnostics } from '../../lib/native'
 import { errorMessage } from '../../lib/utils'
 import { useToast } from '../../contexts/ToastContext'
 import { Button } from '../ui/Button'
@@ -114,6 +115,10 @@ export function SyncSection() {
             versi terbaru yang dipakai. PIN, API key, dan tema tidak ikut disinkronkan.
           </p>
         </div>
+      )}
+
+      {nativeDiagnostics() && (
+        <p className="text-[11px] text-slate-500 dark:text-slate-400">{nativeDiagnostics()}</p>
       )}
 
       {sync.error && (
