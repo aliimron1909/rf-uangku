@@ -8,6 +8,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(RfWidgetPlugin.class);
         registerPlugin(RfNotifPlugin.class);
+        registerPlugin(RfBiometricPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

@@ -1,4 +1,28 @@
 import { STORAGE_KEYS } from './constants'
+import { isNativeApp, nativePlugin } from './native'
+
+interface RfBiometricPlugin {
+  available(): Promise<{ available?: boolean }>
+  authenticate(options: { title: string; subtitle: string; negative: string }): Promise<{ ok?: boolean; error?: string }>
+}
+
+/** Di aplikasi native, fingerprint memakai BiometricPrompt Android (WebAuthn tidak tersedia di WebView). */
+const NATIVE_RP_ID = 'native'
+
+function nativeBiometric(): RfBiometricPlugin | null {
+  return isNativeApp() ? nativePlugin<RfBiometricPlugin>('RfBiometric') : null
+}
+
+async function nativeAuthenticate(subtitle: string): Promise<BiometricResult> {
+  const plugin = nativeBiometric()
+  if (!plugin) return { ok: false, error: 'Fingerprint tidak tersedia di perangkat ini.' }
+  try {
+    const result = await plugin.authenticate({ title: 'RF Uangku', subtitle, negative: 'Batal' })
+    return result.ok ? { ok: true } : { ok: false, error: result.error || 'Fingerprint dibatalkan.' }
+  } catch (caught) {
+    return { ok: false, error: caught instanceof Error ? caught.message : 'Fingerprint gagal diproses.' }
+  }
+}
 
 export interface BiometricRecord {
   credentialId: string
@@ -77,7 +101,7 @@ function sameBytes(left: ArrayBuffer | Uint8Array, right: ArrayBuffer | Uint8Arr
 }
 
 function currentRpId(): string {
-  return window.location.hostname
+  return isNativeApp() ? NATIVE_RP_ID : window.location.hostname
 }
 
 function readRecord(): BiometricRecord | null {
@@ -119,6 +143,14 @@ export function clearBiometric(): void {
 }
 
 export async function isBiometricSupported(): Promise<boolean> {
+  const native = nativeBiometric()
+  if (native) {
+    try {
+      return Boolean((await native.available()).available)
+    } catch {
+      return false
+    }
+  }
   if (typeof window === 'undefined' || !window.isSecureContext) return false
   if (typeof PublicKeyCredential === 'undefined') return false
   if (typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable !== 'function') {
@@ -155,6 +187,20 @@ export function biometricErrorMessage(error: unknown): string {
 export async function registerBiometric(): Promise<BiometricRecord> {
   if (!(await isBiometricSupported())) {
     throw new Error('Perangkat atau browser ini belum mendukung fingerprint.')
+  }
+
+  if (nativeBiometric()) {
+    const confirmed = await nativeAuthenticate('Tempelkan jari untuk mengaktifkan fingerprint')
+    if (!confirmed.ok) throw new Error(confirmed.error)
+    const record: BiometricRecord = {
+      credentialId: 'native',
+      publicKeySpki: '',
+      userId: '',
+      rpId: NATIVE_RP_ID,
+      createdAt: new Date().toISOString(),
+    }
+    localStorage.setItem(STORAGE_KEYS.biometric, JSON.stringify(record))
+    return record
   }
 
   const challenge = randomBytes(32)
@@ -281,6 +327,8 @@ export async function verifyBiometric(): Promise<BiometricResult> {
   if (!(await isBiometricSupported())) {
     return { ok: false, error: 'Fingerprint tidak tersedia di perangkat ini.' }
   }
+
+  if (nativeBiometric()) return nativeAuthenticate('Buka kunci aplikasi dengan fingerprint')
 
   const challenge = randomBytes(32)
 
