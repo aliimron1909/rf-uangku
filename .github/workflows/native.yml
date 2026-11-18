@@ -105,15 +105,14 @@ jobs:
           PY
           grep -c rfuangku android-native/app/src/main/AndroidManifest.xml
 
-          # Android 15+ menggambar aplikasi di bawah status bar; tahan agar header tidak tertimpa jam/baterai.
+          # Status bar dan navigation bar transparan: aplikasi digambar sampai di belakangnya (inset ditangani CSS).
           python3 - <<'PY'
           import re
           p = 'android-native/app/src/main/res/values/styles.xml'
           s = open(p).read()
           items = '''
-              <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
-              <item name="android:statusBarColor">#020617</item>
-              <item name="android:navigationBarColor">#020617</item>'''
+              <item name="android:statusBarColor">@android:color/transparent</item>
+              <item name="android:navigationBarColor">@android:color/transparent</item>'''
           s, n = re.subn(r'(<style name="AppTheme\.NoActionBar"[^>]*>)', lambda m: m.group(1) + items, s, count=1)
           assert n == 1, 'style AppTheme.NoActionBar tidak ditemukan'
           open(p, 'w').write(s)

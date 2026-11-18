@@ -19,7 +19,7 @@ export function Topbar() {
   const today = format(new Date(), 'EEEE, d MMMM yyyy', { locale: localeId })
 
   return (
-    <header className="sticky top-0 z-20 px-3 pt-2">
+    <header className="sticky top-[var(--inset-top)] z-20 px-3 pt-2">
       <div className="glass-strong mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-3 rounded-full px-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <img

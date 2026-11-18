@@ -5,7 +5,7 @@ import { cn } from '../../lib/utils'
 /** Bilah navigasi mengambang berbentuk kapsul dengan efek kaca. */
 export function BottomNav() {
   return (
-    <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] lg:hidden">
+    <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-3 pb-[calc(0.75rem+max(env(safe-area-inset-bottom),var(--inset-bottom)))] lg:hidden">
       <div className="glass-strong pointer-events-auto mx-auto grid max-w-lg grid-cols-5 gap-1 rounded-full p-1.5">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon
