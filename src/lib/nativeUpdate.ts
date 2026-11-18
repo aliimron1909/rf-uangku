@@ -76,10 +76,73 @@ export async function checkNativeUpdate(): Promise<UpdateCheck | null> {
     : { status: 'latest', version: installed.version, build: installed.build }
 }
 
+interface RfUpdatePlugin {
+  canInstall(): Promise<{ allowed?: boolean }>
+  openInstallSettings(): Promise<unknown>
+  download(options: { url: string }): Promise<unknown>
+  progress(): Promise<{ state?: string; percent?: number; error?: string }>
+  install(): Promise<unknown>
+}
+
+export type InAppUpdateResult = 'installing' | 'need-permission'
+
+const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms))
+
+/**
+ * Unduh APK di dalam aplikasi lalu buka pemasang Android.
+ * Pertama kali, Android meminta izin "pasang aplikasi dari sumber ini"; setelah diizinkan, panggil lagi.
+ */
+export async function runInAppUpdate(
+  update: NativeUpdateInfo,
+  onProgress: (percent: number) => void,
+): Promise<InAppUpdateResult> {
+  const plugin = nativePlugin<RfUpdatePlugin>('RfUpdate')
+  if (!plugin) {
+    await downloadUpdate(update)
+    return 'installing'
+  }
+  if (!(await plugin.canInstall()).allowed) {
+    await plugin.openInstallSettings()
+    return 'need-permission'
+  }
+  onProgress(0)
+  await plugin.download({ url: update.downloadUrl })
+  for (let waited = 0; waited < 10 * 60 * 1000; waited += 400) {
+    await sleep(400)
+    const status = await plugin.progress()
+    onProgress(status.percent ?? 0)
+    if (status.state === 'error') throw new Error(status.error || 'Unduhan gagal.')
+    if (status.state === 'done') {
+      await plugin.install()
+      return 'installing'
+    }
+  }
+  throw new Error('Unduhan terlalu lama. Coba lagi.')
+}
+
+/** Cadangan bila plugin unduhan tidak ada: buka tautan APK di browser. */
 export async function downloadUpdate(update: NativeUpdateInfo): Promise<void> {
   const browser = nativePlugin<BrowserPlugin>('Browser')
   if (browser) await browser.open({ url: update.downloadUrl })
   else window.open(update.downloadUrl, '_blank')
+}
+
+const DISMISSED_KEY = 'rf-native-update-dismissed'
+
+export function isUpdateDismissed(build: number): boolean {
+  try {
+    return Number(localStorage.getItem(DISMISSED_KEY)) >= build
+  } catch {
+    return false
+  }
+}
+
+export function dismissUpdate(build: number): void {
+  try {
+    localStorage.setItem(DISMISSED_KEY, String(build))
+  } catch {
+    // Opsional.
+  }
 }
 
 /** Cek otomatis paling sering sekali per 6 jam. */

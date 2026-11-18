@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Download, RefreshCw } from 'lucide-react'
-import { checkNativeUpdate, downloadUpdate, type UpdateCheck } from '../../lib/nativeUpdate'
+import { checkNativeUpdate, type NativeUpdateInfo, type UpdateCheck } from '../../lib/nativeUpdate'
+import { UpdateModal } from './UpdateModal'
 import { errorMessage } from '../../lib/utils'
 import { Button } from '../ui/Button'
 
@@ -9,6 +10,7 @@ export function NativeUpdateRow() {
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<UpdateCheck | null>(null)
   const [error, setError] = useState('')
+  const [dialog, setDialog] = useState<NativeUpdateInfo | null>(null)
 
   async function check() {
     setBusy(true)
@@ -30,7 +32,7 @@ export function NativeUpdateRow() {
             ? `Sudah versi terbaru (build ${result.build}).`
             : result?.status === 'available'
               ? `Tersedia v${result.update.version}, build ${result.update.build}.`
-              : 'Pembaruan diunduh dari Releases GitHub.')}
+              : 'Cek apakah ada versi baru.')}
       </p>
       <div className="flex gap-2">
         <Button variant="outline" size="sm" loading={busy} onClick={() => void check()}>
@@ -38,12 +40,13 @@ export function NativeUpdateRow() {
           Cek pembaruan
         </Button>
         {result?.status === 'available' && (
-          <Button size="sm" onClick={() => void downloadUpdate(result.update)}>
+          <Button size="sm" onClick={() => setDialog(result.update)}>
             <Download className="h-3.5 w-3.5" />
-            Unduh
+            Perbarui
           </Button>
         )}
       </div>
+      <UpdateModal update={dialog} onClose={() => setDialog(null)} />
     </div>
   )
 }
