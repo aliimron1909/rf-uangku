@@ -33,3 +33,27 @@ export function shouldRemindToday(state: DailyReminderState): boolean {
   const time = isValidReminderTime(state.time) ? state.time : DEFAULT_REMINDER_TIME
   return state.nowMinutes >= timeToMinutes(time)
 }
+
+/**
+ * Jadwal pengingat lokal untuk beberapa hari ke depan (jam setempat).
+ * Hari ini dilewati bila jamnya sudah lewat atau sudah ada catatan hari ini; hari berikutnya selalu dijadwalkan
+ * dan dibatalkan/diganti lagi saat aplikasi dibuka atau ada catatan baru.
+ */
+export function planReminderTimes(input: {
+  enabled: boolean
+  time: string
+  now: Date
+  hasEntryToday: boolean
+  days?: number
+}): Date[] {
+  if (!input.enabled) return []
+  const time = isValidReminderTime(input.time) ? input.time : DEFAULT_REMINDER_TIME
+  const [hours, minutes] = time.split(':').map(Number)
+  const result: Date[] = []
+  for (let offset = 0; offset < (input.days ?? 7); offset++) {
+    const at = new Date(input.now.getFullYear(), input.now.getMonth(), input.now.getDate() + offset, hours, minutes, 0, 0)
+    if (offset === 0 && (input.hasEntryToday || at.getTime() <= input.now.getTime())) continue
+    result.push(at)
+  }
+  return result
+}
