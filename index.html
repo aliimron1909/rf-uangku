@@ -1,22 +1,584 @@
-<!doctype html>
-<html lang="id">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="%BASE_URL%logo.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#065f46" />
-    <meta
-      name="description"
-      content="RF Uangku — catat pemasukan, pengeluaran, dan laporan keuangan pribadi. Bekerja offline, data tersimpan di perangkat."
-    />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="RF Uangku" />
-    <link rel="apple-touch-icon" href="%BASE_URL%icons/apple-touch-180.png" />
-    <title>RF Uangku</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>
+<!DOCTYPE html>
+<html lang="id"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Omset-WarMad</title>
+<link rel="manifest" href="./manifest.json"><link rel="icon" href="./icon-192.png"><link rel="apple-touch-icon" href="./icon-192.png">
+<meta name="theme-color" content="#0f5c4d">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script>try{const t=(JSON.parse(localStorage.getItem('co_g')||'{}').theme)||'system';document.documentElement.dataset.theme=t==='system'?(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):t}catch(e){}</script>
+<style>
+:root{--bg:#eef3f1;--fg:#14201c;--card:#fff;--bd:#c5d3ce;--mut:#44574f;--mut2:#6b7d76;--warn:#fff4d6;--acc:#0f5c4d;--sh:#0f5c4d22;color-scheme:light}
+:root[data-theme=dark]{--bg:#0e1714;--fg:#e6eeea;--card:#16231e;--bd:#33453e;--mut:#a7bab2;--mut2:#93a89f;--warn:#3b3012;--acc:#5fd3b5;--sh:#0000;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding-bottom:84px}
+.card{background:var(--card);border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px var(--sh)}
+.inp{width:100%;border:1px solid var(--bd);border-radius:10px;padding:10px;background:var(--card);color:var(--fg)}
+.inp::placeholder{color:var(--mut2)}
+.btn{background:#0f5c4d;color:#fff;border-radius:10px;padding:10px 14px;font-weight:600}
+.btn2{background:var(--card);color:var(--acc);border:1px solid var(--acc);border-radius:10px;padding:8px 12px;font-weight:600}
+.btn:focus-visible,.btn2:focus-visible,.inp:focus-visible,.nav:focus-visible{outline:3px solid #f2a900}
+label{font-size:12px;font-weight:600;color:var(--mut);display:block;margin:8px 0 3px}
+.navbar{background:var(--card);border-color:var(--bd)}
+.nav{flex:1;padding:8px 0;font-size:11px;color:var(--mut2)}.nav.on{color:var(--acc);font-weight:700}.nav i{display:block;font-size:20px}
+.warn{background:var(--warn);border:1px solid #f2a900;border-radius:10px;padding:10px;margin-bottom:10px;font-size:13px}
+.chip{font-size:11px;padding:2px 8px;border-radius:99px;color:#fff}
+.text-gray-500,.text-gray-600{color:var(--mut2)!important}
+.border-t,hr{border-color:var(--bd)}
+#wSel option{background:#fff;color:#000}
+</style></head>
+<body>
+<div id="join" class="hidden fixed inset-0 z-50 flex flex-col items-center justify-center p-6 text-center" style="background:var(--bg)">
+  <img src="./icon-192.png" class="w-16 h-16 rounded-2xl mb-3" alt="">
+  <h1 class="text-lg font-bold mb-1">Selamat datang</h1>
+  <p class="text-sm mb-4" style="color:var(--mut)">Punya kode akses dari pemilik warung? Pakai tautan dari pemilik agar terisi otomatis.</p>
+  <input id="jUrl" class="inp max-w-sm mb-2" placeholder="URL Web App dari pemilik">
+  <input id="jKey" class="inp max-w-sm mb-2" style="text-transform:uppercase" placeholder="Kode akses karyawan" autocapitalize="characters">
+  <button id="jGo" class="btn w-full max-w-sm mb-2">Masuk sebagai Karyawan</button>
+  <button id="jSkip" class="btn2 w-full max-w-sm">Saya pemilik warung / Batal</button>
+  <p id="jErr" class="text-sm mt-2" style="color:#c0392b"></p>
+</div>
+<div id="lock" class="hidden fixed inset-0 z-50 flex flex-col items-center justify-center p-8 text-white text-center" style="background:#0f5c4d">
+  <img src="./icon.svg" class="w-20 h-20 rounded-2xl mb-4" alt="">
+  <h1 class="text-xl font-bold mb-5">Aplikasi Terkunci</h1>
+  <button id="bioBtn" class="btn w-full max-w-xs mb-4" style="background:#f2a900;color:#14201c"><i class="fa-solid fa-fingerprint mr-2"></i>Buka dengan Sidik Jari / Fingerprint</button>
+  <input id="pinIn" type="password" inputmode="numeric" maxlength="4" placeholder="PIN 4 digit" class="inp text-center max-w-xs" style="color:#000;background:#fff" aria-label="PIN">
+  <p id="lockErr" class="text-sm mt-2 text-amber-200"></p>
+</div>
+
+<header class="sticky top-0 z-30 text-white px-4 py-3" style="background:#0f5c4d;padding-top:calc(env(safe-area-inset-top) + 12px)">
+  <div class="flex items-center gap-3">
+    <img id="hLogo" src="./icon.svg" class="w-10 h-10 rounded-lg object-cover bg-white" alt="">
+    <div class="flex-1 min-w-0"><select id="wSel" aria-label="Pilih warung" class="font-bold w-full bg-transparent truncate" style="color:#fff"></select><div id="hSync" class="text-xs opacity-80">Terakhir Sync: -</div></div>
+    <button id="hLock" class="hidden text-white px-2" aria-label="Kunci aplikasi"><i class="fa-solid fa-lock"></i></button><span id="hNet" class="chip"></span>
+  </div>
+</header>
+
+<main class="p-3 max-w-xl mx-auto">
+<section id="t1"></section><section id="t2" class="hidden"></section><section id="t3" class="hidden"></section><section id="t4" class="hidden"></section>
+</main>
+<footer class="text-center text-xs text-gray-500 pb-4">Copyright © rf_family<br><button id="staffOut" class="hidden underline mt-1">Keluar akun karyawan (khusus pemilik)</button></footer>
+
+<nav class="navbar fixed bottom-0 inset-x-0 flex border-t z-30" style="padding-bottom:env(safe-area-inset-bottom)">
+  <button class="nav on" data-t="1"><i class="fa-solid fa-chart-line"></i>Dashboard</button>
+  <button class="nav" data-t="2"><i class="fa-solid fa-pen-to-square"></i>Input</button>
+  <button class="nav" data-t="3"><i class="fa-solid fa-file-invoice"></i>Rekap</button>
+  <button class="nav" data-t="4"><i class="fa-solid fa-gear"></i>Pengaturan</button>
+</nav>
+
+<script>
+// ===== KONFIGURASI PENJUAL (isi sebelum rilis) =====
+const API_BASE=''/* kosong = server lisensi & sync ada di domain yang sama dengan aplikasi (/api/lisensi, /api/sync). Isi bila aplikasi dihosting di domain lain, mis. https://omset-warmad.vercel.app */,
+  LICENSE_URL=(API_BASE||location.origin)+'/api/lisensi', ADMIN_WA='6285939309321',/* contoh 6281234567890 */ PREMIUM_PRICE='Rp 100.000';
+const $=s=>document.querySelector(s),LS=k=>{try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}};
+const MODES={pemilik_suami_istri:'Pemilik (Suami Istri)',pemilik_1_karyawan:'Pemilik + 1 Karyawan',karyawan_suami_istri:'Karyawan Suami Istri',dua_karyawan:'2 Karyawan',suami_istri_gaji:'Pemilik Suami Istri + 1 Karyawan (Gaji)',kustom:'Kustom (Bebas)'};
+const GK=['pinOn','pin','cred','notif','url','okey'],MAX_WARUNG=5,FREE_WARUNG=1; // gratis 1 warung, premium sampai 5
+const DEF={nama:'Warung Saya',alamat:'',hp:'',boss:'Pemilik Warung',k1:'Karyawan 1',k2:'Karyawan 2',pct:10,kontrak:0,jml:1,foto:'',defMode:'pemilik_1_karyawan'};
+const pickGK=o=>Object.fromEntries(GK.map(k=>[k,o[k]])),omitGK=o=>Object.fromEntries(Object.entries(o).filter(([k])=>!GK.includes(k)));
+const wget=id=>LS('co_w_'+id)||{s:{},r:[],ko:{},jm:{},cn:{},sk:{},pg:{}};
+const FRESH=!LS('co_g')&&!LS('co_s');
+let G=LS('co_g'),S,R,KO,JM,CN,SK,PG;
+if(!G){const o=LS('co_s')||{};G=Object.assign({pinOn:false,pin:'',cred:'',notif:false,url:''},pickGK(o),{active:'w1',ws:[{id:'w1',nama:o.nama||'Warung Saya'}],del:[]});
+  localStorage.setItem('co_w_w1',JSON.stringify({s:omitGK(o),r:LS('co_r')||[],ko:LS('co_ko')||{},jm:LS('co_jm')||{}}));localStorage.setItem('co_g',JSON.stringify(G))}
+function load(id){G.active=id;localStorage.setItem('co_g',JSON.stringify(G));const w=wget(id);S=Object.assign({},DEF,pickGK(G),w.s);if(S.boss==='Boss')S.boss='Pemilik Warung';R=w.r;KO=w.ko;JM=w.jm;CN=w.cn||{};SK=w.sk||{};PG=w.pg||{}}
+G.kpins=G.kpins||{};
+if(!G.dev){G.dev=(crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2)).replace(/-/g,'').slice(0,8).toUpperCase();localStorage.setItem('co_g',JSON.stringify(G))}
+if(G.premium&&!(G.lic&&typeof G.lic.code==='string'&&G.lic.code)){G.premium=false;localStorage.setItem('co_g',JSON.stringify(G))}
+load(G.active);
+let ROLE=G.staff?'staff:'+G.staff.id:(sessionStorage.getItem('co_role')||'owner');
+const isStaff=()=>ROLE.startsWith('staff:');
+function applyRole(){
+  if(isStaff()){const id=ROLE.slice(6);if(!G.ws.some(w=>w.id===id)||(!G.staff&&!G.kpins[id])){sessionStorage.removeItem('co_ok');sessionStorage.removeItem('co_role');location.reload();return}if(G.active!==id)load(id)}
+  document.querySelectorAll('.nav').forEach(n=>{n.style.display=isStaff()&&(n.dataset.t==='1'||n.dataset.t==='4')?'none':''});
+  hdr();if(isStaff()){resetUI();render();document.querySelector('[data-t="2"]').click()}
+}
+const wLimit=()=>G.premium?MAX_WARUNG:FREE_WARUNG;
+const LK=()=>G.premium?'':' <i class="fa-solid fa-lock text-xs"></i>';
+function applyTheme(){const t=G.theme||'system',dk=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=dk?'dark':'light';Chart.defaults.color=dk?'#c9d6d0':'#555';Chart.defaults.borderColor=dk?'#2e3f39':'#e5e7eb'}
+const resetUI=()=>{editDate=fillDate=recCycle=null;dashCycle='all'};
+const allDone=()=>G.ws.every(x=>(x.id===G.active?R:wget(x.id).r).some(r=>r.date===today()));
+
+let editDate=null,fillDate=null,recCycle=null,dashCycle='all',charts=[],penjC=null;
+const save=()=>{Object.assign(G,pickGK(S));const e=G.ws.find(x=>x.id===G.active);if(e)e.nama=S.nama;localStorage.setItem('co_g',JSON.stringify(G));localStorage.setItem('co_w_'+G.active,JSON.stringify({s:omitGK(S),r:R,ko:KO,jm:JM,cn:CN,sk:SK,pg:PG}));pushState()};
+const rp=n=>'Rp '+Math.round(n||0).toLocaleString('id-ID');
+const dmy=d=>d.split('-').reverse().join('-');
+const OWN=()=>['Boss','Pemilik Warung'].includes(S.boss)?'':S.boss,PW=()=>OWN()?'Pemilik Warung ('+OWN()+')':'Pemilik Warung';
+const hari=d=>['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'][new Date(d+'T00:00:00').getDay()];
+const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const today=()=>iso(new Date());
+const cycles=()=>[...new Set([...R.map(r=>r.cycle),...Object.keys(JM).map(Number)])].sort((a,b)=>a-b);
+const curCycle=()=>Math.max(1,...cycles());
+const modeOf=c=>{if(JM[c])return JM[c];const k=Object.keys(JM).map(Number).filter(n=>n<c).sort((a,b)=>b-a)[0];return k?JM[k]:S.defMode};
+const nameOf=(c,f)=>{const k=Object.keys(CN).map(Number).filter(n=>n<=c&&CN[n]&&CN[n][f]).sort((a,b)=>b-a)[0];return k?CN[k][f]:S[f]};
+const resolveCN=w=>{const cn=w.cn||{},s=w.s||{},prev={k1:s.k1||DEF.k1,k2:s.k2||DEF.k2},out={},cs=[...new Set([...w.r.map(r=>+r.cycle),...Object.keys(w.jm||{}).map(Number),...Object.keys(cn).map(Number)])].sort((a,b)=>a-b);cs.forEach(c=>{const e=cn[c]||{};['k1','k2'].forEach(f=>{if(e[f])prev[f]=e[f]});out[c]={k1:prev.k1,k2:prev.k2}});return out};
+const freezeNames=()=>cycles().forEach(c=>{CN[c]=Object.assign({},CN[c]);['k1','k2'].forEach(f=>{if(!CN[c][f])CN[c][f]=nameOf(c,f)})});
+const penjCur=()=>{const cs=cycles();return penjC&&cs.includes(penjC)?penjC:(cs.length?cs[cs.length-1]:null)};
+const clearTomb=c=>{if(G.dcyc&&G.dcyc[G.active])G.dcyc[G.active]=G.dcyc[G.active].filter(x=>x!==c)};
+const lastMode=()=>{const k=Object.keys(JM).map(Number).sort((a,b)=>b-a)[0];return k?JM[k]:S.defMode};
+const resolveJM=w=>{const jm=Object.assign({},w.jm),dm=(w.s&&w.s.defMode)||DEF.defMode,cs=[...new Set([...w.r.map(r=>+r.cycle),...Object.keys(jm).map(Number)])].sort((a,b)=>a-b);let prev=dm;cs.forEach(c=>{if(jm[c])prev=jm[c];else jm[c]=prev});return jm};
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const toast=m=>{const t=document.createElement('div');t.textContent=m;t.className='fixed left-1/2 -translate-x-1/2 bottom-24 z-50 bg-black text-white text-sm px-4 py-2 rounded-full';document.body.appendChild(t);setTimeout(()=>t.remove(),2400)};
+
+/* ---------- hitung bagi hasil ---------- */
+function calc(c){
+  const rs=R.filter(r=>r.cycle==c).sort((a,b)=>a.date.localeCompare(b.date)),mode=modeOf(c);
+  const omset=rs.reduce((s,r)=>s+r.omset,0),tab=omset*S.pct/100,days=rs.length;
+  const GD=guardsOf(c),L=GD.list,pp=GD.pp,nBagi=L.filter(g=>g.t==='bagi').length,pr=Math.min(days,30)/30;
+  const gajiTotal=L.filter(g=>g.t==='gaji').reduce((t,g)=>t+g.g*pr,0);
+  const opt=KO[c]||'zero';   // kontrak hanya bila ada penjaga bagi hasil; penjaga bergaji tidak dipotong kontrak
+  let kontrak=nBagi===0?0:opt==='full'?S.kontrak:opt==='prorata'?S.kontrak*pr:0;
+  if(days>=30&&nBagi>0)kontrak=S.kontrak;
+  const net=tab-gajiTotal-kontrak,bossShare=nBagi?net*pp/100:net,boss=bossShare+kontrak;
+  const guards=L.map(g=>({n:g.n,t:g.t,gFull:g.g,base:g.t==='gaji'?g.g*pr:(nBagi?net*(100-pp)/100/nBagi:0),stk:0}));
+  const sk=SK[c]||{},num=v=>v!==undefined&&v!==null&&v!==''&&isFinite(+v),hasSt=num(sk.awal)&&num(sk.akhir),sel=hasSt?(+sk.akhir)-(+sk.awal):0;let sB=0;
+  if(hasSt){   // plus: pemilik + penjaga bagi hasil sesuai porsi (tanpa kontrak); minus: dibagi rata ke semua penjaga
+    if(sel>=0){if(nBagi){sB=sel*pp/100;guards.forEach(g=>{if(g.t==='bagi')g.stk=sel*(100-pp)/100/nBagi})}else sB=sel}
+    else{if(guards.length)guards.forEach(g=>g.stk=sel/guards.length);else sB=sel}
+  }
+  guards.forEach(g=>g.total=g.base+g.stk);
+  return{rs,mode,omset,tab,days,kontrak,net,gajiTotal,nBagi,pp,guards,boss,bossShare,stok:hasSt?{awal:+sk.awal,akhir:+sk.akhir,sel,note:sk.note||''}:null,stBoss:sB,bossT:boss+sB,start:rs[0]?.date,end:rs[rs.length-1]?.date}
+}
+
+/* ---------- status header ---------- */
+function hdr(){
+  $('#wSel').innerHTML=G.ws.map(w=>`<option style="color:#000" value="${w.id}" ${w.id===G.active?'selected':''}>${esc(w.nama)}</option>`).join('')+(G.ws.length<MAX_WARUNG?'<option style="color:#000" value="__add">+ Tambah Warung'+(G.premium?'':' (Premium)')+'</option>':'<option style="color:#000" value="" disabled>Batas '+MAX_WARUNG+' warung</option>');
+  if(isStaff())$('#wSel').innerHTML='<option style="color:#000" value="'+G.active+'" selected>'+esc(S.nama)+'</option>';$('#wSel').disabled=isStaff();$('#hLock').classList.toggle('hidden',!S.pinOn);$('#staffOut').classList.toggle('hidden',!G.staff);
+  $('#hLogo').src=(G.premium&&S.foto)||'./icon.svg';
+  const on=navigator.onLine,n=$('#hNet');n.textContent=on?'Online':'Offline';n.style.background=on?'#1f9d55':'#c0392b';
+  $('#hSync').textContent='Terakhir Sync: '+(localStorage.getItem('co_last')||'-');
+}
+addEventListener('online',()=>{hdr();sync(true)});addEventListener('offline',hdr);
+const fmtNow=()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');return`${p(d.getDate())}-${p(d.getMonth()+1)}-${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`};
+
+/* ---------- sync Google Sheets ---------- */
+async function sync(silent){
+  if(G.staff)return syncStaff(silent);
+  if(!G.premium){if(!silent)toast('Sync Cloud khusus Premium');return}
+  if(G.premium&&!S.url&&!S.okey&&navigator.onLine)await autoRegister(true);
+  if(!S.url||!navigator.onLine){if(!silent)toast(S.url?'Offline, tersimpan lokal':'Sync cloud belum aktif. Cek lisensi Premium lalu coba lagi');return}
+  try{
+    save();if(!S.okey){if(!silent)toast('Isi Kode Pemilik dulu (Pengaturan > Profil)');return}const r=await gas(S.url,{action:'pull',key:S.okey,device:G.dev});
+    if(r.ok===false){if(!silent)toast(r.error||'Sync gagal');return}
+    if(r.ok){G.akses=r.akses||[];
+      const rws=r.warung||[{id:'w1',settings:r.settings,records:r.records,cycleKontrakOptions:r.cycleKontrakOptions,cycleJagaModes:r.cycleJagaModes}];
+      rws.forEach(rw=>{if((G.del||[]).includes(rw.id))return;
+        const isNew=!localStorage.getItem('co_w_'+rw.id),w=isNew?{s:{},r:[],ko:{},jm:{}}:wget(rw.id),st=omitGK(rw.settings||{});
+        const have=new Set(w.r.map(x=>x.date));(rw.records||[]).forEach(x=>{if(!have.has(x.date))w.r.push({date:x.date,cycle:+x.cycle,day:+x.day,omset:+x.omset,expense:x.expense||''})});
+        w.ko=Object.assign({},rw.cycleKontrakOptions,w.ko);w.jm=Object.assign({},rw.cycleJagaModes,w.jm);w.cn=Object.assign({},rw.cycleNames,w.cn);w.sk=Object.assign({},rw.cycleStok,w.sk);w.pg=Object.assign({},rw.cyclePenjaga,w.pg);((G.dcyc||{})[rw.id]||[]).forEach(c=>{if(!w.r.some(x=>+x.cycle===c)){delete w.jm[c];delete w.ko[c];delete w.cn[c];delete w.sk[c];delete w.pg[c]}});
+        if(isNew||!w.s.nama||w.s.nama==='Warung Saya')w.s=Object.assign({},w.s,st);
+        localStorage.setItem('co_w_'+rw.id,JSON.stringify(w));
+        const e=G.ws.find(x=>x.id===rw.id);if(e)e.nama=w.s.nama||e.nama;else G.ws.push({id:rw.id,nama:w.s.nama||rw.id})});
+      localStorage.setItem('co_g',JSON.stringify(G))}
+    const body={action:'syncAll',key:S.okey||'',device:G.dev,premium:!!G.premium,warung:G.ws.map(x=>{const w=wget(x.id);return{id:x.id,settings:Object.assign({},DEF,w.s),records:w.r,cycleKontrakOptions:w.ko,cycleJagaModes:resolveJM(w),cycleNames:resolveCN(w),cycleStok:w.sk||{},cyclePenjaga:w.pg||{}}})};
+    const res=await (await fetch(S.url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)})).json();
+    if(!res.ok)throw 0;
+    localStorage.setItem('co_last',fmtNow());load(G.active);hdr();render();if(!silent)toast('Sync berhasil')
+  }catch(e){if(!silent)toast('Sync gagal, data tetap aman di HP')}
+}
+
+/* ---------- tab 1 dashboard ---------- */
+const clone=o=>JSON.parse(JSON.stringify(o)),isCust=m=>m==='kustom'||m==='suami_istri_gaji';
+const pgOf=c=>{if(PG[c])return PG[c];const k=Object.keys(PG).map(Number).filter(n=>n<c).sort((a,b)=>b-a)[0];return k!==undefined?PG[k]:null};
+function guardsOf(c){   // daftar penjaga + porsi pemilik (%) untuk siklus c
+  const m=modeOf(c),leg=(fs,pp)=>({pp,list:fs.map(f=>({n:nameOf(c,f),t:'bagi',g:0}))});
+  if(m==='pemilik_suami_istri')return{pp:100,list:[]};
+  if(m==='pemilik_1_karyawan')return leg(['k1'],75);
+  if(m==='karyawan_suami_istri')return leg(['k1'],50);
+  if(m==='dua_karyawan')return leg(['k1','k2'],50);
+  const p=pgOf(c)||{};
+  if(m==='suami_istri_gaji'){const g=(p.list||[])[0]||{};return{pp:100,list:[{n:(g.n||'').trim()||nameOf(c,'k1'),t:'gaji',g:+g.g||0}]}}
+  const pp=p.pp!==undefined&&p.pp!==''&&isFinite(+p.pp)?Math.min(100,Math.max(0,+p.pp)):50;
+  return{pp,list:(p.list||[]).map(g=>({n:(g.n||'').trim()||'Penjaga',t:g.t==='gaji'?'gaji':'bagi',g:+g.g||0}))};
+}
+const seedPG=(c,nm)=>{if(!isCust(nm)||PG[c])return;const o=guardsOf(c);   // dipanggil sebelum mode diganti
+  PG[c]=nm==='kustom'?{pp:o.list.some(g=>g.t==='bagi')?o.pp:50,list:o.list.map(g=>({n:g.n,t:g.t,g:g.g}))}:{list:[{n:o.list[0]?o.list[0].n:nameOf(c,'k1'),t:'gaji',g:o.list[0]?o.list[0].g:0}]}};
+const copyPG=c=>{if(isCust(JM[c])&&!PG[c]){const q=pgOf(c);if(q)PG[c]=clone(q)}};
+const pgDo=fn=>{const c=penjCur();if(c===null)return;if(!PG[c])PG[c]=clone(pgOf(c)||{pp:50,list:[]});if(!PG[c].list)PG[c].list=[];fn(PG[c]);save();r4();sync(true)};
+const pgNames=(pc,md)=>{
+  if(md==='pemilik_suami_istri')return '';
+  const p=pgOf(pc)||{},list=p.list||[],gjIn=(i,v)=>`<input class="inp" data-pgg="${i}" inputmode="numeric" placeholder="Gaji per 30 hari (Rp)" value="${v?rp(v):''}" aria-label="Gaji penjaga ${i+1}">`;
+  if(md==='suami_istri_gaji'){const g=list[0]||{};return `<div class="grid grid-cols-2 gap-2 mt-2"><input class="inp" data-pgn="0" placeholder="${esc(nameOf(pc,'k1'))}" value="${esc(g.n||'')}" aria-label="Nama karyawan">${gjIn(0,+g.g||0)}</div><div class="text-xs text-gray-500 mt-1">Gaji dipotong dari tabungan, prorata bila kurang dari 30 hari. Tanpa potongan kontrak.</div>`}
+  if(md==='kustom')return `<label>Porsi pemilik dari bagi hasil (%)</label><input id="pgPP" type="number" min="0" max="100" class="inp" value="${p.pp!==undefined?p.pp:50}">
+   ${list.map((g,i)=>`<div class="mt-2 p-2" style="border:1px solid var(--bd);border-radius:10px"><div class="flex gap-2"><input class="inp" data-pgn="${i}" placeholder="Nama penjaga ${i+1}" value="${esc(g.n||'')}" aria-label="Nama penjaga ${i+1}"><button class="btn2" data-pgd="${i}" aria-label="Hapus penjaga ${i+1}"><i class="fa-solid fa-xmark"></i></button></div><div class="grid grid-cols-2 gap-2 mt-2"><select class="inp" data-pgt="${i}" aria-label="Sistem penjaga ${i+1}"><option value="bagi" ${g.t!=='gaji'?'selected':''}>Bagi hasil</option><option value="gaji" ${g.t==='gaji'?'selected':''}>Gaji</option></select>${g.t==='gaji'?gjIn(i,+g.g||0):'<div class="text-xs text-gray-500 flex items-center">Ikut bagi hasil</div>'}</div></div>`).join('')}
+   <button id="pgAdd" class="btn2 w-full mt-2">+ Tambah penjaga</button><div class="text-xs text-gray-500 mt-1">Porsi 0% = seluruh bagi hasil untuk penjaga, pemilik hanya menerima kontrak.</div>`;
+  return `<div class="grid grid-cols-2 gap-2 mt-2"><input class="inp" data-cn="${pc}" data-f="k1" placeholder="${esc(nameOf(pc,'k1'))}" value="${esc((CN[pc]||{}).k1||'')}" aria-label="Nama karyawan 1 siklus ${pc}">${md==='dua_karyawan'?`<input class="inp" data-cn="${pc}" data-f="k2" placeholder="${esc(nameOf(pc,'k2'))}" value="${esc((CN[pc]||{}).k2||'')}" aria-label="Nama karyawan 2 siklus ${pc}">`:''}</div>`;
+};
+const sgn=n=>n<0?'-':'+',sgR=n=>sgn(n)+' '+rp(Math.abs(n)),sgS=n=>sgn(n)+' Stok '+rp(Math.abs(n)),sgs=n=>sgn(n)+' stok '+rp(Math.abs(n));
+const gRow=(g,x)=>`<div class="flex justify-between"><span>${esc(g.n)}</span><b${g.total<0?' style="color:#c0392b"':''}>${rp(g.total)}</b></div>${(x.stok||g.t==='gaji')?`<div class="text-xs text-gray-500 pl-3">${g.t==='gaji'?'Gaji'+(x.days<30?' prorata '+x.days+'/30 hari (dari '+rp(g.gFull)+')':''):'Bagi hasil'} ${rp(g.base)}${x.stok?' '+sgS(g.stk):''}</div>`:''}${g.total<0?`<div class="text-xs pl-3" style="color:#c0392b">Kurang bayar ke pemilik ${rp(-g.total)}</div>`:''}`;
+function r1(){
+  const cs=cycles(),rs=dashCycle==='all'?R:R.filter(r=>r.cycle==dashCycle);
+  let boss=0,bs=0,kt=0,sb=0,sel=0,nst=0,omset=0,tab=0,one=null,anyBagi=false;const pn={};
+  (dashCycle==='all'?cs:[+dashCycle]).forEach(c=>{const x=calc(c);boss+=x.bossT;bs+=x.bossShare;kt+=x.kontrak;sb+=x.stBoss;omset+=x.omset;tab+=x.tab;if(x.nBagi||!x.gajiTotal)anyBagi=true;if(x.stok){sel+=x.stok.sel;nst++;one=x.stok}x.guards.forEach(g=>{const p=pn[g.n]||(pn[g.n]={b:0,s:0,tg:new Set()});p.b+=g.base;p.s+=g.stk;p.tg.add(g.t)})});
+  $('#t1').innerHTML=`<select id="dc" class="inp mb-3" aria-label="Siklus"><option value="all">Semua Siklus</option>${cs.map(c=>`<option value="${c}" ${dashCycle==c?'selected':''}>Siklus ${c}</option>`).join('')}</select>
+  <div class="card" style="background:#0f5c4d;color:#fff"><div class="text-sm opacity-80">Total Pendapatan Pemilik Warung (+ Kontrak${nst?' & Stok':''})</div><div class="text-3xl font-bold">${rp(boss)}</div><div class="text-xs opacity-80 mt-1">${anyBagi?'Bagi hasil':'Sisa setelah gaji'} ${rp(bs)} + Kontrak ${rp(kt)}${nst?` ${sgS(sb)}`:''}</div></div>
+  <div class="grid grid-cols-2 gap-3">
+    ${Object.entries(pn).map(([n,p])=>{const t=p.b+p.s;return `<div class="card"><div class="text-xs text-gray-500">${esc(n)}</div><b${t<0?' style="color:#c0392b"':''}>${rp(t)}</b>${(nst||p.tg.has('gaji'))?`<div class="text-xs text-gray-500">${p.tg.size>1?'Gaji & bagi hasil':(p.tg.has('gaji')?'Gaji':'Bagi hasil')} ${rp(p.b)}${nst?' '+sgS(p.s):''}</div>`:''}${t<0?`<div class="text-xs" style="color:#c0392b">Kurang bayar ke pemilik ${rp(-t)}</div>`:''}</div>`}).join('')}
+    ${nst?`<div class="card"><div class="text-xs text-gray-500">Selisih Stok</div><b style="color:${sel>=0?'#1f9d55':'#c0392b'}">${sgR(sel)}</b><div class="text-xs text-gray-500">${dashCycle==='all'?nst+' siklus dicek':'Awal '+rp(one.awal)+' → Akhir '+rp(one.akhir)}</div></div>`:''}
+    <div class="card"><div class="text-xs text-gray-500">Omset Kotor</div><b>${rp(omset)}</b></div>
+    <div class="card"><div class="text-xs text-gray-500">Tabungan (${S.pct}%)</div><b>${rp(tab)}</b></div></div>
+  <div class="card"><b class="text-sm">Omset Harian</b><canvas id="c1" height="200"></canvas></div>
+  ${G.premium?'<div class="card"><b class="text-sm">Omset Per-Siklus</b><canvas id="c2" height="200"></canvas></div>':'<div class="card text-sm text-gray-600"><b>Omset Per-Siklus</b><div class="mt-1"><i class="fa-solid fa-lock"></i> Grafik perbandingan per siklus khusus Premium.</div></div>'}`;
+  $('#dc').onchange=e=>{dashCycle=e.target.value;r1()};
+  charts.forEach(c=>c.destroy());const sr=[...rs].sort((a,b)=>a.date.localeCompare(b.date));
+  charts=[new Chart($('#c1'),{type:'line',data:{labels:sr.map(r=>dmy(r.date).slice(0,5)),datasets:[{data:sr.map(r=>r.omset),borderColor:'#0f5c4d',backgroundColor:'#0f5c4d33',fill:true,tension:.3}]},options:{plugins:{legend:{display:false}}}}),
+  ...(G.premium?[new Chart($('#c2'),{type:'bar',data:{labels:cs.map(c=>'S'+c),datasets:[{data:cs.map(c=>calc(c).omset),backgroundColor:'#f2a900'}]},options:{plugins:{legend:{display:false}}}})]:[])]
+}
+
+/* ---------- tab 2 input ---------- */
+function missing(c){
+  const rs=R.filter(r=>r.cycle==c).sort((a,b)=>a.date.localeCompare(b.date));if(!rs.length)return[];
+  const have=new Set(R.map(r=>r.date)),out=[],t=today();let d=new Date(rs[0].date+'T00:00:00');
+  while(iso(d)<=t){if(!have.has(iso(d)))out.push(iso(d));d.setDate(d.getDate()+1)}return out
+}
+function r2(){
+  const ed=editDate?R.find(r=>r.date===editDate):null,date=ed?ed.date:(fillDate||today());
+  const exist=!ed&&R.find(r=>r.date===date),cyc=ed?ed.cycle:curCycle(),inC=R.filter(r=>r.cycle==cyc).length;
+  const ms=missing(curCycle());
+  const lc=curCycle(),cnt=R.filter(r=>+r.cycle===lc).length,pv=cycles().filter(c=>c<lc).pop(),pvDays=pv===undefined?0:R.filter(r=>+r.cycle===pv).length,canDel=!isStaff()&&cnt===0&&pv!==undefined&&pvDays<30;
+  $('#t2').innerHTML=`<div class="card"><b>${ed?'Edit Catatan':'Input Omset'}</b>
+  ${ms.length?`<div class="warn mt-2"><b><i class="fa-solid fa-triangle-exclamation"></i> Tanggal terlewat</b>${ms.map(d=>`<div class="flex justify-between items-center mt-1"><span>${dmy(d)}</span><button class="btn2" data-fill="${d}">Isi Tanggal Ini</button></div>`).join('')}</div>`:''}
+  <label>Tanggal Operasional</label><input id="fd" type="date" class="inp" value="${date}" max="${today()}">
+  <div id="dup">${exist?`<div class="warn mt-2">Tanggal ini sudah dicatat (${rp(exist.omset)}). <button class="btn2 mt-1" data-edit="${date}">Edit Catatan Tanggal Ini</button></div>`:''}</div>
+  <div class="grid grid-cols-2 gap-2"><div><label>Siklus Ke-</label><input id="fc" type="number" min="1" class="inp" value="${cyc}"></div>
+  <div><label>Hari Ke- (1–30)</label><input id="fy" type="number" min="1" max="30" class="inp" value="${ed?ed.day:Math.min(30,inC+1)}"></div></div>
+  ${isStaff()?'':`<div class="flex gap-2 mt-2 flex-wrap"><button id="newC" class="btn2">Siklus Baru</button>${canDel?`<button id="delC" class="btn2" style="color:#c0392b;border-color:#c0392b">Hapus Siklus ${lc} (kosong)</button>`:''}</div>`}
+  <label>Omset Hari Ini</label><input id="fo" inputmode="numeric" class="inp text-lg" placeholder="Rp 0" value="${ed?rp(ed.omset):''}">
+  <div id="prev" class="text-sm mt-1" style="color:var(--acc)"></div>
+  <label>Catatan Pengeluaran (informatif, tidak memotong omset)</label><textarea id="fe" class="inp" rows="2">${esc(ed?.expense)}</textarea>
+  <div class="flex gap-2 mt-3"><button id="sv" class="btn flex-1">${ed?'Simpan Perubahan':'Simpan Omset'}</button>${ed?'<button id="cx" class="btn2">Batal</button>':''}</div></div>`;
+  const prev=()=>{const v=parseInt($('#fo').value.replace(/\D/g,''))||0;$('#prev').textContent=`Tabungan ${S.pct}%: ${rp(v*S.pct/100)}`};
+  $('#fo').oninput=e=>{const v=e.target.value.replace(/\D/g,'');e.target.value=v?rp(+v):'';prev()};prev();
+  $('#fd').onchange=e=>{fillDate=e.target.value;editDate=null;r2()};
+  if($('#newC'))$('#newC').onclick=()=>{
+    const lc=curCycle(),cnt=R.filter(r=>+r.cycle===lc).length;
+    if(cnt<30&&!confirm(cnt?`Siklus ${lc} baru ${cnt} hari (belum 30 hari). Yakin ingin memulai siklus baru?`:`Siklus ${lc} masih kosong (belum ada catatan). Yakin ingin membuat siklus baru?`))return;
+    const c=lc+1;JM[c]=lastMode();copyPG(c);clearTomb(c);save();r2();toast('Siklus '+c+' dibuat')};
+  if($('#delC'))$('#delC').onclick=()=>{
+    const c=curCycle(),pv=cycles().filter(x=>x<c).pop();
+    if(R.some(r=>+r.cycle===c))return toast('Siklus ini sudah berisi catatan');
+    if(pv===undefined||R.filter(r=>+r.cycle===pv).length>=30)return toast('Siklus sebelumnya sudah 30 hari, siklus tidak bisa dihapus');
+    if(!confirm(`Hapus Siklus ${c} yang masih kosong? Mode dan nama karyawan siklus ini ikut terhapus.`))return;
+    delete JM[c];delete KO[c];delete CN[c];delete SK[c];delete PG[c];G.dcyc=G.dcyc||{};G.dcyc[G.active]=[...new Set([...(G.dcyc[G.active]||[]),c])];
+    save();toast('Siklus '+c+' dihapus');render();sync(true)};
+  $('#sv').onclick=()=>{
+    const d=$('#fd').value,o=parseInt($('#fo').value.replace(/\D/g,''))||0;
+    if(!d||!o)return toast('Isi tanggal dan omset');
+    if(R.find(r=>r.date===d&&r.date!==editDate))return toast('Tanggal ini sudah terisi');
+    const rec={date:d,cycle:+$('#fc').value||1,day:Math.min(30,Math.max(1,+$('#fy').value||1)),omset:o,expense:$('#fe').value};
+    R=R.filter(r=>r.date!==editDate);R.push(rec);editDate=fillDate=null;save();toast('Tersimpan');render();sync(true)};
+  if($('#cx'))$('#cx').onclick=()=>{editDate=null;r2()};
+}
+
+/* ---------- tab 3 rekap ---------- */
+function waText(x,c){
+  const lb=x.nBagi||!x.gajiTotal?'bagi hasil':'sisa setelah gaji';
+  const L=[`*SLIP BAGI HASIL*`,S.nama,`Siklus ${c}`,`Periode: ${x.start?dmy(x.start):'-'} s/d ${x.end?dmy(x.end):'-'}`,'',`Total Omset: ${rp(x.omset)}`,`Tabungan (${S.pct}%): ${rp(x.tab)}`,`Potongan Kontrak: ${rp(x.kontrak)}`];
+  if(x.gajiTotal>0)L.push(`Gaji Penjaga${x.days<30?` (prorata ${x.days}/30 hari)`:''}: ${rp(x.gajiTotal)}`);
+  if(x.stok)L.push(`Selisih Stok: ${sgR(x.stok.sel)} (awal ${rp(x.stok.awal)} -> akhir ${rp(x.stok.akhir)})`);
+  L.push('',`${PW()}: ${rp(x.bossT)}`,`  (${lb} ${rp(x.bossShare)} + kontrak ${rp(x.kontrak)}${x.stok?` ${sgs(x.stBoss)}`:''})`);
+  x.guards.forEach(g=>{L.push(`${g.n}: ${rp(g.total)}`);if(x.stok||g.t==='gaji')L.push(`  (${g.t==='gaji'?'gaji'+(x.days<30?` prorata ${x.days}/30`:''):'bagi hasil'} ${rp(g.base)}${x.stok?' '+sgs(g.stk):''})`);if(g.total<0)L.push(`  Kurang bayar ke pemilik: ${rp(-g.total)}`)});
+  return L.join('\n')
+}
+
+function r3(){
+  const cs=cycles();if(!cs.length){$('#t3').innerHTML='<div class="card">Belum ada data. Catat omset pertama di tab Input.</div>';return}
+  if(!cs.includes(+recCycle))recCycle=cs[cs.length-1];
+  const c=+recCycle,x=calc(c),opt=KO[c]||'zero';
+  $('#t3').innerHTML=`<select id="rc" class="inp mb-2" aria-label="Siklus">${cs.map(k=>`<option value="${k}" ${k==c?'selected':''}>Siklus ${k}</option>`).join('')}</select>
+  <span class="chip" style="background:#0f5c4d">${MODES[x.mode]}${x.mode==='kustom'?' - '+x.guards.length+' penjaga':''}</span>
+  ${x.nBagi>0&&x.days<30?`<div class="card mt-2"><div class="text-xs mb-1">Potongan kontrak (${x.days} hari)</div><div class="grid grid-cols-3 gap-2">${[['zero','Rp 0 (0%)'],['prorata','Prorata'],['full','Full 1 Bulan']].map(([k,l])=>`<button ${isStaff()?'disabled':`data-ko="${k}"`} class="${opt===k?'btn':'btn2'}">${l}</button>`).join('')}</div></div>`:''}
+  <div class="card mt-2 text-sm"><div class="flex justify-between"><span>Total Omset</span><b>${rp(x.omset)}</b></div><div class="flex justify-between"><span>Tabungan ${S.pct}%</span><b>${rp(x.tab)}</b></div><div class="flex justify-between"><span>Kontrak</span><b>${rp(x.kontrak)}</b></div>${x.gajiTotal>0?`<div class="flex justify-between"><span>Gaji Penjaga${x.days<30?' (prorata '+x.days+'/30 hari)':''}</span><b>${rp(x.gajiTotal)}</b></div>`:''}${x.stok?`<div class="flex justify-between"><span>Selisih Stok</span><b style="color:${x.stok.sel>=0?'#1f9d55':'#c0392b'}">${sgR(x.stok.sel)}</b></div><div class="text-xs text-gray-500 pl-3">Awal ${rp(x.stok.awal)} → Akhir ${rp(x.stok.akhir)}</div>`:''}<hr class="my-2">
+  <div class="flex justify-between"><span>${esc(PW())}</span><b>${rp(x.bossT)}</b></div><div class="text-xs text-gray-500 pl-3">${x.nBagi||!x.gajiTotal?'Bagi hasil':'Sisa setelah gaji'} ${rp(x.bossShare)} + Kontrak ${rp(x.kontrak)}${x.stok?` ${sgS(x.stBoss)}`:''}</div>${x.guards.map(g=>gRow(g,x)).join('')}</div>
+  <div class="grid grid-cols-2 gap-2 mb-3"><button id="wa" class="btn" style="background:#1f9d55"><i class="fa-brands fa-whatsapp"></i> Kirim Slip via WhatsApp</button><button id="pdf" class="btn"><i class="fa-solid fa-file-pdf"></i> Download PDF F4</button></div>
+  ${isStaff()?'':(()=>{const sk=SK[c]||{},pk=Object.keys(SK).map(Number).filter(n=>n<c&&SK[n]&&SK[n].akhir!==undefined&&SK[n].akhir!==''&&isFinite(+SK[n].akhir)).sort((a,b)=>b-a)[0],aw=x.stok?x.stok.awal:(pk!==undefined?+SK[pk].akhir:null);
+   return `<div class="card"><b class="text-sm">Cek Stok Serah Terima (Siklus ${c})</b><div class="text-xs text-gray-500 mt-1">Plus dibagi sesuai bagi hasil tanpa potongan kontrak. Minus dibagi rata ke semua penjaga siklus ini. Stok awal terisi dari stok akhir siklus sebelumnya.</div>
+   <label>Nilai stok awal (saat masuk kerja)</label><input id="ska" inputmode="numeric" class="inp" placeholder="Rp 0" value="${aw===null?'':rp(aw)}">
+   <label>Nilai stok akhir (saat serah terima)</label><input id="skz" inputmode="numeric" class="inp" placeholder="Rp 0" value="${x.stok?rp(x.stok.akhir):''}">
+   <div id="skp" class="text-sm mt-1"></div>
+   <label>Catatan</label><input id="skn" class="inp" value="${esc(sk.note||'')}">
+   <div class="flex gap-2 mt-3"><button id="sksv" class="btn flex-1">Simpan Cek Stok</button>${x.stok?'<button id="skdel" class="btn2">Hapus</button>':''}</div></div>`})()}
+  <div class="card overflow-x-auto"><b class="text-sm">Riwayat Harian</b><table class="w-full text-sm mt-2"><tbody>${[...x.rs].reverse().map((r,i)=>`<tr class="border-t"><td class="py-1 pr-2 text-gray-500 align-top">${x.rs.length-i}</td><td class="py-1">${dmy(r.date)}<div class="text-xs text-gray-500">${hari(r.date)}</div></td><td class="text-right">${rp(r.omset)}</td><td class="text-right whitespace-nowrap"><button data-edit="${r.date}" class="p-2" aria-label="Edit"><i class="fa-solid fa-pen"></i></button>${isStaff()?'':`<button data-del="${r.date}" class="p-2 text-red-600" aria-label="Hapus"><i class="fa-solid fa-trash"></i></button>`}</td></tr>`).join('')}</tbody></table></div>`;
+  $('#rc').onchange=e=>{recCycle=e.target.value;r3()};
+  if($('#sksv')){
+    const nm=id=>{const v=$('#'+id).value.replace(/\D/g,'');return v===''?null:+v},pv=()=>{const a=nm('ska'),z=nm('skz');$('#skp').textContent=a!==null&&z!==null?'Selisih stok: '+sgR(z-a):''};
+    ['ska','skz'].forEach(id=>$('#'+id).oninput=e=>{const v=e.target.value.replace(/\D/g,'');e.target.value=v?rp(+v):'';pv()});pv();
+    $('#sksv').onclick=()=>{const a=nm('ska'),z=nm('skz');if(a===null||z===null)return toast('Isi stok awal dan stok akhir');SK[c]={awal:a,akhir:z,note:$('#skn').value.trim()};save();toast('Cek stok tersimpan');r3();sync(true)};
+    if($('#skdel'))$('#skdel').onclick=()=>{if(!confirm('Hapus cek stok siklus '+c+'?'))return;SK[c]={};save();r3();sync(true)}}
+  if($('#wa'))$('#wa').onclick=()=>{const t=encodeURIComponent(waText(x,c));let n='';
+    if(S.hp&&confirm('Kirim ke nomor HP warung/karyawan di Pengaturan?\nOK = ya, Batal = pilih kontak manual'))n=S.hp.replace(/\D/g,'').replace(/^0/,'62');
+    open(`https://wa.me/${n}?text=${t}`,'_blank')};
+  if($('#pdf'))$('#pdf').onclick=()=>pdf(c,x)
+}
+function pdf(c,x){
+  const prem=G.premium||!!(G.staff&&G.staff.prem);
+  if(!prem&&G.pdfMonth===today().slice(0,7))return alert('Versi gratis: PDF maksimal 1 kali per bulan (sudah dipakai bulan ini). Upgrade Premium untuk PDF tanpa batas, tanpa watermark, dan dengan logo.');
+  const{jsPDF}=window.jspdf,d=new jsPDF('p','mm',[215.9,330.2]),M=12,W=215.9;
+  d.setFillColor(15,92,77);d.rect(0,0,W,26,'F');d.setTextColor(255);d.setFontSize(16);d.setFont(undefined,'bold');
+  let tx=M;if(S.foto&&prem){try{d.addImage(S.foto,'JPEG',M,4,18,18);tx=M+22}catch(e){}}
+  d.text(S.nama,tx,12);d.setFontSize(9);d.setFont(undefined,'normal');d.text([S.alamat,'Telp/WA: '+S.hp].filter(Boolean),tx,17);
+  d.setTextColor(20);d.setFontSize(11);d.text(`Laporan Omset Siklus ${c}  |  ${x.start?dmy(x.start):'-'} s/d ${x.end?dmy(x.end):'-'}  |  ${MODES[x.mode]}`,M,34);
+  d.autoTable({startY:38,margin:{left:M,right:M},head:[['Total Omset','Tabungan '+S.pct+'%','Potongan Kontrak','Hari Tercatat']],body:[[rp(x.omset),rp(x.tab),rp(x.kontrak),x.days]],theme:'grid',styles:{fontSize:10},headStyles:{fillColor:[242,169,0],textColor:20}});
+  // Tabel harian: font lebih besar, kolom Pengeluaran dipersempit (lebar total 191.9 mm)
+  d.autoTable({startY:d.lastAutoTable.finalY+4,margin:{left:M,right:M},head:[['No','Tanggal','Hari','Omset','Tabungan','Pengeluaran (info)']],
+    body:x.rs.map((r,i)=>[i+1,dmy(r.date),hari(r.date),rp(r.omset),rp(r.omset*S.pct/100),r.expense||'']),
+    columnStyles:{0:{cellWidth:12,halign:'center'},1:{cellWidth:30},2:{cellWidth:26},3:{cellWidth:40,halign:'right'},4:{cellWidth:40,halign:'right'},5:{cellWidth:43.9,overflow:'ellipsize'}},
+    styles:{fontSize:9,cellPadding:1.5},headStyles:{fillColor:[15,92,77]},theme:'striped'});
+  let y=d.lastAutoTable.finalY+5;const hw=(W-2*M-4)/2;
+  const lb=x.nBagi||!x.gajiTotal?'bagi hasil':'sisa setelah gaji';const names=[[PW()+' ('+lb+' + kontrak'+(x.stok?' +/- stok':'')+')',x.bossT],...x.guards.map(g=>[g.n+' ('+(g.t==='gaji'?'gaji'+(x.days<30?' prorata '+x.days+'/30':''):'bagi hasil')+(x.stok?' +/- stok':'')+')'+(g.total<0?' - KURANG BAYAR ke pemilik':''),g.total])];
+  d.autoTable({startY:y,margin:{left:M},tableWidth:hw,head:[['Formulasi','Nominal']],body:[['Omset Kotor',rp(x.omset)],['Tabungan '+S.pct+'%',rp(x.tab)],...(x.gajiTotal>0?[['Gaji Penjaga'+(x.days<30?' (prorata '+x.days+'/30)':''),rp(x.gajiTotal)]]:[]),['Potongan Kontrak',rp(x.kontrak)],[x.gajiTotal>0?'Sisa dibagi (Tab - Gaji - Kontrak)':'Dibagi (Tab - Kontrak)',rp(x.net)],['Pemilik: '+lb+' + kontrak'+(x.stok?' +/- stok':''),rp(x.bossShare)+' + '+rp(x.kontrak)+(x.stok?' '+sgS(x.stBoss):'')],...(x.stok?[['Stok awal -> akhir',rp(x.stok.awal)+' -> '+rp(x.stok.akhir)],['Selisih Stok',sgR(x.stok.sel)]]:[])],styles:{fontSize:9},headStyles:{fillColor:[15,92,77]}});
+  d.autoTable({startY:y,margin:{left:M+hw+4},tableWidth:hw,head:[['Penerima','Bersih']],body:names.map(n=>[n[0],rp(n[1])]),styles:{fontSize:9},headStyles:{fillColor:[242,169,0],textColor:20}});
+  if(!prem){for(let p=1;p<=d.getNumberOfPages();p++){d.setPage(p);d.setGState(new d.GState({opacity:.18}));d.setTextColor(120);d.setFontSize(44);d.setFont(undefined,'bold');d.text('Omset-WarMad Gratis',W/2,170,{align:'center',angle:45});d.setGState(new d.GState({opacity:1}))}G.pdfMonth=today().slice(0,7);save()}
+  d.save(`Laporan-Siklus-${c}.pdf`)
+}
+
+/* ---------- tab 4 pengaturan ---------- */
+const inp=(id,l,v,t='text')=>`<label>${l}</label><input id="${id}" type="${t}" class="inp" value="${esc(v)}">`;
+function r4(){
+  const cs=cycles(),modeOpts=v=>Object.entries(MODES).map(([k,l])=>`<option value="${k}" ${k===v?'selected':''}>${l}</option>`).join('');
+  $('#t4').innerHTML=`
+  ${premCard()}
+  <div class="card"><b>Profil, Foto & Kontrak</b>
+   <div class="flex items-center gap-3 mt-2"><img id="pf" src="${S.foto||'./icon.svg'}" class="w-16 h-16 rounded-xl object-cover" alt=""><div><input id="foto" type="file" accept="image/*" class="text-xs"><div class="text-xs text-gray-500">Foto / Logo${LK()}</div></div></div>
+   ${inp('sn','Nama Warung',S.nama)}${inp('sa','Alamat',S.alamat)}${inp('sh','No. HP/WA',S.hp,'tel')}${inp('sb','Nama Pemilik Warung',OWN())}${inp('s1','Nama Karyawan 1 (default)',S.k1)}${inp('s2','Nama Karyawan 2 (default)',S.k2)}
+   ${inp('sp','Persentase Tabungan (%)',S.pct,'number')}${inp('sk','Biaya Kontrak / 30 Hari (Rp)',S.kontrak,'number')}${inp('sj','Jumlah Karyawan Aktif (0-2)',S.jml,'number')}${inp('su','URL Server Sync (terisi otomatis untuk Premium)',S.url)}${inp('sok','Kode Pemilik (terisi otomatis untuk Premium)',S.okey||'','password')}
+   <button id="ss" class="btn w-full mt-3">Simpan Pengaturan & Sync${LK()}</button>${G.ws.length>1?'<button id="dw" class="btn2 w-full mt-2" style="color:#c0392b;border-color:#c0392b">Hapus Warung Ini</button>':''}</div>
+  <div class="card"><b>Keamanan Layar</b> <span class="text-xs text-gray-500">(semua warung)</span>
+   <label class="flex items-center gap-2"><input id="pOn" type="checkbox" ${S.pinOn?'checked':''}> Aktifkan kunci layar</label>
+   <button id="reg" class="btn2 mt-2"><i class="fa-solid fa-fingerprint"></i> Daftarkan Sidik Jari (Fingerprint)${LK()}</button>
+   <div class="text-xs mt-1">Status: ${S.cred?'Sidik jari terdaftar':'Belum terdaftar'}</div>
+   <label>PIN 4 digit cadangan</label><div class="flex gap-2"><input id="pin" type="password" inputmode="numeric" maxlength="4" class="inp" value="${esc(S.pin)}"><button id="spin" class="btn">Simpan</button></div>
+   <label>PIN Karyawan untuk warung ini (${esc(S.nama)})</label><div class="flex gap-2"><input id="kpin" type="password" inputmode="numeric" maxlength="4" class="inp" placeholder="4 digit" value="${esc(G.kpins[G.active]||'')}"><button id="skpin" class="btn">Simpan</button></div>
+   <div class="text-xs text-gray-500 mt-1">${G.kpins[G.active]?'PIN karyawan sudah diatur.':'Belum diatur.'} Karyawan dengan PIN ini hanya bisa membuka warung ini (tab Input dan Rekap). Berlaku jika kunci layar aktif. Kosongkan lalu Simpan untuk menghapus.</div></div>
+  ${accCard()}
+  <div class="card"><b>Pengingat & Penjaga Warung</b> <span class="text-xs text-gray-500">(notifikasi berlaku semua warung)</span>
+   <div class="flex items-center justify-between gap-2 mt-2"><label class="flex items-center gap-2" style="margin:0;font-size:13px"><input id="nOn" type="checkbox" ${S.notif?'checked':''}> Pengingat omset jam 09:00${LK()}</label><button id="tn" class="btn2">Tes${LK()}</button></div>
+   <label>Penjaga per siklus (mode, nama, dan sistem)</label>
+   ${(()=>{const pc=penjCur();if(pc===null)return '<div class="flex gap-2"><div class="text-xs text-gray-500 flex-1">Belum ada siklus.</div><button id="ac" class="btn2">+ Siklus</button></div>';const md=modeOf(pc);
+     return `<div class="flex gap-2"><select id="pcSel" class="inp" aria-label="Pilih siklus">${cs.map(c=>`<option value="${c}" ${c===pc?'selected':''}>Siklus ${c} - ${MODES[modeOf(c)]}</option>`).join('')}</select><button id="ac" class="btn2" style="white-space:nowrap">+ Siklus</button></div>
+     <select data-jm="${pc}" class="inp mt-2" aria-label="Mode penjaga siklus ${pc}">${modeOpts(md)}</select>${pgNames(pc,md)}`})()}
+   <details class="mt-3"><summary class="text-sm font-semibold">Atur cepat dan default</summary>
+    <label>Mode default penjaga (siklus baru)</label><select id="dm" class="inp">${modeOpts(S.defMode)}</select>
+    <label>Atur cepat rentang siklus</label><div class="flex gap-2"><input id="rf" type="number" min="1" class="inp" placeholder="Dari"><input id="rt" type="number" min="1" class="inp" placeholder="Sampai"><button id="ra" class="btn">Terapkan</button></div>
+   </details></div>
+  <div class="card"><b>Backup & Restore</b>
+   <div class="flex gap-2 mt-2"><button id="bj" class="btn flex-1">Download Backup JSON v2</button><button id="rj" class="btn2 flex-1">Restore JSON v2</button></div>
+   <label>Mode restore</label><select id="mm" class="inp"><option value="merge">Gabungkan (Merge)</option><option value="replace">Timpa Semua Data (Replace)</option></select>
+   <div class="flex gap-2 mt-2"><button id="rc2" class="btn2 flex-1">Restore CSV</button><button id="td" class="btn2 flex-1">Isi Data Uji Coba</button></div>
+   <input id="fj" type="file" accept=".json" class="hidden"><input id="fcv" type="file" accept=".csv" class="hidden"></div>
+  <div class="card"><b>Tema Tampilan</b><select id="th" class="inp mt-2">${[['system','Ikuti Sistem (default)'],['light','Terang'],['dark','Gelap']].map(([v,l])=>`<option value="${v}" ${(G.theme||'system')===v?'selected':''}>${l}</option>`).join('')}</select></div>`;
+  const rd=id=>$('#'+id).value;
+  $('#foto').onchange=e=>{const f=e.target.files[0];if(!f)return;if(!G.premium){e.target.value='';return toast('Foto/logo khusus Premium')}const im=new Image();im.onload=()=>{const c=document.createElement('canvas');c.width=c.height=160;const g=c.getContext('2d'),m=Math.min(im.width,im.height);g.drawImage(im,(im.width-m)/2,(im.height-m)/2,m,m,0,0,160,160);S.foto=c.toDataURL('image/jpeg',.7);$('#pf').src=S.foto};im.src=URL.createObjectURL(f)};
+  $('#ss').onclick=()=>{if(rd('s1')!==S.k1||rd('s2')!==S.k2)freezeNames();Object.assign(S,{nama:rd('sn'),alamat:rd('sa'),hp:rd('sh'),boss:rd('sb').trim()||'Pemilik Warung',k1:rd('s1'),k2:rd('s2'),pct:+rd('sp')||0,kontrak:+rd('sk')||0,jml:Math.min(2,Math.max(0,+rd('sj')||0)),url:rd('su').trim(),okey:rd('sok').trim()});save();hdr();if(G.premium){toast('Tersimpan');sync()}else toast('Tersimpan. Sync Cloud khusus Premium')};
+  if($('#dw'))$('#dw').onclick=()=>{if(!confirm('Hapus warung "'+S.nama+'" beserta semua catatannya dari HP ini?'))return;const id=G.active;delete G.kpins[id];G.ws=G.ws.filter(x=>x.id!==id);(G.del=G.del||[]).push(id);localStorage.removeItem('co_w_'+id);load(G.ws[0].id);resetUI();render();sync(true)};
+  $('#pOn').onchange=e=>{if(e.target.checked&&!/^\d{4}$/.test(S.pin)&&!S.cred){e.target.checked=false;return toast('Set PIN atau daftarkan sidik jari dulu')}S.pinOn=e.target.checked;save()};
+  $('#spin').onclick=()=>{const p=rd('pin');if(!/^\d{4}$/.test(p))return toast('PIN harus 4 digit');if(Object.values(G.kpins).includes(p))return toast('PIN itu dipakai PIN karyawan');S.pin=p;save();toast('PIN tersimpan')};
+  $('#skpin').onclick=()=>{const v=rd('kpin').trim();
+    if(!v){delete G.kpins[G.active];save();toast('PIN karyawan dihapus');return r4()}
+    if(!/^\d{4}$/.test(v))return toast('PIN harus 4 digit');
+    if(!S.pinOn||!/^\d{4}$/.test(S.pin))return toast('Aktifkan kunci layar dan set PIN pemilik dulu');
+    if(v===S.pin)return toast('PIN karyawan harus beda dengan PIN pemilik');
+    if(Object.entries(G.kpins).some(([k,p])=>k!==G.active&&p===v))return toast('PIN itu sudah dipakai warung lain');
+    G.kpins[G.active]=v;save();toast('PIN karyawan tersimpan');r4()};
+  if($('#acNew'))$('#acNew').onclick=async()=>{if(!needOwner())return;const n=$('#acN').value.trim();if(!n)return toast('Isi nama karyawan');
+    try{await sync(true);const r=await ownerPost({action:'createAccess',cabang:$('#acW').value,nama:n});if(!r.ok)return toast(r.error||'Gagal membuat kode');await sync(true);toast('Kode dibuat: '+r.kode);r4()}catch(e){toast('Gagal menghubungi server')}};
+  if($('#acRef'))$('#acRef').onclick=async()=>{if(!needOwner())return;await sync(true);r4();toast('Daftar diperbarui')};
+  $('#reg').onclick=regBio;
+  $('#nOn').onchange=async e=>{if(e.target.checked){if(!G.premium){e.target.checked=false;return toast('Notifikasi pengingat khusus Premium')}if(!('Notification' in window)||await Notification.requestPermission()!=='granted'){e.target.checked=false;return toast('Izin notifikasi ditolak')}}S.notif=e.target.checked;save();regPeriodic()};
+  $('#tn').onclick=async()=>{if(!G.premium)return toast('Notifikasi khusus Premium');if(!('Notification' in window))return toast('Tidak didukung');if(Notification.permission!=='granted'&&await Notification.requestPermission()!=='granted')return toast('Izin ditolak');const r=await navigator.serviceWorker.ready;r.active.postMessage({type:'test'})};
+  $('#dm').onchange=e=>{S.defMode=e.target.value;save();sync(true)};
+  $('#ra').onclick=()=>{const a=+rd('rf'),b=+rd('rt');if(!a||b<a)return toast('Rentang tidak valid');for(let c=a;c<=b;c++)JM[c]=S.defMode;save();r4();sync(true)};
+  document.querySelectorAll('[data-jm]').forEach(s=>s.onchange=e=>{{const c=+s.dataset.jm,nm=e.target.value;seedPG(c,nm);JM[c]=nm}save();r4();sync(true)});
+  document.querySelectorAll('[data-cn]').forEach(i=>i.onchange=e=>{const c=+i.dataset.cn,f=i.dataset.f,v=e.target.value.trim();CN[c]=Object.assign({},CN[c]);if(v)CN[c][f]=v;else delete CN[c][f];if(!Object.keys(CN[c]).length)delete CN[c];save();r4();sync(true)});
+  document.querySelectorAll('[data-pgn]').forEach(i=>i.onchange=e=>pgDo(p=>{const k=+i.dataset.pgn;p.list[k]=Object.assign({t:'bagi',g:0},p.list[k]);p.list[k].n=e.target.value.trim()}));
+  document.querySelectorAll('[data-pgg]').forEach(i=>{i.oninput=e=>{const v=e.target.value.replace(/\D/g,'');e.target.value=v?rp(+v):''};i.onchange=e=>pgDo(p=>{const k=+i.dataset.pgg;p.list[k]=Object.assign({n:'',t:'gaji'},p.list[k]);p.list[k].g=+e.target.value.replace(/\D/g,'')||0})});
+  document.querySelectorAll('[data-pgt]').forEach(i=>i.onchange=e=>pgDo(p=>{const k=+i.dataset.pgt;p.list[k]=Object.assign({n:'',g:0},p.list[k]);p.list[k].t=e.target.value}));
+  document.querySelectorAll('[data-pgd]').forEach(b=>b.onclick=()=>{if(confirm('Hapus penjaga ini dari siklus?'))pgDo(p=>p.list.splice(+b.dataset.pgd,1))});
+  if($('#pgAdd'))$('#pgAdd').onclick=()=>pgDo(p=>p.list.push({n:'',t:'bagi',g:0}));
+  if($('#pgPP'))$('#pgPP').onchange=e=>pgDo(p=>{p.pp=Math.min(100,Math.max(0,+e.target.value||0))});
+  if($('#pcSel'))$('#pcSel').onchange=e=>{penjC=+e.target.value;r4()};
+  $('#ac').onclick=()=>{const c=curCycle()+1;JM[c]=lastMode();copyPG(c);clearTomb(c);penjC=c;save();r4();sync(true)};
+  $('#bj').onclick=()=>dl('omset-warmad-'+S.nama.replace(/\W+/g,'-')+'-backup-v2.json',JSON.stringify({schemaVersion:'2.0',appName:'Omset-WarMad',exportedAt:new Date().toISOString(),data:{records:R,settings:Object.assign({},S,{pin:'',cred:'',okey:''}),cycleKontrakOptions:KO,cycleJagaModes:JM,cycleNames:CN,cycleStok:SK,cyclePenjaga:PG}},null,1),'application/json');
+  $('#rj').onclick=()=>$('#fj').click();
+  $('#fj').onchange=async e=>{try{const j=JSON.parse(await e.target.files[0].text());if(!["Omset-WarMad","catatan-omset-pwa"].includes(j.appName)||!String(j.schemaVersion).startsWith('2'))return toast('File bukan backup JSON v2');applyData(j.data.records||[],j.data.settings,j.data.cycleKontrakOptions,j.data.cycleJagaModes,j.data.cycleNames,j.data.cycleStok,j.data.cyclePenjaga)}catch(x){toast('File tidak valid')}e.target.value=''};
+  $('#rc2').onclick=()=>$('#fcv').click();
+  $('#fcv').onchange=async e=>{try{const x=csvToRecords(await e.target.files[0].text());if(!x.rows.length)return toast('Tidak ada baris valid');
+  if(x.pct&&x.pct!==S.pct&&confirm(`File ini memakai tabungan ${x.pct}%, sedangkan pengaturan ${S.pct}%. Ubah ke ${x.pct}%?`))S.pct=x.pct;
+  applyData(x.rows)}catch(err){toast('CSV tidak valid / header tidak dikenali')}e.target.value=''};
+  $('#td').onclick=()=>{if(!confirm('Tambah data uji coba (2 siklus)?'))return;const d=new Date();d.setDate(d.getDate()-20);for(let i=0;i<20;i++){const k=iso(d);if(!R.find(r=>r.date===k))R.push({date:k,cycle:i<10?1:2,day:i%10+1,omset:Math.round((300+Math.random()*400))*1000,expense:i%4?'':'Beli galon'});d.setDate(d.getDate()+1)}JM[1]=JM[1]||'pemilik_1_karyawan';JM[2]=JM[2]||'dua_karyawan';save();toast('Data uji coba ditambah');render()};
+  if($('#lcWa'))$('#lcWa').onclick=()=>open(`https://wa.me/${ADMIN_WA}?text=`+encodeURIComponent(`Halo admin, saya butuh bantuan Premium Omset-WarMad.\nNama warung: ${S.nama}\nID Perangkat: ${G.dev}`),'_blank');
+  if($('#lcGo'))$('#lcGo').onclick=async()=>{const code=$('#lcIn').value.trim().toUpperCase();if(!code)return toast('Masukkan kode lisensi');if(!navigator.onLine)return toast('Aktivasi butuh internet');if(!LICENSE_URL)return toast('Server lisensi belum diatur');
+    try{const r=await licCall('activate',code);if(r.ok){G.premium=true;G.lic={code,buyer:r.buyer||'',checked:Date.now()};save();toast('Premium aktif!');render();autoRegister(true).then(ok=>{if(ok){sync(true);render()}})}else toast(r.error||'Kode tidak valid')}catch(e){toast('Gagal menghubungi server lisensi')}};
+  if($('#payGo'))$('#payGo').onclick=async()=>{if(!LICENSE_URL)return toast('Server pembayaran belum diatur');if(!navigator.onLine)return toast('Butuh internet');
+    try{const r=await licPost({action:'createOrder'});if(!r.ok)return toast(r.error||'Gagal membuat pesanan');G.order={id:r.order,t:Date.now(),url:r.url};save();render();open(r.url,'_blank')}catch(e){toast('Gagal menghubungi server pembayaran')}};
+  if($('#payChk'))$('#payChk').onclick=()=>payCheck(false).catch(()=>toast('Gagal menghubungi server'));
+  if($('#lcHelp'))$('#lcHelp').onclick=()=>open(`https://wa.me/${ADMIN_WA}?text=`+encodeURIComponent(`Halo admin, saya butuh bantuan Premium Omset-WarMad.\nNama warung: ${S.nama}\nKode lisensi: ${G.lic?G.lic.code:'-'}\nID Perangkat: ${G.dev}`),'_blank');
+  if($('#lcCheck'))$('#lcCheck').onclick=async()=>{if(!navigator.onLine)return toast('Butuh internet');try{await licCheck();render();toast(G.premium?'Lisensi masih aktif':'Lisensi tidak berlaku')}catch(e){toast('Gagal menghubungi server lisensi')}};
+  $('#th').onchange=e=>{G.theme=e.target.value;save();applyTheme();r1()};
+}
+const parseCSV=t=>{const o=[];let r=[],f='',q=false;t=t.replace(/^\uFEFF/,'');for(let i=0;i<t.length;i++){const c=t[i];if(q){if(c=='"'){if(t[i+1]=='"'){f+='"';i++}else q=false}else f+=c}else if(c=='"')q=true;else if(c==','){r.push(f);f=''}else if(c=='\n'||c=='\r'){if(c=='\r'&&t[i+1]=='\n')i++;r.push(f);o.push(r);r=[];f=''}else f+=c}if(f||r.length){r.push(f);o.push(r)}return o.filter(x=>x.some(y=>y.trim()))};
+const MON={Jan:1,Feb:2,Mar:3,Apr:4,May:5,Mei:5,Jun:6,Jul:7,Aug:8,Agu:8,Sep:9,Oct:10,Okt:10,Nov:11,Dec:12,Des:12};
+const toISO=s=>{s=String(s).trim();let m=s.match(/^(\d{4})-(\d\d)-(\d\d)/);if(m)return`${m[1]}-${m[2]}-${m[3]}`;m=s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);if(m)return`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;m=s.match(/^\w{3} (\w{3}) (\d{1,2}) (\d{4})/);if(m&&MON[m[1]])return`${m[3]}-${String(MON[m[1]]).padStart(2,'0')}-${m[2].padStart(2,'0')}`;return null};
+function csvToRecords(text){
+  const rows=parseCSV(text),h=rows.shift().map(x=>x.trim().toLowerCase()),ix=(...n)=>h.findIndex(x=>n.includes(x));
+  const iD=ix('tanggal','date'),iC=ix('siklus','cycle'),iY=ix('harike','day'),iO=ix('omsetkotor','omset'),iT=ix('tabungan'),iA=ix('pengeluaran'),iN=ix('catatanpengeluaran','expense');
+  if(iD<0||iC<0||iO<0)throw new Error('header');
+  const out=[],pc=new Set();
+  rows.forEach(r=>{const date=toISO(r[iD]),omset=Math.round(+String(r[iO]).replace(/\D/g,''));if(!date||!omset)return;
+    const amt=iA>=0?+String(r[iA]).replace(/\D/g,''):0,note=iN>=0?(r[iN]||''):'';
+    const ex=iA>=0?[note,amt?'Rp '+amt.toLocaleString('id-ID'):''].filter(Boolean).join(' - '):note;
+    if(iT>=0&&omset)pc.add(Math.round(+String(r[iT]).replace(/\D/g,'')/omset*1000)/10);
+    out.push({date,cycle:+r[iC]||1,day:Math.min(30,Math.max(1,+r[iY]||1)),omset,expense:ex})});
+  return{rows:out,pct:pc.size===1?[...pc][0]:null}
+}
+async function gas(url,o){const r=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(o)});return r.json()} // semua panggilan ke server Sheet lewat POST; kode akses tidak boleh ada di URL
+const syncUrl=()=>(API_BASE||location.origin)+'/api/sync';
+// Premium aktif -> tukar kode lisensi dengan Kode Pemilik di server pusat (tanpa Google Sheet). Pengguna yang memakai Sheet sendiri tidak diubah.
+async function autoRegister(silent){
+  if(!G.premium||!G.lic||!G.lic.code||!navigator.onLine||G.staff)return false;
+  if(S.url&&S.url!==syncUrl())return false;
+  try{const r=await gas(syncUrl(),{action:'register',code:G.lic.code,device:G.dev});
+    if(r.ok&&r.key){S.url=syncUrl();S.okey=r.key;save();if(!silent)toast('Sync cloud siap');return true}
+    if(!silent)toast(r.error||'Gagal menyiapkan sync cloud')}catch(e){if(!silent)toast('Gagal menghubungi server sync')}
+  return false}
+async function licPost(o){const r=await fetch(LICENSE_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({device:G.dev},o))});return r.json()}
+const licCall=(action,code)=>licPost({action,code});
+async function payCheck(silent){
+  if(!G.order||!LICENSE_URL)return;
+  const r=await licPost({action:'checkOrder',order:G.order.id});
+  if(r.paid&&r.code){G.premium=true;G.lic={code:r.code,buyer:'Midtrans',checked:Date.now()};G.order=null;save();render();toast('Pembayaran diterima. Premium aktif!');autoRegister(true).then(ok=>{if(ok){sync(true);render()}})}
+  else if(r.failed){G.order=null;save();render();toast('Pembayaran gagal atau kedaluwarsa')}
+  else if(!silent)toast(r.ok===false?(r.error||'Gagal cek pembayaran'):'Belum ada pembayaran')
+}
+setInterval(()=>{if(G.order&&!G.premium&&!document.hidden&&navigator.onLine){if(Date.now()-G.order.t>864e5){G.order=null;save();render();return}payCheck(true).catch(()=>{})}},6000);
+async function licCheck(){if(!G.lic||!LICENSE_URL)return;const r=await licCall('check',G.lic.code);if(r.ok)G.lic.checked=Date.now();else if(r.revoked){G.premium=false;G.lic=null}save()}
+function licAuto(){if(!G.premium||!G.lic||!LICENSE_URL||!navigator.onLine)return;const age=Date.now()-(Number(G.lic.checked)||0);if(age>=0&&age<7*864e5)return;licCheck().then(render).catch(()=>{})} // age<0 = cap waktu di masa depan (tidak wajar) -> cek sekarang
+const needOwner=()=>{if(!G.premium){toast('Akses karyawan khusus Premium');return false}if(!S.url||!S.okey){toast('Sync cloud belum aktif. Buka Pengaturan lalu tekan Simpan & Sync');return false}if(!navigator.onLine){toast('Butuh internet');return false}return true};
+async function ownerPost(o){return (await fetch(S.url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({key:S.okey},o))})).json()}
+function shareAccess(code){const a=(G.akses||[]).find(x=>x.kode===code);if(!a)return;const w=G.ws.find(x=>x.id===a.cabang),link=location.origin+location.pathname+'?u='+encodeURIComponent(S.url)+'&k='+encodeURIComponent(code);
+  open('https://wa.me/?text='+encodeURIComponent(`Halo ${a.nama}, ini akses aplikasi Omset-WarMad untuk ${w?w.nama:'warung'}.\nBuka tautan ini di HP Anda:\n${link}\n\nKode akses: ${code}`),'_blank')}
+async function resetDevice(code){if(!needOwner())return;if(!confirm('Lepas HP lama dari kode ini? Kode bisa dipasang di HP baru, HP lama tidak bisa sync lagi.'))return;try{const r=await ownerPost({action:'resetDevice',code});if(!r.ok)return toast(r.error||'Gagal');await sync(true);r4();toast('HP dilepas')}catch(e){toast('Gagal menghubungi server')}}
+async function setAccess(code,st){if(!needOwner())return;try{const r=await ownerPost({action:'setAccess',code,status:st});if(!r.ok)return toast(r.error||'Gagal');await sync(true);r4();toast(st==='aktif'?'Akses diaktifkan':'Akses dicabut')}catch(e){toast('Gagal menghubungi server')}}
+function accCard(){const ls=(G.akses||[]).filter(a=>a.peran==='karyawan');
+  return `<div class="card"><b>Akses Karyawan</b>${LK()}<div class="text-xs text-gray-500 mt-1">Karyawan masuk dengan kode, maksimal 1 perangkat per kode. Butuh Premium dan sync cloud aktif (terisi otomatis).</div>
+   <label>Warung</label><select id="acW" class="inp">${G.ws.map(w=>`<option value="${w.id}" ${w.id===G.active?'selected':''}>${esc(w.nama)}</option>`).join('')}</select>
+   <label>Nama karyawan</label><input id="acN" class="inp" placeholder="mis. Budi">
+   <button id="acNew" class="btn w-full mt-2">Buat Kode Karyawan</button>
+   ${ls.map(a=>`<div class="mt-3 pt-2 border-t text-sm"><div class="flex justify-between"><b>${esc(a.nama||'-')}</b><span class="chip" style="background:${a.status==='aktif'?'#1f9d55':'#c0392b'}">${esc(a.status)}</span></div><div class="text-xs text-gray-500">${esc((G.ws.find(w=>w.id===a.cabang)||{}).nama||a.cabang)} - ${esc(a.kode)}<br>Perangkat: ${a.terpasang?'terpasang (maks 1)':'belum dipakai'}</div><div class="flex gap-2 mt-2"><button class="btn2 flex-1" data-acwa="${esc(a.kode)}">Kirim Tautan</button><button class="btn2 flex-1" data-actg="${esc(a.kode)}" data-st="${a.status==='aktif'?'dicabut':'aktif'}">${a.status==='aktif'?'Cabut':'Aktifkan'}</button>${a.terpasang?`<button class="btn2 flex-1" data-acrs="${esc(a.kode)}">Lepas HP</button>`:''}</div></div>`).join('')||'<div class="text-xs text-gray-500 mt-3">Belum ada kode karyawan.</div>'}
+   <button id="acRef" class="btn2 w-full mt-3">Muat Ulang Daftar</button></div>`}
+async function syncStaff(silent){
+  if(!navigator.onLine){if(!silent)toast('Offline, tersimpan di HP');return}
+  try{
+    save();const st=G.staff,id=st.id;
+    const r=await gas(st.url,{action:'pull',key:st.key,device:G.dev});
+    if(!r.ok){if(r.revoked){alert('Akses Anda sudah dicabut oleh pemilik.');localStorage.clear();sessionStorage.clear();location.reload();return}if(!silent)toast(r.error||'Sync gagal');return}
+    const rw=r.warung[0]||{},w=wget(id),have=new Set(w.r.map(x=>x.date));
+    (rw.records||[]).forEach(x=>{if(!have.has(x.date))w.r.push({date:x.date,cycle:+x.cycle,day:+x.day,omset:+x.omset,expense:x.expense||''})});
+    w.s=Object.assign({},w.s,rw.settings||{});w.ko=rw.cycleKontrakOptions||{};w.jm=rw.cycleJagaModes||{};w.cn=rw.cycleNames||{};w.sk=rw.cycleStok||{};w.pg=rw.cyclePenjaga||{};localStorage.setItem('co_w_'+id,JSON.stringify(w));
+    G.staff.prem=!!r.premium;const e=G.ws.find(x=>x.id===id);if(e)e.nama=w.s.nama||e.nama;localStorage.setItem('co_g',JSON.stringify(G));
+    const res=await (await fetch(st.url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'syncStaff',key:st.key,device:G.dev,warung:[{id,records:w.r}]})})).json();
+    if(!res.ok)throw 0;
+    localStorage.setItem('co_last',fmtNow());load(id);hdr();render();if(!silent)toast('Sync berhasil')
+  }catch(e){if(!silent)toast('Sync gagal, data tetap aman di HP')}
+}
+async function joinStaff(url,key){
+  let r;try{r=await gas(url,{action:'pull',key:key,device:G.dev})}catch(e){throw new Error('Gagal menghubungi server')}
+  if(!r.ok||r.peran!=='karyawan')throw new Error(r.error||'Kode karyawan tidak valid');
+  const w=r.warung[0];Object.keys(localStorage).filter(k=>/^co_/.test(k)).forEach(k=>localStorage.removeItem(k));
+  localStorage.setItem('co_g',JSON.stringify({pinOn:false,pin:'',cred:'',notif:false,url:'',active:w.id,ws:[{id:w.id,nama:(w.settings&&w.settings.nama)||w.id}],del:[],kpins:{},dev:G.dev,staff:{url,key,id:w.id,prem:!!r.premium}}));
+  localStorage.setItem('co_w_'+w.id,JSON.stringify({s:Object.assign({},w.settings),r:(w.records||[]).map(x=>({date:x.date,cycle:+x.cycle,day:+x.day,omset:+x.omset,expense:x.expense||''})),ko:w.cycleKontrakOptions||{},jm:w.cycleJagaModes||{},cn:w.cycleNames||{},sk:w.cycleStok||{},pg:w.cyclePenjaga||{}}));
+  sessionStorage.clear();location.href=location.pathname
+}
+function showJoinIfNeeded(){
+  if(G.staff)return;const qs=new URLSearchParams(location.search),qu=qs.get('u')||'',qk=qs.get('k')||'';
+  if(!FRESH&&!qu)return;
+  $('#jUrl').value=qu;$('#jKey').value=qk;$('#join').classList.remove('hidden');if(qu||qk)history.replaceState(null,'',location.pathname);
+  $('#jSkip').onclick=()=>{$('#join').classList.add('hidden');if(qu)history.replaceState(null,'',location.pathname)};
+  $('#jGo').onclick=async()=>{const u=$('#jUrl').value.trim(),k=$('#jKey').value.trim().toUpperCase();if(!u||!k)return $('#jErr').textContent='Isi URL dan kode akses';
+    if(!FRESH&&!confirm('Data warung di HP ini akan diganti dengan data warung karyawan. Lanjut?'))return;
+    $('#jErr').textContent='Memeriksa...';try{await joinStaff(u,k)}catch(e){$('#jErr').textContent=e.message||'Gagal masuk'}}
+}
+function premCard(){return `<div class="card" style="border:2px solid #f2a900"><b><i class="fa-solid fa-crown" style="color:#f2a900"></i> Premium</b>`+(G.premium?
+ `<div class="text-sm mt-2">Status: <b style="color:#1f9d55">AKTIF</b>${G.lic&&G.lic.buyer?' - '+esc(G.lic.buyer):''}</div><div class="text-xs text-gray-500">Kode: ${esc(G.lic?G.lic.code:'')}</div><div class="flex gap-2 mt-2"><button id="lcCheck" class="btn2 flex-1">Cek Ulang Lisensi</button><button id="lcHelp" class="btn2 flex-1"><i class="fa-brands fa-whatsapp"></i> Butuh Bantuan</button></div>`:
+ `<div class="text-sm mt-2"><b>Satu aplikasi, banyak warung, tim tetap terkendali.</b>
+ <ul class="mt-2 space-y-1" style="list-style:none;padding:0">
+  <li><i class="fa-solid fa-store" style="color:#f2a900"></i> <b>Multi Warung</b>: kelola sampai ${MAX_WARUNG} warung dari satu aplikasi dan pindah antar warung sekali tap.</li>
+  <li><i class="fa-solid fa-user-group" style="color:#f2a900"></i> <b>Mode Karyawan</b>: beri tiap karyawan kode akses sendiri. Mereka input omset dan melihat rekap warungnya, Anda tetap pegang kendali. Satu kode untuk satu HP, bisa dicabut kapan saja.</li>
+  <li><i class="fa-solid fa-cloud" style="color:#f2a900"></i> <b>Sync Cloud</b>: data aman di server dan tersimpan otomatis, tanpa perlu Google Sheet atau komputer.</li>
+  <li><i class="fa-solid fa-file-pdf" style="color:#f2a900"></i> <b>PDF Profesional</b>: tanpa watermark, lengkap dengan foto/logo warung.</li>
+  <li><i class="fa-solid fa-fingerprint" style="color:#f2a900"></i> <b>Kunci Sidik Jari</b> untuk data omset Anda.</li>
+  <li><i class="fa-solid fa-bell" style="color:#f2a900"></i> <b>Pengingat 09:00</b> supaya tidak lupa mencatat omset.</li>
+  <li><i class="fa-solid fa-chart-column" style="color:#f2a900"></i> <b>Grafik Per Siklus</b> untuk membandingkan performa warung.</li>
+ </ul>
+ <div class="mt-2">Cukup <b>sekali bayar ${esc(PREMIUM_PRICE)}</b>, tanpa langganan bulanan.</div></div>
+ <button id="payGo" class="btn w-full mt-3"><i class="fa-solid fa-qrcode"></i> Bayar Premium via QRIS</button>
+ ${G.order?`<div class="warn mt-2">Menunggu pembayaran. Setelah bayar, kembali ke sini; status dicek otomatis.<a href="${esc(G.order.url)}" target="_blank" rel="noopener" class="btn block text-center mt-2">Buka Halaman Pembayaran</a><button id="payChk" class="btn2 w-full mt-2">Cek Status Pembayaran</button></div>`:''}
+ <details class="mt-3"><summary class="text-sm font-semibold">Sudah punya kode lisensi / butuh bantuan</summary>
+ <label>Kode Lisensi</label><div class="flex gap-2"><input id="lcIn" class="inp" style="text-transform:uppercase" placeholder="WARMAD-XXXX-XXXX-XXXX" autocapitalize="characters"><button id="lcGo" class="btn">Aktifkan</button></div>
+ <button id="lcWa" class="btn2 w-full mt-2"><i class="fa-brands fa-whatsapp"></i> Hubungi Admin</button>
+ <div class="text-xs text-gray-500 mt-2">ID Perangkat: ${G.dev}</div></details>`)+`</div>`}
+function applyData(rec,st,ko,jm,cn,sk,pg){
+  if($('#mm').value==='replace'){if(!confirm('Timpa semua data dengan file ini?'))return;R=[];KO={};JM={};CN={};SK={};PG={}}
+  const have=new Set(R.map(r=>r.date));rec.forEach(r=>{if(!have.has(r.date))R.push(r)});
+  if(st){const keep={url:S.url,pin:S.pin,pinOn:S.pinOn,cred:S.cred,okey:S.okey};S=Object.assign({},S,st,keep)}
+  Object.assign(KO,ko||{});Object.assign(JM,jm||{});Object.assign(CN,cn||{});Object.assign(SK,sk||{});Object.assign(PG,pg||{});save();render();toast('Restore selesai')
+}
+function dl(n,t,m){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:m}));a.download=n;a.click()}
+
+/* ---------- keamanan: WebAuthn + PIN ---------- */
+const b64=b=>btoa(String.fromCharCode(...new Uint8Array(b))),unb64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+async function regBio(){
+  if(!G.premium)return toast('Sidik jari khusus Premium');
+  try{const c=await navigator.credentials.create({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),rp:{name:"Omset-WarMad"},user:{id:crypto.getRandomValues(new Uint8Array(16)),name:'pemilik',displayName:'Pemilik'},pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],authenticatorSelection:{authenticatorAttachment:'platform',userVerification:'required'},timeout:60000}});
+    S.cred=b64(c.rawId);save();toast('Sidik jari terdaftar');r4()}catch(e){toast('Pendaftaran dibatalkan / tidak didukung')}
+}
+async function bioAuth(){
+  try{await navigator.credentials.get({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),allowCredentials:[{type:'public-key',id:unb64(S.cred),transports:['internal']}],userVerification:'required',timeout:60000}});unlock()}catch(e){$('#lockErr').textContent='Sidik jari gagal. Gunakan PIN.'}
+}
+const unlock=(r='owner')=>{ROLE=r;sessionStorage.setItem('co_role',r);$('#lock').classList.add('hidden');sessionStorage.setItem('co_ok','1');applyRole()};
+function initLock(){
+  if(!S.pinOn||sessionStorage.getItem('co_ok'))return;$('#lock').classList.remove('hidden');
+  const bio=S.cred&&G.premium;$('#bioBtn').style.display=bio?'':'none';$('#bioBtn').onclick=bioAuth;if(bio)bioAuth();
+  $('#pinIn').oninput=e=>{if(e.target.value.length===4){const v=e.target.value,sid=Object.keys(G.kpins).find(k=>G.kpins[k]===v&&G.ws.some(w=>w.id===k));if(v===S.pin)unlock();else if(sid)unlock('staff:'+sid);else{$('#lockErr').textContent='PIN salah';e.target.value=''}}}
+}
+
+/* ---------- notifikasi pengingat ---------- */
+async function swPost(m){if(!('serviceWorker' in navigator))return;const r=await navigator.serviceWorker.ready;r.active&&r.active.postMessage(m)}
+async function regPeriodic(){try{const r=await navigator.serviceWorker.ready;if(S.notif&&'periodicSync' in r)await r.periodicSync.register('cek-omset',{minInterval:3600e3})}catch(e){}}
+function pushState(){swPost({type:'state',state:{enabled:S.notif&&!!G.premium,done:!!allDone()}})}
+function checkReminder(){
+  pushState();if(!S.notif||!G.premium||!('Notification' in window)||Notification.permission!=='granted')return;
+  const n=new Date();if(n.getHours()<9||allDone()||localStorage.getItem('co_rem')===today())return;
+  localStorage.setItem('co_rem',today());swPost({type:'check'})
+}
+
+/* ---------- navigasi ---------- */
+$('#staffOut').onclick=async()=>{
+  const k=(prompt('Keluar dari akun karyawan hanya bisa oleh pemilik. Masukkan Kode Pemilik:')||'').trim().toUpperCase();if(!k)return;
+  if(!navigator.onLine)return toast('Butuh internet untuk verifikasi');
+  try{const r=await gas(G.staff.url,{action:'verify',key:k});
+    if(!(r.ok&&r.peran==='pemilik'))return toast('Kode Pemilik tidak valid');
+    if(!confirm('Keluar dari akun karyawan? Data warung di HP ini akan dihapus.'))return;
+    await syncStaff(true);localStorage.clear();sessionStorage.clear();location.reload()}catch(e){toast('Gagal menghubungi server')}};
+$('#hLock').onclick=()=>{sessionStorage.removeItem('co_ok');sessionStorage.removeItem('co_role');location.reload()};
+$('#wSel').onchange=e=>{if(isStaff())return;const v=e.target.value;save();
+  if(v==='__add'){if(G.ws.length>=wLimit()){alert('Versi gratis hanya untuk '+FREE_WARUNG+' warung. Upgrade ke Premium untuk mengelola sampai '+MAX_WARUNG+' warung.');hdr();return}const n=(prompt('Nama warung baru:')||'').trim();if(!n){hdr();return}const id='w'+Date.now().toString(36);G.ws.push({id,nama:n});localStorage.setItem('co_w_'+id,JSON.stringify({s:{nama:n},r:[],ko:{},jm:{}}));load(id)}else load(v);
+  resetUI();render();sync(true)};
+function render(){hdr();r1();r2();r3();r4()}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;const D=b.dataset;
+  if(D.t){document.querySelectorAll('.nav').forEach(n=>n.classList.toggle('on',n===b));[1,2,3,4].forEach(i=>$('#t'+i).classList.toggle('hidden',i!=D.t));if(D.t==1)r1();scrollTo(0,0)}
+  if(D.fill){fillDate=D.fill;editDate=null;r2()}
+  if(D.edit){editDate=D.edit;fillDate=null;r2();document.querySelector('[data-t="2"]').click()}
+  if(D.del&&!isStaff()&&confirm('Hapus catatan '+dmy(D.del)+'?')){R=R.filter(r=>r.date!==D.del);save();render();sync(true)}
+  if(D.ko){KO[recCycle]=D.ko;save();r3();sync(true)}
+  if(D.acwa)shareAccess(D.acwa);
+  if(D.actg)setAccess(D.actg,D.st);
+  if(D.acrs)resetDevice(D.acrs);
+});
+if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').then(()=>{pushState();regPeriodic()}).catch(()=>{});
+applyTheme();matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{if((G.theme||'system')==='system'){applyTheme();r1()}});render();initLock();applyRole();checkReminder();licAuto();showJoinIfNeeded();setInterval(checkReminder,60000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){checkReminder();licAuto();if(G.order)payCheck(true).catch(()=>{});sync(true)}});
+sync(true);
+</script></body></html>
