@@ -54,8 +54,11 @@ jobs:
 
       - name: Buat proyek Android
         run: |
+          # cap sync hanya mendaftarkan plugin yang tercantum di package.json (salinan di runner ini saja, tidak di-commit).
+          npm pkg set dependencies.@capacitor/app=7 dependencies.@capacitor/browser=7
           npx cap add android
           npx cap sync android
+          grep -E "App|Browser" android-native/app/src/main/assets/capacitor.plugins.json
           python3 - <<'PY'
           import re
           p = 'android-native/app/src/main/AndroidManifest.xml'
