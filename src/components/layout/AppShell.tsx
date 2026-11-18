@@ -40,7 +40,7 @@ export function AppShell() {
 
       <Link
         to="/transactions?new=1"
-        className="fixed bottom-[calc(6.25rem+env(safe-area-inset-bottom))] right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-lg shadow-emerald-600/30 ring-1 ring-white/50 transition hover:from-emerald-500 hover:to-emerald-700 active:scale-95 lg:hidden"
+        className="fixed bottom-[calc(6.25rem+max(env(safe-area-inset-bottom),var(--inset-bottom)))] right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-lg shadow-emerald-600/30 ring-1 ring-white/50 transition hover:from-emerald-500 hover:to-emerald-700 active:scale-95 lg:hidden"
         aria-label="Tambah transaksi"
       >
         <Plus className="h-7 w-7" />

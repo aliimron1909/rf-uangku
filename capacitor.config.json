@@ -3,7 +3,8 @@
   "appName": "RF Uangku",
   "webDir": "dist",
   "android": {
-    "path": "android-native"
+    "path": "android-native",
+    "adjustMarginsForEdgeToEdge": "disable"
   },
   "server": {
     "androidScheme": "https"

@@ -1,6 +1,7 @@
 import { lazy } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { ThemeProvider } from './contexts/ThemeContext'
+import { NativeSystemBars } from './components/layout/NativeSystemBars'
 import { ToastProvider } from './contexts/ToastContext'
 import { LockProvider, useLock } from './contexts/LockContext'
 import { AppShell } from './components/layout/AppShell'
@@ -63,6 +64,7 @@ function AppContent() {
 export default function App() {
   return (
     <ThemeProvider>
+      <NativeSystemBars />
       <ToastProvider>
         <LockProvider>
           <AppContent />

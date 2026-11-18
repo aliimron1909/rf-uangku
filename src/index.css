@@ -8,6 +8,16 @@
 }
 
 @layer base {
+  :root {
+    /* Tinggi status bar / navigation bar Android (aplikasi native); 0 di web. */
+    --inset-top: 0px;
+    --inset-bottom: 0px;
+  }
+
+  body {
+    padding-top: var(--inset-top);
+  }
+
   html {
     -webkit-text-size-adjust: 100%;
     scroll-behavior: smooth;
@@ -112,9 +122,31 @@
   }
 }
 
+@layer components {
+  /* Selimut tipis di belakang ikon status bar: menyatu dengan warna latar, tetap terbaca saat konten bergulir. */
+  .status-scrim {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: calc(var(--inset-top) + 10px);
+    z-index: 60;
+    pointer-events: none;
+    background: linear-gradient(to bottom, rgb(248 250 252 / 0.92), rgb(248 250 252 / 0.6) 70%, transparent);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    -webkit-mask-image: linear-gradient(to bottom, #000 65%, transparent);
+    mask-image: linear-gradient(to bottom, #000 65%, transparent);
+  }
+
+  .dark .status-scrim {
+    background: linear-gradient(to bottom, rgb(2 6 23 / 0.92), rgb(2 6 23 / 0.6) 70%, transparent);
+  }
+}
+
 @layer utilities {
   .safe-bottom {
-    padding-bottom: env(safe-area-inset-bottom);
+    padding-bottom: max(env(safe-area-inset-bottom), var(--inset-bottom));
   }
 
   .no-scrollbar {
