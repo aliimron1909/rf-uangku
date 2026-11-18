@@ -7,6 +7,14 @@ interface CapacitorGlobal {
   getPlatform?: () => string
   Plugins?: Record<string, unknown>
   registerPlugin?: (name: string) => unknown
+  /** Primitif jembatan native; ada walau paket @capacitor/core tidak dibundel di aplikasi web. */
+  nativePromise?: (plugin: string, method: string, options?: unknown) => Promise<unknown>
+  nativeCallback?: (
+    plugin: string,
+    method: string,
+    options: unknown,
+    callback: (data: unknown) => void,
+  ) => unknown
 }
 
 function capacitor(): CapacitorGlobal | null {
@@ -33,23 +41,42 @@ export function nativeDiagnostics(): string {
   if (!isNativeApp()) return ''
   const cap = capacitor()
   const has = (name: string) => (nativePlugin(name) ? 'ada' : 'tidak ada')
-  return `Native: ya (${cap?.getPlatform?.() ?? '?'}) · plugin Browser: ${has('Browser')} · plugin App: ${has('App')}`
+  const bridge = `${cap?.nativePromise ? 'promise' : '-'}/${cap?.nativeCallback ? 'callback' : '-'}`
+  return `Native: ya (${cap?.getPlatform?.() ?? '?'}) · plugin Browser: ${has('Browser')} · plugin App: ${has('App')} · jembatan: ${bridge}`
 }
 
 const registered = new Map<string, unknown>()
 
 /**
- * Plugin native lewat nama. `Capacitor.Plugins` hanya terisi bila paket JS plugin diimpor, padahal
- * kita tidak mengimpornya (agar build web biasa tetap bebas dependensi), jadi plugin
- * didaftarkan langsung lewat `registerPlugin` dan dipanggil lewat jembatan native.
+ * Pembungkus tipis di atas primitif jembatan native. Aplikasi web tidak membundel @capacitor/core,
+ * jadi `Capacitor.Plugins` dan `registerPlugin` tidak tersedia; plugin dipanggil langsung lewat nama.
  */
+function bridgePlugin(name: string): unknown | null {
+  const cap = capacitor()
+  const nativePromise = cap?.nativePromise
+  if (!cap || !nativePromise) return null
+  return new Proxy(
+    {},
+    {
+      get(_target, property) {
+        if (typeof property !== 'string' || property === 'then') return undefined
+        if (property === 'addListener') {
+          return (eventName: string, handler: (data: unknown) => void) => {
+            cap.nativeCallback?.(name, 'addListener', { eventName }, handler)
+          }
+        }
+        return (options?: unknown) => nativePromise.call(cap, name, property, options ?? {})
+      },
+    },
+  )
+}
+
 export function nativePlugin<T>(name: string): T | null {
   if (!isNativeApp()) return null
   const cached = registered.get(name)
   if (cached) return cached as T
   const cap = capacitor()
-  const existing = cap?.Plugins?.[name]
-  const plugin = existing ?? cap?.registerPlugin?.(name) ?? null
+  const plugin = cap?.Plugins?.[name] ?? cap?.registerPlugin?.(name) ?? bridgePlugin(name)
   if (plugin) registered.set(name, plugin)
   return (plugin as T | null) ?? null
 }
