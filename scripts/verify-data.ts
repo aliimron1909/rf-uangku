@@ -110,6 +110,7 @@ import {
   upcomingBills,
 } from '../src/lib/billReminders'
 import { matchAccountName, readAiEntry, resolveAiTransfer } from '../src/lib/groq'
+import { mergePending, parseBankNotification, parseIdrAmount } from '../src/lib/bankNotif'
 import { trendSummary, widgetTexts } from '../src/lib/nativeWidget'
 import { extractNativeUrl } from '../src/lib/native'
 import { planReminderTimes, shouldRemindToday } from '../src/lib/dailyReminder'
