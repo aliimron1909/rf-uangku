@@ -5,6 +5,7 @@
 interface CapacitorGlobal {
   isNativePlatform?: () => boolean
   Plugins?: Record<string, unknown>
+  registerPlugin?: (name: string) => unknown
 }
 
 function capacitor(): CapacitorGlobal | null {
@@ -20,9 +21,22 @@ export function isNativeApp(): boolean {
   }
 }
 
+const registered = new Map<string, unknown>()
+
+/**
+ * Plugin native lewat nama. `Capacitor.Plugins` hanya terisi bila paket JS plugin diimpor, padahal
+ * kita tidak mengimpornya (agar build web biasa tetap bebas dependensi), jadi plugin
+ * didaftarkan langsung lewat `registerPlugin` dan dipanggil lewat jembatan native.
+ */
 export function nativePlugin<T>(name: string): T | null {
   if (!isNativeApp()) return null
-  return ((capacitor()?.Plugins ?? {})[name] as T | undefined) ?? null
+  const cached = registered.get(name)
+  if (cached) return cached as T
+  const cap = capacitor()
+  const existing = cap?.Plugins?.[name]
+  const plugin = existing ?? cap?.registerPlugin?.(name) ?? null
+  if (plugin) registered.set(name, plugin)
+  return (plugin as T | null) ?? null
 }
 
 /** Skema tautan khusus untuk kembali ke aplikasi setelah login Google (tambahkan di Redirect URLs Supabase). */
