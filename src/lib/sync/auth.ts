@@ -1,6 +1,6 @@
 import { db, getSetting, setSetting } from '../../db/db'
 import type { SupabaseConfig } from './config'
-import { NATIVE_AUTH_REDIRECT, isNativeApp, nativePlugin } from '../native'
+import { NATIVE_AUTH_REDIRECT, isNativeApp, nativePlugin, noteNativeEvent } from '../native'
 import { SyncAuthError } from './supabaseRemote'
 
 export const SYNC_SESSION_KEY = 'syncSession'
@@ -61,22 +61,53 @@ export function startGoogleLogin(config: SupabaseConfig): void {
 /** Di aplikasi native: menangkap tautan rfuangku://auth#access_token=... dari login Google. */
 export function listenForNativeLogin(onToken: () => void): void {
   const app = nativePlugin<AppPlugin>('App')
-  if (!app) return
-  const handle = (url: string | undefined): void => {
-    if (!url || !url.startsWith(NATIVE_AUTH_REDIRECT)) return
-    const index = url.indexOf('#')
-    if (index < 0) return
+  if (!app) {
+    noteNativeEvent('listener login: plugin App tidak ada')
+    return
+  }
+  const handle = (source: string, url: string | undefined): void => {
+    if (!url) return
+    if (!url.startsWith(NATIVE_AUTH_REDIRECT)) {
+      noteNativeEvent(`${source}: tautan lain (${url.slice(0, 40)})`)
+      return
+    }
+    // Supabase mengirim token di fragmen (#...), tetapi galat bisa lewat query (?...).
+    const hashIndex = url.indexOf('#')
+    const queryIndex = url.indexOf('?')
+    const payload =
+      hashIndex >= 0 ? url.slice(hashIndex + 1) : queryIndex >= 0 ? url.slice(queryIndex + 1) : ''
+    const hasToken = payload.includes('access_token=')
+    noteNativeEvent(
+      `${source}: tautan balik diterima, ${payload.length} karakter, token ${hasToken ? 'ada' : 'tidak ada'}`,
+    )
     try {
-      sessionStorage.setItem(PENDING_KEY, url.slice(index + 1))
+      sessionStorage.setItem(
+        PENDING_KEY,
+        payload || 'error_description=Tautan balik tidak membawa token (fragmen hilang).',
+      )
     } catch {
+      noteNativeEvent('sessionStorage tidak tersedia')
       return
     }
     void nativePlugin<BrowserPlugin>('Browser')?.close().catch(() => undefined)
     onToken()
   }
-  app.addListener('appUrlOpen', (event) => handle(event.url))
+  try {
+    app.addListener('appUrlOpen', (event) => {
+      const url =
+        typeof event === 'string' ? event : (event as { url?: string } | null | undefined)?.url
+      if (!url) noteNativeEvent('appUrlOpen: data tanpa url')
+      handle('appUrlOpen', url)
+    })
+    noteNativeEvent('listener login terpasang')
+  } catch (caught) {
+    noteNativeEvent(`listener gagal: ${caught instanceof Error ? caught.message : 'galat'}`)
+  }
   // Bila aplikasi sempat dimatikan sistem saat pengguna login di browser, tautannya menjadi URL peluncuran.
-  void app.getLaunchUrl?.().then((launch) => handle(launch?.url)).catch(() => undefined)
+  void app
+    .getLaunchUrl?.()
+    .then((launch) => handle('peluncuran', launch?.url))
+    .catch(() => undefined)
 }
 
 interface TokenResponse {
