@@ -155,4 +155,3 @@ async function handler(req, res) {
 
 module.exports = handler;
 module.exports._t = { handler, orderId, cfg };
-  
