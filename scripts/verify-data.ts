@@ -110,6 +110,7 @@ import {
   upcomingBills,
 } from '../src/lib/billReminders'
 import { matchAccountName, readAiEntry, resolveAiTransfer } from '../src/lib/groq'
+import { pickUpdate, releaseBuild } from '../src/lib/nativeUpdate'
 import { mergePending, parseBankNotification, parseIdrAmount } from '../src/lib/bankNotif'
 import { trendSummary, widgetTexts } from '../src/lib/nativeWidget'
 import { extractNativeUrl } from '../src/lib/native'
@@ -1828,6 +1829,15 @@ async function main() {
     assert.equal(mergePending([first], [twin]).length, 1)
     assert.equal(mergePending([first], [first]).length, 1)
     assert.equal(mergePending([first], [later]).length, 2)
+
+    assert.equal(releaseBuild('native-v1.1.0-36'), 236)
+    assert.equal(releaseBuild('v1.0'), null)
+    const rel = { tag_name: 'native-v1.2.0-40', body: 'fix: sesuatu\n\ncatatan', assets: [{ name: 'rf-uangku-native.apk', browser_download_url: 'https://x/y.apk' }] }
+    assert.equal(pickUpdate(rel, 236)?.build, 240)
+    assert.equal(pickUpdate(rel, 236)?.version, '1.2.0')
+    assert.equal(pickUpdate(rel, 236)?.notes, 'fix: sesuatu')
+    assert.equal(pickUpdate(rel, 240), null)
+    assert.equal(pickUpdate({ ...rel, assets: [] }, 100), null)
 
     const now = new Date(2026, 10, 18, 15, 0)
     const plan = (over: Partial<Parameters<typeof planReminderTimes>[0]> = {}) =>

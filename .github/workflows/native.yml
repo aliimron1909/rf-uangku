@@ -4,11 +4,11 @@ name: Build APK Native
 # Seluruh web dibundel di dalam APK (jalan tanpa Chrome). Jalankan: Actions > Build APK Native > Run workflow.
 on:
   workflow_dispatch:
+  # Setiap push dibangun (cabang fitur: untuk memastikan lolos kompilasi). Push ke main otomatis terbit di Releases.
   push:
-    paths:
-      - '.github/workflows/native.yml'
-      - 'capacitor.config.json'
-      - 'android-native-patch/**'
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
 
 permissions:
   contents: write
@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:
-      PUBLISH: ${{ github.event_name == 'workflow_dispatch' && github.ref_name == github.event.repository.default_branch }}
+      PUBLISH: ${{ github.ref_name == github.event.repository.default_branch }}
     steps:
       - uses: actions/checkout@v4
 
@@ -225,7 +225,11 @@ jobs:
         if: env.PUBLISH == 'true' && env.TEMP_KEY != '1'
         env:
           GH_TOKEN: ${{ github.token }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         run: |
+          NOTES="Aplikasi Android native (Capacitor), ID com.rf_uangku.app. Pasang di atas versi lama; data tetap ada. Terpisah dari APK TWA; samakan data lewat sinkronisasi Supabase."
+          if [ -n "$COMMIT_MESSAGE" ]; then NOTES="$(printf '%s' "$COMMIT_MESSAGE" | head -n 1)"$'\n\n'"$NOTES"; fi
           gh release create "native-v${APP_VERSION}-${GITHUB_RUN_NUMBER}" rf-uangku-native.apk \
             --title "RF Uangku Native v${APP_VERSION} (#${GITHUB_RUN_NUMBER})" \
-            --notes "Aplikasi Android native (Capacitor), ID com.rf_uangku.app. Terpisah dari APK TWA; data tidak dibagi, samakan lewat sinkronisasi Supabase."
+            --latest \
+            --notes "$NOTES"
