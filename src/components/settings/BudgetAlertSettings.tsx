@@ -121,8 +121,8 @@ export function BudgetAlertSettings() {
           <div className="space-y-2 rounded-xl bg-slate-50 p-3 dark:bg-slate-800/60">
             <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300">
               {nativePermission === 'granted'
-                ? 'Pengingat dijadwalkan di HP ini: muncul tepat waktu tanpa internet dan tanpa server, walau aplikasi tertutup. Tidak muncul bila hari itu sudah ada catatan.'
-                : 'Izinkan notifikasi agar pengingat bisa muncul walau aplikasi tertutup, tanpa internet dan tanpa server.'}
+                ? 'Pengingat aktif di HP ini, tanpa internet. Tidak muncul bila hari itu sudah ada catatan.'
+                : 'Izinkan notifikasi agar pengingat bisa muncul.'}
             </p>
             {nativePermission !== 'granted' && (
               <Button variant="outline" onClick={() => void allowNative()}>
@@ -136,11 +136,10 @@ export function BudgetAlertSettings() {
       </div>
 
       <div className="rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">
-        {permission === 'unsupported' && 'Browser ini tidak mendukung notifikasi sistem. Peringatan tetap muncul di dalam aplikasi.'}
+        {permission === 'unsupported' && 'Notifikasi sistem tidak didukung. Peringatan tampil di dalam aplikasi.'}
         {permission === 'granted' && 'Notifikasi sistem aktif.'}
-        {permission === 'denied' && 'Notifikasi sistem diblokir di pengaturan browser. Peringatan tetap muncul di dalam aplikasi.'}
-        {permission === 'default' && 'Aktifkan izin agar peringatan juga tampil sebagai notifikasi sistem.'}
-        {' '}Peringatan anggaran dan tagihan muncul saat aplikasi dibuka. Pengingat harian bisa dikirim server lewat push bila diaktifkan di atas.
+        {permission === 'denied' && 'Notifikasi sistem diblokir. Peringatan tampil di dalam aplikasi.'}
+        {permission === 'default' && 'Aktifkan izin agar peringatan tampil sebagai notifikasi sistem.'}
       </div>
 
       {permission === 'default' && (

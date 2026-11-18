@@ -70,9 +70,7 @@ export function BankNotifSettings() {
 
       <div className="space-y-2 rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">
         <p>
-          Aplikasi hanya membaca notifikasi dari aplikasi bank dan e-wallet yang dikenal (BCA, BRImo, Livin Mandiri, BNI,
-          Jago, Jenius, blu, SeaBank, DANA, OVO, GoPay, ShopeePay, LinkAja, dan sejenisnya). Isinya diproses di HP ini
-          saja dan tidak dikirim ke server. Setiap transaksi yang terdeteksi tetap kamu tinjau dulu sebelum disimpan.
+          Hanya notifikasi bank dan e-wallet yang dikenal. Diproses di HP ini dan selalu kamu tinjau sebelum disimpan.
         </p>
         <p>
           Status akses notifikasi: <b>{access ? 'diizinkan' : 'belum diizinkan'}</b>.
@@ -90,8 +88,7 @@ export function BankNotifSettings() {
         )}
         {!access && (
           <p>
-            Bila RF Uangku tidak bisa dicentang di sana (Android 13+ untuk aplikasi di luar Play Store): buka Info
-            aplikasi, tekan menu tiga titik di pojok kanan atas, pilih <b>Izinkan pengaturan terbatas</b>, lalu ulangi.
+            Tidak bisa dicentang? Info aplikasi → menu ⋮ → <b>Izinkan pengaturan terbatas</b>, lalu ulangi.
           </p>
         )}
       </div>
