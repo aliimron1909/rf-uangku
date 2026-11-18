@@ -1,6 +1,6 @@
 import { db, getSetting, setSetting } from '../../db/db'
 import type { SupabaseConfig } from './config'
-import { NATIVE_AUTH_REDIRECT, isNativeApp, nativePlugin, noteNativeEvent } from '../native'
+import { NATIVE_AUTH_REDIRECT, extractNativeUrl, isNativeApp, nativePlugin, noteNativeEvent } from '../native'
 import { SyncAuthError } from './supabaseRemote'
 
 export const SYNC_SESSION_KEY = 'syncSession'
@@ -60,27 +60,7 @@ export function startGoogleLogin(config: SupabaseConfig): void {
 
 /** Di aplikasi native: menangkap tautan rfuangku://auth#access_token=... dari login Google. */
 /** Mencari tautan rfuangku:// di data event; bentuk data dari jembatan native bisa berlapis. */
-function extractUrl(value: unknown, depth = 0): string | undefined {
-  if (depth > 3 || value == null) return undefined
-  if (typeof value === 'string') {
-    if (value.startsWith(NATIVE_AUTH_REDIRECT)) return value
-    if (value.startsWith('{')) {
-      try {
-        return extractUrl(JSON.parse(value), depth + 1)
-      } catch {
-        return undefined
-      }
-    }
-    return undefined
-  }
-  if (typeof value === 'object') {
-    for (const item of Object.values(value as Record<string, unknown>)) {
-      const found = extractUrl(item, depth + 1)
-      if (found) return found
-    }
-  }
-  return undefined
-}
+const extractUrl = (value: unknown): string | undefined => extractNativeUrl(value, NATIVE_AUTH_REDIRECT)
 
 export function listenForNativeLogin(onToken: () => void): void {
   const app = nativePlugin<AppPlugin>('App')

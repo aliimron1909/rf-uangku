@@ -98,3 +98,29 @@ export function nativePlugin<T>(name: string): T | null {
 
 /** Skema tautan khusus untuk kembali ke aplikasi setelah login Google (tambahkan di Redirect URLs Supabase). */
 export const NATIVE_AUTH_REDIRECT = 'rfuangku://auth'
+
+/** Tautan dari widget layar utama untuk membuka form transaksi baru. */
+export const NATIVE_NEW_LINK = 'rfuangku://new'
+
+/** Mencari tautan berawalan tertentu di data event; bentuk data dari jembatan native bisa berlapis. */
+export function extractNativeUrl(value: unknown, prefix: string, depth = 0): string | undefined {
+  if (depth > 3 || value == null) return undefined
+  if (typeof value === 'string') {
+    if (value.startsWith(prefix)) return value
+    if (value.startsWith('{')) {
+      try {
+        return extractNativeUrl(JSON.parse(value), prefix, depth + 1)
+      } catch {
+        return undefined
+      }
+    }
+    return undefined
+  }
+  if (typeof value === 'object') {
+    for (const item of Object.values(value as Record<string, unknown>)) {
+      const found = extractNativeUrl(item, prefix, depth + 1)
+      if (found) return found
+    }
+  }
+  return undefined
+}

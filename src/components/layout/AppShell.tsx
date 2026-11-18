@@ -10,6 +10,8 @@ import { useRecurringRunner } from '../../hooks/useRecurringRunner'
 import { useBudgetAlerts } from '../../hooks/useBudgetAlerts'
 import { useBillReminders } from '../../hooks/useBillReminders'
 import { useDailyReminder } from '../../hooks/useDailyReminder'
+import { NativeWidgetSync } from './NativeWidgetSync'
+import { isNativeApp } from '../../lib/native'
 import { startAutoSync } from '../../lib/sync/controller'
 import { purgeExpiredTrash } from '../../db/transactions'
 
@@ -43,6 +45,7 @@ export function AppShell() {
         <Plus className="h-7 w-7" />
       </Link>
 
+      {isNativeApp() && <NativeWidgetSync />}
       <BottomNav />
       <OfflineBanner />
     </div>
