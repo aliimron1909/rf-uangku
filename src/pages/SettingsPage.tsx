@@ -243,7 +243,10 @@ export function SettingsPage() {
     setTestError('')
     try {
       const reply = await testGroq(key, model)
-      setTestResult(`Berhasil terhubung. Jawaban model: "${reply.slice(0, 80)}"`)
+      // Yang lolos tes langsung disimpan, supaya Chat AI memakai model yang sama persis.
+      await setSetting('groqKey', key)
+      await setSetting('groqModel', model)
+      setTestResult(`Berhasil terhubung dan disimpan sebagai model yang dipakai. Jawaban model: "${reply.slice(0, 80)}"`)
     } catch (caught) {
       setTestError(errorMessage(caught))
     } finally {
@@ -784,7 +787,11 @@ export function SettingsPage() {
             value={modelInput}
             onChange={(event) => setModelInput(event.target.value)}
             list="groq-models"
-            hint="Default: llama-3.3-70b-versatile. Tekan Cari model aktif untuk melihat daftar terbaru dari Groq."
+            hint={
+              (modelInput.trim() || DEFAULT_GROQ_MODEL) !== groqModel
+                ? `Belum dipakai Chat AI (yang aktif: ${groqModel}). Tekan Tes atau Simpan untuk memakai model ini.`
+                : `Model yang dipakai Chat AI sekarang. Default: ${DEFAULT_GROQ_MODEL}. Tekan Cari model aktif untuk daftar terbaru dari Groq.`
+            }
             spellCheck={false}
           />
           <datalist id="groq-models">
@@ -878,6 +885,9 @@ export function SettingsPage() {
                           setModelsError('')
                           setTestResult('')
                           setTestError('')
+                          void setSetting('groqModel', model.id)
+                            .then(() => toast(`Model dipakai: ${model.id}`))
+                            .catch((caught) => toast(errorMessage(caught), 'error'))
                         }}
                         aria-pressed={selected}
                         className={cn(
