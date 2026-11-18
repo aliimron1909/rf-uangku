@@ -1789,6 +1789,7 @@ async function main() {
     assert.ok(widget.balance.includes('1.500.000'))
     assert.ok(widget.expense.includes('50.000') && widget.income.includes('200.000'))
     assert.equal(widget.budget, 'Budget 25% terpakai')
+    assert.equal(widget.budgetPct, 25)
     assert.equal(widget.updated, 'Diperbarui 09.05')
     assert.equal(JSON.parse(widget.accounts).length, 2)
     assert.equal(JSON.parse(widget.accounts)[0].n, 'BCA')

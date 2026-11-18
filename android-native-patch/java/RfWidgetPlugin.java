@@ -20,6 +20,7 @@ public class RfWidgetPlugin extends Plugin {
         for (String key : keys) {
             if (call.hasOption(key)) editor.putString(key, call.getString(key, ""));
         }
+        if (call.hasOption("budgetPct")) editor.putInt("budget_pct", call.getInt("budgetPct", 0));
         putMap(editor, call.getObject("charts"), "chart_");
         putMap(editor, call.getObject("summaries"), "sum_");
         editor.apply();

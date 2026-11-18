@@ -32,6 +32,7 @@ export function widgetTexts(summary: WidgetSummary, now: Date) {
     income: formatRupiah(summary.income),
     expense: formatRupiah(summary.expense),
     budget: limit > 0 ? `Budget ${Math.round((spent / limit) * 100)}% terpakai` : '',
+    budgetPct: limit > 0 ? Math.min(100, Math.max(0, Math.round((spent / limit) * 100))) : 0,
     updated: `Diperbarui ${hh}.${mm}`,
     accounts: JSON.stringify(
       summary.accounts.slice(0, 6).map((account) => ({ n: account.name, b: formatRupiah(account.balance) })),
