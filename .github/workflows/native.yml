@@ -152,6 +152,8 @@ jobs:
                   </intent-filter>
               </service>
           '''
+          if 'USE_BIOMETRIC' not in s:
+              s = s.replace('<application', '<uses-permission android:name="android.permission.USE_BIOMETRIC" />\n    <application', 1)
           assert '</application>' in s
           s = s.replace('</application>', receiver + '</application>', 1)
           open(p, 'w').write(s)
