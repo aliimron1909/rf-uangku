@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { liveQuery } from 'dexie'
 import { useNavigate } from 'react-router-dom'
 import { db, getSetting, setSetting } from '../db/db'
 import {
@@ -10,6 +11,8 @@ import {
 } from '../lib/dailyReminder'
 import { todayISO } from '../lib/dates'
 import { showSystemNotification } from '../lib/notify'
+import { isNativeApp } from '../lib/native'
+import { onNativeReminderTap, syncNativeReminders } from '../lib/nativeReminder'
 import { PUSH_ENABLED_KEY, syncReminderToServer } from '../lib/push'
 import { errorMessage } from '../lib/utils'
 import { useToast } from '../contexts/ToastContext'
@@ -24,6 +27,30 @@ export function useDailyReminder(): void {
   const { toast } = useToast()
   const navigate = useNavigate()
   const running = useRef(false)
+
+  // Aplikasi native: jadwalkan notifikasi lokal; jadwal diperbarui saat pengaturan atau catatan hari ini berubah.
+  useEffect(() => {
+    if (!isNativeApp()) return
+    onNativeReminderTap(() => navigate('/transactions?new=1'))
+    const subscription = liveQuery(async () => {
+      const today = todayISO()
+      const [enabled, time, entries, transfers] = await Promise.all([
+        getSetting<boolean>(DAILY_REMINDER_ENABLED_KEY, false),
+        getSetting<string>(DAILY_REMINDER_TIME_KEY, DEFAULT_REMINDER_TIME),
+        db.transactions.where('occurredAt').equals(today).count(),
+        db.transfers.where('occurredAt').equals(today).count(),
+      ])
+      return `${enabled}|${time}|${entries + transfers}|${today}`
+    }).subscribe({ next: () => void syncNativeReminders() })
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void syncNativeReminders()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      subscription.unsubscribe()
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [navigate])
 
   useEffect(() => {
     async function check() {

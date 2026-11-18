@@ -65,15 +65,28 @@ jobs:
       - name: Pasang Capacitor (tanpa mengubah package.json)
         run: |
           npm install --no-save --no-package-lock \
-            @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7 @capacitor/app@7 @capacitor/browser@7
+            @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7 @capacitor/app@7 @capacitor/browser@7 @capacitor/local-notifications@7
 
       - name: Buat proyek Android
         run: |
           # cap sync hanya mendaftarkan plugin yang tercantum di package.json (salinan di runner ini saja, tidak di-commit).
-          npm pkg set dependencies.@capacitor/app=7 dependencies.@capacitor/browser=7
+          npm pkg set dependencies.@capacitor/app=7 dependencies.@capacitor/browser=7 dependencies.@capacitor/local-notifications=7
           npx cap add android
           npx cap sync android
-          grep -E "App|Browser" android-native/app/src/main/assets/capacitor.plugins.json
+          grep -E "App|Browser|LocalNotifications" android-native/app/src/main/assets/capacitor.plugins.json
+          grep -q LocalNotifications android-native/app/src/main/assets/capacitor.plugins.json
+          python3 - <<'PY'
+          p = 'android-native/app/src/main/AndroidManifest.xml'
+          s = open(p).read()
+          perm = '    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n'
+          if 'POST_NOTIFICATIONS' not in s:
+              s = s.replace('</manifest>', perm + '</manifest>')
+          open(p, 'w').write(s)
+          # Ikon kecil notifikasi (lonceng) agar tidak memakai ikon bawaan sistem.
+          import os
+          os.makedirs('android-native/app/src/main/res/drawable', exist_ok=True)
+          open('android-native/app/src/main/res/drawable/ic_stat_icon_config_sample.xml', 'w').write('''<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24"><path android:fillColor="#FFFFFFFF" android:pathData="M12,22c1.1,0 2,-0.9 2,-2h-4c0,1.1 0.9,2 2,2zM18,16v-5c0,-3.07 -1.63,-5.64 -4.5,-6.32V4c0,-0.83 -0.67,-1.5 -1.5,-1.5s-1.5,0.67 -1.5,1.5v0.68C7.64,5.36 6,7.92 6,11v5l-2,2v1h16v-1l-2,-2z"/></vector>''')
+          PY
           python3 - <<'PY'
           import re
           p = 'android-native/app/src/main/AndroidManifest.xml'

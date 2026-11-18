@@ -110,7 +110,7 @@ import {
   upcomingBills,
 } from '../src/lib/billReminders'
 import { matchAccountName, readAiEntry, resolveAiTransfer } from '../src/lib/groq'
-import { shouldRemindToday } from '../src/lib/dailyReminder'
+import { planReminderTimes, shouldRemindToday } from '../src/lib/dailyReminder'
 import { moveCategory } from '../src/db/categories'
 import { matchExpenseCategory, readReceiptResult } from '../src/lib/groq'
 import { moveAccount } from '../src/db/accounts'
@@ -1773,6 +1773,19 @@ async function main() {
     assert.equal(shouldRemindToday({ ...base, lastReminded: '2026-11-17' }), false)
     assert.equal(shouldRemindToday({ ...base, lastReminded: '2026-11-16' }), true)
     assert.equal(shouldRemindToday({ ...base, time: 'rusak', nowMinutes: 20 * 60 }), true) // jatuh ke 20:00
+
+    const now = new Date(2026, 10, 18, 15, 0)
+    const plan = (over: Partial<Parameters<typeof planReminderTimes>[0]> = {}) =>
+      planReminderTimes({ enabled: true, time: '20:00', now, hasEntryToday: false, ...over })
+    assert.equal(plan().length, 7)
+    assert.equal(plan()[0].getDate(), 18)
+    assert.equal(plan()[0].getHours(), 20)
+    assert.equal(plan({ enabled: false }).length, 0)
+    assert.equal(plan({ hasEntryToday: true }).length, 6) // hari ini dilewati
+    assert.equal(plan({ hasEntryToday: true })[0].getDate(), 19)
+    assert.equal(plan({ now: new Date(2026, 10, 18, 21, 0) })[0].getDate(), 19) // jam sudah lewat
+    assert.equal(plan({ time: 'rusak' })[0].getHours(), 20)
+    assert.equal(plan({ days: 3 }).length, 3)
 
     await db.categories.clear()
     const mkCat = (id: string, type: 'income' | 'expense', sortOrder: number, archived = false) =>
