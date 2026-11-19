@@ -1054,13 +1054,13 @@ export function SettingsPage() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                {installed ? 'Sudah terpasang' : canInstall ? 'Siap dipasang' : 'Pasang manual'}
+                {isNativeApp() ? 'Aplikasi Android' : installed ? 'Sudah terpasang' : canInstall ? 'Siap dipasang' : 'Pasang manual'}
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 Versi {APP_VERSION}
               </p>
             </div>
-            {installed ? (
+            {isNativeApp() ? null : installed ? (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
                 <CheckCircle2 className="h-3.5 w-3.5" />
                 Terpasang
@@ -1078,12 +1078,14 @@ export function SettingsPage() {
           </div>
           {isNativeApp() && <NativeUpdateRow />}
 
+          {!isNativeApp() && (
           <div className="rounded-xl bg-slate-50 px-3 py-2.5 text-[11px] leading-relaxed text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
             <p className="font-semibold text-slate-700 dark:text-slate-200">Android / Chrome:</p>
             <p>Menu ⋮ → “Tambahkan ke layar utama” / “Install app”.</p>
             <p className="mt-1.5 font-semibold text-slate-700 dark:text-slate-200">iPhone / Safari:</p>
             <p>Tombol Bagikan → “Tambahkan ke Layar Utama”.</p>
           </div>
+          )}
         </div>
       </Section>
   )

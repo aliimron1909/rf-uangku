@@ -137,14 +137,16 @@ export function BudgetAlertSettings() {
         {dailyEnabled && !native && <PushReminderSettings />}
       </div>
 
+      {!native && (
       <div className="rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">
         {permission === 'unsupported' && 'Notifikasi sistem tidak didukung. Peringatan tampil di dalam aplikasi.'}
         {permission === 'granted' && 'Notifikasi sistem aktif.'}
         {permission === 'denied' && 'Notifikasi sistem diblokir. Peringatan tampil di dalam aplikasi.'}
         {permission === 'default' && 'Aktifkan izin agar peringatan tampil sebagai notifikasi sistem.'}
       </div>
+      )}
 
-      {permission === 'default' && (
+      {!native && permission === 'default' && (
         <Button variant="outline" onClick={() => void requestPermission()}>
           <BellRing className="h-4 w-4" />
           Izinkan notifikasi sistem
