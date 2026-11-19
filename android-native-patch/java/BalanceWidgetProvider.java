@@ -58,16 +58,18 @@ public class BalanceWidgetProvider extends AppWidgetProvider {
         views.setTextViewText(R.id.widget_balance, WidgetStore.money(context, prefs.getString("balance", "Rp –")));
         views.setTextViewTextSize(R.id.widget_balance, TypedValue.COMPLEX_UNIT_SP, 30f * k);
         views.setTextViewTextSize(R.id.widget_title, TypedValue.COMPLEX_UNIT_SP, 13f * k);
-        views.setTextViewTextSize(R.id.widget_expense, TypedValue.COMPLEX_UNIT_SP, 13f * k);
-        views.setTextViewTextSize(R.id.widget_income, TypedValue.COMPLEX_UNIT_SP, 13f * k);
+        for (int text : new int[] {R.id.widget_expense, R.id.widget_income, R.id.widget_expense_label,
+                R.id.widget_income_label, R.id.widget_empty}) {
+            views.setTextViewTextSize(text, TypedValue.COMPLEX_UNIT_SP, 13f * k);
+        }
         views.setTextViewTextSize(R.id.widget_budget, TypedValue.COMPLEX_UNIT_SP, 11f * k);
 
         boolean loaded = prefs.contains("expense");
-        views.setTextViewText(R.id.widget_expense, loaded
-            ? "Keluar  " + WidgetStore.money(context, prefs.getString("expense", "Rp 0")) : "Buka aplikasi untuk memuat");
-        views.setTextViewText(R.id.widget_income, loaded
-            ? "Masuk  " + WidgetStore.money(context, prefs.getString("income", "Rp 0")) : "");
-        views.setViewVisibility(R.id.widget_income, loaded ? View.VISIBLE : View.GONE);
+        views.setTextViewText(R.id.widget_expense, WidgetStore.money(context, prefs.getString("expense", "Rp 0")));
+        views.setTextViewText(R.id.widget_income, WidgetStore.money(context, prefs.getString("income", "Rp 0")));
+        views.setViewVisibility(R.id.widget_expense_row, loaded ? View.VISIBLE : View.GONE);
+        views.setViewVisibility(R.id.widget_income_row, loaded ? View.VISIBLE : View.GONE);
+        views.setViewVisibility(R.id.widget_empty, loaded ? View.GONE : View.VISIBLE);
 
         String budget = prefs.getString("budget", "");
         int pct = Math.max(0, Math.min(100, prefs.getInt("budget_pct", 0)));

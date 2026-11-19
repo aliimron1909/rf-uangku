@@ -141,7 +141,8 @@ jobs:
               </receiver>'''
           receiver = (receiver('BalanceWidgetProvider', 'balance_widget_info')
                       + receiver('AccountsWidgetProvider', 'accounts_widget_info')
-                      + receiver('TrendWidgetProvider', 'trend_widget_info') + '\n          ')
+                      + receiver('TrendWidgetProvider', 'trend_widget_info')
+                      + receiver('CompactWidgetProvider', 'compact_widget_info') + '\n          ')
           receiver += '''
               <service android:name=".BankNotificationListener" android:exported="true"
                   android:label="RF Uangku"
