@@ -17,6 +17,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(RfBiometricPlugin.class);
         registerPlugin(RfSystemBarsPlugin.class);
         registerPlugin(RfUpdatePlugin.class);
+        registerPlugin(RfDiagPlugin.class);
         super.onCreate(savedInstanceState);
         setupEdgeToEdge();
     }
