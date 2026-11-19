@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { CloudOff, LogOut, RefreshCw, Trash2 } from 'lucide-react'
 import {
   disconnectSync,
@@ -8,7 +8,6 @@ import {
   useSyncState,
 } from '../../lib/sync/controller'
 import { formatDateTime } from '../../lib/dates'
-import { nativeDiagnostics, subscribeNativeEvents } from '../../lib/native'
 import { errorMessage } from '../../lib/utils'
 import { useToast } from '../../contexts/ToastContext'
 import { Button } from '../ui/Button'
@@ -16,8 +15,6 @@ import { ConfirmDialog } from '../ui/ConfirmDialog'
 
 export function SyncSection() {
   const sync = useSyncState()
-  const [, setTick] = useState(0)
-  useEffect(() => subscribeNativeEvents(() => setTick((value) => value + 1)), [])
   const { toast } = useToast()
   const [busy, setBusy] = useState(false)
   const [confirmDisconnect, setConfirmDisconnect] = useState(false)
@@ -117,10 +114,6 @@ export function SyncSection() {
             versi terbaru yang dipakai. PIN, API key, dan tema tidak ikut disinkronkan.
           </p>
         </div>
-      )}
-
-      {nativeDiagnostics() && (
-        <p className="text-[11px] text-slate-500 dark:text-slate-400">{nativeDiagnostics()}</p>
       )}
 
       {sync.error && (

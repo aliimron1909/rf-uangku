@@ -18,6 +18,7 @@ interface LocalNotificationsPlugin {
       id: number
       title: string
       body: string
+      smallIcon?: string
       schedule: { at: string; allowWhileIdle: boolean }
     }[]
   }): Promise<unknown>
@@ -83,6 +84,7 @@ export async function syncNativeReminders(): Promise<void> {
         id: ID_BASE + Math.max(0, start) + index,
         title: 'Pengingat catat uang',
         body: 'Belum ada catatan hari ini. Yuk catat pemasukan dan pengeluaranmu.',
+        smallIcon: 'ic_stat_rf',
         schedule: { at: at.toISOString(), allowWhileIdle: true },
       })),
     })
@@ -131,6 +133,7 @@ export async function scheduleTestNotification(seconds = 60): Promise<boolean> {
           id: 9100,
           title: 'Tes notifikasi RF Uangku',
           body: 'Berhasil! Notifikasi muncul walau aplikasi ditutup.',
+          smallIcon: 'ic_stat_rf',
           schedule: { at: new Date(Date.now() + seconds * 1000).toISOString(), allowWhileIdle: true },
         },
       ],
