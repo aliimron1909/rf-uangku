@@ -51,12 +51,13 @@
         android:layout_height="wrap_content"
         android:layout_below="@id/widget_balance"
         android:layout_marginTop="6dp"
-        android:orientation="horizontal">
+        android:layout_marginEnd="54dp"
+        android:orientation="vertical">
         <TextView
             android:id="@+id/widget_expense"
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
+            android:ellipsize="end"
             android:fontFamily="sans-serif-medium"
             android:maxLines="1"
             android:text="Buka aplikasi untuk memuat"
@@ -64,9 +65,10 @@
             android:textSize="13sp" />
         <TextView
             android:id="@+id/widget_income"
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
+            android:layout_marginTop="2dp"
+            android:ellipsize="end"
             android:fontFamily="sans-serif-medium"
             android:maxLines="1"
             android:textColor="#86EFAC"

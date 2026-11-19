@@ -52,7 +52,7 @@ public class BalanceWidgetProvider extends AppWidgetProvider {
         int width = WidgetStore.widthDp(manager, id);
         int height = WidgetStore.heightDp(manager, id, 110);
         float k = WidgetStore.scale(Math.min(width / 250f, height / 110f), 0.85f, 1.8f);
-        boolean tall = height >= 100;
+        boolean tall = height >= 135; // budget hanya bila cukup tinggi; keluar/masuk lebih penting
 
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_balance);
         views.setTextViewText(R.id.widget_balance, WidgetStore.money(context, prefs.getString("balance", "Rp –")));
