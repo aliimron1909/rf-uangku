@@ -21,6 +21,7 @@ import { syncReminderToServer } from '../../lib/push'
 import { errorMessage } from '../../lib/utils'
 import { useToast } from '../../contexts/ToastContext'
 import { Button } from '../ui/Button'
+import { NotifDiagnostics } from './NotifDiagnostics'
 import { PushReminderSettings } from './PushReminderSettings'
 
 export function BudgetAlertSettings() {
@@ -132,6 +133,7 @@ export function BudgetAlertSettings() {
             )}
           </div>
         )}
+        {dailyEnabled && native && <NotifDiagnostics />}
         {dailyEnabled && !native && <PushReminderSettings />}
       </div>
 

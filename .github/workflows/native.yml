@@ -153,6 +153,9 @@ jobs:
           '''
           if 'REQUEST_INSTALL_PACKAGES' not in s:
               s = s.replace('<application', '<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />\n    <application', 1)
+          for perm in ('USE_EXACT_ALARM', 'SCHEDULE_EXACT_ALARM'):
+              if perm not in s:
+                  s = s.replace('<application', f'<uses-permission android:name="android.permission.{perm}" />\n    <application', 1)
           if 'USE_BIOMETRIC' not in s:
               s = s.replace('<application', '<uses-permission android:name="android.permission.USE_BIOMETRIC" />\n    <application', 1)
           assert '</application>' in s
