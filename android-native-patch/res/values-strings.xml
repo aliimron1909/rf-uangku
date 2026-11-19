@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="widget_balance_description">Saldo total, ringkasan bulan ini, dan budget</string>
+    <string name="widget_compact_description">Saldo dan keluar/masuk dalam satu baris</string>
     <string name="widget_accounts_description">Saldo tiap rekening</string>
     <string name="widget_trend_description">Grafik pemasukan dan pengeluaran harian sampai tahunan</string>
 </resources>
