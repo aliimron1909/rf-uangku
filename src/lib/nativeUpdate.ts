@@ -12,6 +12,8 @@ export interface NativeUpdateInfo {
   version: string
   downloadUrl: string
   notes: string
+  /** Daftar perubahan dari catatan rilis (satu baris per butir). */
+  changelog: string[]
 }
 
 /** Nomor build dari tag rilis "native-v1.1.0-36"; null bila bukan rilis aplikasi native. */
@@ -20,9 +22,65 @@ export function releaseBuild(tag: string): number | null {
   return match ? BUILD_OFFSET + Number(match[2]) : null
 }
 
+/** Baris pembuka catatan rilis yang tidak berguna bagi pembaca (jejak penulis, tautan sesi, dsb.). */
+const NOISE = /^(co-authored-by|claude-session|🤖|https?:\/\/)/i
+
+/**
+ * Mengubah catatan rilis menjadi daftar perubahan: berhenti di garis "---" (keterangan tetap),
+ * membuang jejak penulis, awalan "feat:/fix:", nomor PR "(#12)", dan penanda butir.
+ */
+export function parseChangelog(body: string): string[] {
+  const lines: string[] = []
+  for (const raw of body.split('\n')) {
+    const line = raw.trim()
+    if (line === '---') break
+    if (!line || NOISE.test(line)) continue
+    const clean = line
+      .replace(/^[-*•]\s+/, '')
+      .replace(/^(feat|fix|chore|refactor|docs|perf|style|test)(\([^)]*\))?:\s*/i, '')
+      .replace(/\s*\(#\d+\)\s*$/, '')
+      .trim()
+    if (clean) lines.push(clean.charAt(0).toUpperCase() + clean.slice(1))
+  }
+  return lines
+}
+
+export interface ReleaseLog {
+  tag: string
+  version: string
+  build: number
+  date: string
+  changelog: string[]
+}
+
+/** Catatan perubahan beberapa rilis terakhir (terbaru dulu). Melempar galat bila tidak ada internet. */
+export async function fetchReleaseLogs(limit = 5): Promise<ReleaseLog[]> {
+  const response = await fetch(`${RELEASES_URL.replace(/\/latest$/, '')}?per_page=15`, {
+    headers: { Accept: 'application/vnd.github+json' },
+  })
+  if (!response.ok) throw new Error(`Gagal memuat changelog (${response.status}).`)
+  const releases = (await response.json()) as GithubRelease[]
+  const logs: ReleaseLog[] = []
+  for (const release of releases) {
+    const tag = release.tag_name ?? ''
+    const build = releaseBuild(tag)
+    if (build === null) continue
+    logs.push({
+      tag,
+      version: /^native-v([\d.]+)-/.exec(tag)?.[1] ?? '',
+      build,
+      date: release.published_at ?? '',
+      changelog: parseChangelog(release.body ?? ''),
+    })
+    if (logs.length >= limit) break
+  }
+  return logs
+}
+
 interface GithubRelease {
   tag_name?: string
   body?: string
+  published_at?: string
   assets?: { name?: string; browser_download_url?: string }[]
 }
 
@@ -39,6 +97,7 @@ export function pickUpdate(release: GithubRelease, currentBuild: number): Native
     version: /^native-v([\d.]+)-/.exec(tag)?.[1] ?? '',
     downloadUrl: apk.browser_download_url,
     notes: (release.body ?? '').split('\n')[0].trim(),
+    changelog: parseChangelog(release.body ?? ''),
   }
 }
 

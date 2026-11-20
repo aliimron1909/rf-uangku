@@ -245,8 +245,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         run: |
-          NOTES="Aplikasi Android native (Capacitor), ID com.rf_uangku.app. Pasang di atas versi lama; data tetap ada. Terpisah dari APK TWA; samakan data lewat sinkronisasi Supabase."
-          if [ -n "$COMMIT_MESSAGE" ]; then NOTES="$(printf '%s' "$COMMIT_MESSAGE" | head -n 1)"$'\n\n'"$NOTES"; fi
+          FIXED="Aplikasi Android native (Capacitor), ID com.rf_uangku.app. Pasang di atas versi lama; data tetap ada. Terpisah dari APK TWA; samakan data lewat sinkronisasi Supabase."
+          # Catatan perubahan = isi pesan commit (judul + butir), tanpa jejak penulis; keterangan tetap setelah garis ---.
+          CHANGES="$(printf '%s' "$COMMIT_MESSAGE" | grep -v -i -E '^(co-authored-by|claude-session|🤖|https?://)' || true)"
+          if [ -n "$CHANGES" ]; then NOTES="$CHANGES"$'\n\n---\n'"$FIXED"; else NOTES="$FIXED"; fi
           gh release create "native-v${APP_VERSION}-${GITHUB_RUN_NUMBER}" rf-uangku-native.apk \
             --title "RF Uangku Native v${APP_VERSION} (#${GITHUB_RUN_NUMBER})" \
             --latest \

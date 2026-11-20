@@ -3,6 +3,8 @@ import { MessageCircle, Plus } from 'lucide-react'
 import { useDashboardData } from '../hooks/useDashboard'
 import { useProfile } from '../hooks/useProfile'
 import { useSetting } from '../hooks/useSetting'
+import { backupNeedsAttention } from '../lib/backupReminder'
+import { useSyncState } from '../lib/sync/controller'
 import { formatDate, formatDateTime } from '../lib/dates'
 import { SummaryCards } from '../components/dashboard/SummaryCards'
 import { CashflowChart } from '../components/charts/CashflowChart'
@@ -45,7 +47,13 @@ export function DashboardPage() {
   const backupAge =
     lastBackupValid && lastBackupDate ? Date.now() - lastBackupDate.getTime() : Infinity
 
-  const backupOld = transactions.length > 0 && backupAge > 7 * 24 * 60 * 60 * 1000
+  const sync = useSyncState()
+  const backupOld = backupNeedsAttention({
+    hasData: transactions.length > 0,
+    backupAgeMs: backupAge,
+    signedIn: Boolean(sync.email),
+    lastSyncAt: sync.lastSyncAt,
+  })
   const lastBackupLabel =
     lastBackupValid && lastBackupDate
       ? `terakhir ${formatDateTime(lastBackupDate)}`
