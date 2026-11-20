@@ -1846,14 +1846,14 @@ async function main() {
     )
     assert.deepEqual(parseChangelog(''), [])
 
-    const week = 7 * 24 * 60 * 60 * 1000
-    const base = { hasData: true, backupAgeMs: Infinity, signedIn: false, lastSyncAt: null as string | null, now: Date.UTC(2026, 10, 21) }
-    assert.equal(backupNeedsAttention(base), true)
-    assert.equal(backupNeedsAttention({ ...base, hasData: false }), false)
-    assert.equal(backupNeedsAttention({ ...base, backupAgeMs: week - 1 }), false)
-    assert.equal(backupNeedsAttention({ ...base, signedIn: true, lastSyncAt: new Date(base.now - 60_000).toISOString() }), false)
-    assert.equal(backupNeedsAttention({ ...base, signedIn: true, lastSyncAt: new Date(base.now - 8 * 86_400_000).toISOString() }), true)
-    assert.equal(backupNeedsAttention({ ...base, signedIn: false, lastSyncAt: new Date(base.now - 60_000).toISOString() }), true)
+    const backupWeek = 7 * 24 * 60 * 60 * 1000
+    const backupBase = { hasData: true, backupAgeMs: Infinity, signedIn: false, lastSyncAt: null as string | null, now: Date.UTC(2026, 10, 21) }
+    assert.equal(backupNeedsAttention(backupBase), true)
+    assert.equal(backupNeedsAttention({ ...backupBase, hasData: false }), false)
+    assert.equal(backupNeedsAttention({ ...backupBase, backupAgeMs: backupWeek - 1 }), false)
+    assert.equal(backupNeedsAttention({ ...backupBase, signedIn: true, lastSyncAt: new Date(backupBase.now - 60_000).toISOString() }), false)
+    assert.equal(backupNeedsAttention({ ...backupBase, signedIn: true, lastSyncAt: new Date(backupBase.now - 8 * 86_400_000).toISOString() }), true)
+    assert.equal(backupNeedsAttention({ ...backupBase, signedIn: false, lastSyncAt: new Date(backupBase.now - 60_000).toISOString() }), true)
 
     const now = new Date(2026, 10, 18, 15, 0)
     const plan = (over: Partial<Parameters<typeof planReminderTimes>[0]> = {}) =>
