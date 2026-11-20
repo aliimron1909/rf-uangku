@@ -10,6 +10,7 @@ import type {
 } from '../types'
 import { categoryLabel } from './categoryTree'
 
+
 export function computeTotals(transactions: Transaction[]): {
   income: number
   expense: number
@@ -104,7 +105,7 @@ export function categoryBreakdown(
       const category = categories.find((item) => item.id === id)
       return {
         id,
-        name: category?.name ?? 'Tanpa kategori',
+        name: category ? categoryLabel(category, categories) : 'Tanpa kategori',
         color: category?.color ?? '#64748b',
         total: value,
         percentage: (value / total) * 100,

@@ -23,6 +23,7 @@ import { ICON_KEY_MAX_LENGTH } from '../lib/icons'
 import { isReceiptDataUrl } from '../lib/receipts'
 import { isValidTagList } from '../lib/tags'
 import { PROFILE_PHOTO_MAX_DATA_URL_LENGTH } from '../lib/profile'
+import { categoryLabel } from '../lib/categoryTree'
 
 export async function buildBackup(): Promise<BackupData> {
   const [nameRow, photoRow] = await Promise.all([
@@ -679,7 +680,7 @@ export function toCsv(
   categories: Category[],
 ): string {
   const accountMap = new Map(accounts.map((account) => [account.id, account.name]))
-  const categoryMap = new Map(categories.map((category) => [category.id, category.name]))
+  const categoryMap = new Map(categories.map((category) => [category.id, categoryLabel(category, categories)]))
   const rows: string[][] = [
     ['Tanggal', 'Jenis', 'Kategori', 'Rekening', 'Catatan', 'Nominal', 'Tag', 'Split'],
     ...transactions.map((transaction) => [
