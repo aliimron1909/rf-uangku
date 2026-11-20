@@ -23,7 +23,7 @@ export function releaseBuild(tag: string): number | null {
 }
 
 /** Baris pembuka catatan rilis yang tidak berguna bagi pembaca (jejak penulis, tautan sesi, dsb.). */
-const NOISE = /^(co-authored-by|claude-session|🤖|https?:\/\/)/i
+const NOISE = /^(co-authored-by|claude-session|🤖|https?:\/\/|aplikasi android native \(capacitor\))/i
 
 /**
  * Mengubah catatan rilis menjadi daftar perubahan: berhenti di garis "---" (keterangan tetap),

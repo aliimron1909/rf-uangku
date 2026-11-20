@@ -1845,6 +1845,7 @@ async function main() {
       ['Widget baru', 'Rp sejajar'],
     )
     assert.deepEqual(parseChangelog(''), [])
+    assert.deepEqual(parseChangelog('Judul\n\nAplikasi Android native (Capacitor), ID com.rf_uangku.app. Pasang di atas.'), ['Judul'])
 
     const backupWeek = 7 * 24 * 60 * 60 * 1000
     const backupBase = { hasData: true, backupAgeMs: Infinity, signedIn: false, lastSyncAt: null as string | null, now: Date.UTC(2026, 10, 21) }
