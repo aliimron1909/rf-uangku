@@ -56,7 +56,16 @@ export function UpdateModal({ update, onClose }: UpdateModalProps) {
         <p>
           RF Uangku <b>v{update?.version}</b> (build {update?.build}) siap dipasang. Data kamu tetap aman.
         </p>
-        {update?.notes && <p className="text-xs text-slate-500 dark:text-slate-400">{update.notes}</p>}
+        {update && update.changelog.length > 0 && (
+          <div>
+            <p className="text-xs font-bold text-slate-800 dark:text-slate-100">Yang baru:</p>
+            <ul className="mt-1 max-h-48 list-disc space-y-0.5 overflow-y-auto pl-4 text-xs text-slate-600 dark:text-slate-300">
+              {update.changelog.map((line, index) => (
+                <li key={index}>{line}</li>
+              ))}
+            </ul>
+          </div>
+        )}
         {busy && (
           <div>
             <div className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">

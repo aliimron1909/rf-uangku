@@ -110,7 +110,8 @@ import {
   upcomingBills,
 } from '../src/lib/billReminders'
 import { matchAccountName, readAiEntry, resolveAiTransfer } from '../src/lib/groq'
-import { pickUpdate, releaseBuild } from '../src/lib/nativeUpdate'
+import { parseChangelog, pickUpdate, releaseBuild } from '../src/lib/nativeUpdate'
+import { backupNeedsAttention } from '../src/lib/backupReminder'
 import { mergePending, parseBankNotification, parseIdrAmount } from '../src/lib/bankNotif'
 import { trendSummary, widgetTexts } from '../src/lib/nativeWidget'
 import { extractNativeUrl } from '../src/lib/native'
@@ -1838,6 +1839,21 @@ async function main() {
     assert.equal(pickUpdate(rel, 236)?.notes, 'fix: sesuatu')
     assert.equal(pickUpdate(rel, 240), null)
     assert.equal(pickUpdate({ ...rel, assets: [] }, 100), null)
+    assert.deepEqual(pickUpdate(rel, 236)?.changelog, ['Sesuatu', 'Catatan'])
+    assert.deepEqual(
+      parseChangelog('feat: widget baru (#55)\n\n* fix: Rp sejajar\nCo-Authored-By: X\nClaude-Session: https://x\n\n---\nketerangan tetap'),
+      ['Widget baru', 'Rp sejajar'],
+    )
+    assert.deepEqual(parseChangelog(''), [])
+
+    const week = 7 * 24 * 60 * 60 * 1000
+    const base = { hasData: true, backupAgeMs: Infinity, signedIn: false, lastSyncAt: null as string | null, now: Date.UTC(2026, 10, 21) }
+    assert.equal(backupNeedsAttention(base), true)
+    assert.equal(backupNeedsAttention({ ...base, hasData: false }), false)
+    assert.equal(backupNeedsAttention({ ...base, backupAgeMs: week - 1 }), false)
+    assert.equal(backupNeedsAttention({ ...base, signedIn: true, lastSyncAt: new Date(base.now - 60_000).toISOString() }), false)
+    assert.equal(backupNeedsAttention({ ...base, signedIn: true, lastSyncAt: new Date(base.now - 8 * 86_400_000).toISOString() }), true)
+    assert.equal(backupNeedsAttention({ ...base, signedIn: false, lastSyncAt: new Date(base.now - 60_000).toISOString() }), true)
 
     const now = new Date(2026, 10, 18, 15, 0)
     const plan = (over: Partial<Parameters<typeof planReminderTimes>[0]> = {}) =>

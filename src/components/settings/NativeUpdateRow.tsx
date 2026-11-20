@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { Download, RefreshCw } from 'lucide-react'
-import { checkNativeUpdate, type NativeUpdateInfo, type UpdateCheck } from '../../lib/nativeUpdate'
+import { useEffect, useState } from 'react'
+import { Download, History, RefreshCw } from 'lucide-react'
+import { checkNativeUpdate, installedAppInfo, type NativeUpdateInfo, type UpdateCheck } from '../../lib/nativeUpdate'
+import { ChangelogModal } from './ChangelogModal'
 import { UpdateModal } from './UpdateModal'
 import { errorMessage } from '../../lib/utils'
 import { Button } from '../ui/Button'
@@ -11,6 +12,11 @@ export function NativeUpdateRow() {
   const [result, setResult] = useState<UpdateCheck | null>(null)
   const [error, setError] = useState('')
   const [dialog, setDialog] = useState<NativeUpdateInfo | null>(null)
+  const [logOpen, setLogOpen] = useState(false)
+  const [build, setBuild] = useState(0)
+  useEffect(() => {
+    void installedAppInfo().then((info) => setBuild(info?.build ?? 0))
+  }, [])
 
   async function check() {
     setBusy(true)
@@ -39,6 +45,10 @@ export function NativeUpdateRow() {
           <RefreshCw className="h-3.5 w-3.5" />
           Cek pembaruan
         </Button>
+        <Button variant="outline" size="sm" onClick={() => setLogOpen(true)}>
+          <History className="h-3.5 w-3.5" />
+          Changelog
+        </Button>
         {result?.status === 'available' && (
           <Button size="sm" onClick={() => setDialog(result.update)}>
             <Download className="h-3.5 w-3.5" />
@@ -47,6 +57,7 @@ export function NativeUpdateRow() {
         )}
       </div>
       <UpdateModal update={dialog} onClose={() => setDialog(null)} />
+      <ChangelogModal open={logOpen} installedBuild={build} onClose={() => setLogOpen(false)} />
     </div>
   )
 }
