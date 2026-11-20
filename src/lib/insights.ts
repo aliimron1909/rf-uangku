@@ -1,6 +1,7 @@
 import type { Category, Transaction } from '../types'
 import { shiftMonthKey } from './dates'
 import { formatCompactRupiah } from './format'
+import { categoryLabel } from './categoryTree'
 
 export type InsightTone = 'up' | 'down' | 'info' | 'good'
 
@@ -73,7 +74,7 @@ export function monthlyInsights(
   const previousKey = shiftMonthKey(monthKey, -1)
   const day = today.slice(0, 7) === monthKey ? Number(today.slice(8, 10)) : daysInMonth(monthKey)
   const previousDay = Math.min(day, daysInMonth(previousKey))
-  const names = new Map(categories.map((category) => [category.id, category.name]))
+  const names = new Map(categories.map((category) => [category.id, categoryLabel(category, categories)]))
   const nameOf = (id: string) => names.get(id) ?? 'Tanpa kategori'
 
   const current = sumByCategory(transactions, monthKey, 31, 'expense')

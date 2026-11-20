@@ -1,5 +1,6 @@
 import type { Category, Transaction, TxType } from '../types'
 import { isIsoDate } from './dateMath'
+import { selectableCategories } from './categoryTree'
 
 export const IMPORT_MAX_ROWS = 2000
 export const IMPORT_MAX_BYTES = 2 * 1024 * 1024
@@ -217,7 +218,9 @@ export function guessCategory(
   categories: Category[],
   history: Transaction[],
 ): string {
-  const ofType = categories.filter((category) => category.type === type && !category.archived)
+  const ofType = selectableCategories(categories).filter(
+    (category) => category.type === type && !category.archived,
+  )
   const normalized = normalizeDescription(description)
   if (normalized) {
     const match = history.find(

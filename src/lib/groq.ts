@@ -1,3 +1,4 @@
+import { aiCategoryList, findCategoryByAiName } from './categoryTree'
 import type { Account, AiDraft, AiTransferDraft, Category, TxType } from '../types'
 import type { InsightFacts } from './insights'
 import { todayISO } from './dates'
@@ -158,13 +159,7 @@ export function resolveAiDraft(
   accounts: Account[],
   categories: Category[],
 ): ResolvedAiDraft | null {
-  const category =
-    categories.find(
-      (item) =>
-        item.type === draft.type && item.name.toLowerCase() === draft.categoryName.toLowerCase(),
-    ) ??
-    categories.find((item) => item.type === draft.type && item.name === 'Lain-lain') ??
-    categories.find((item) => item.type === draft.type)
+  const category = findCategoryByAiName(draft.categoryName, draft.type, categories)
 
   const account =
     accounts.find((item) => item.name.toLowerCase() === draft.accountName.toLowerCase()) ??
@@ -246,12 +241,8 @@ export async function parseTransactionWithGroq(
   options: ParseOptions,
 ): Promise<ParsedAiEntry> {
   const today = options.today ?? todayISO()
-  const incomeCategories = options.categories
-    .filter((category) => category.type === 'income' && !category.archived)
-    .map((category) => category.name)
-  const expenseCategories = options.categories
-    .filter((category) => category.type === 'expense' && !category.archived)
-    .map((category) => category.name)
+  const incomeCategories = aiCategoryList('income', options.categories)
+  const expenseCategories = aiCategoryList('expense', options.categories)
   const accountNames = options.accounts
     .filter((account) => !account.archived)
     .map((account) => account.name)
@@ -265,15 +256,17 @@ atau untuk transfer antar rekening:
 Aturan:
 - "type" wajib "income" untuk pemasukan, "expense" untuk pengeluaran, "transfer" untuk pindah uang antar rekening sendiri.
 - "amount" angka bulat positif dalam Rupiah, tanpa titik/koma.
-- "categoryName" wajib salah satu dari daftar kategori sesuai type.
+- "categoryName" wajib salah satu baris dari daftar kategori sesuai type, ditulis persis "Kategori › Subkategori". Pilih subkategori yang paling spesifik; bila tidak ada yang cocok pakai subkategori "Lainnya" pada kategori yang paling dekat.
 - "accountName" wajib salah satu dari daftar rekening.
 - "occurredAt" format YYYY-MM-DD. Jika tidak disebut, gunakan ${today}.
 - "note" ringkas, maksimal 80 karakter.
 ${TRANSFER_RULES}
-Kategori pemasukan: ${incomeCategories.join(', ')}.
-Kategori pengeluaran: ${expenseCategories.join(', ')}.
+Kategori pemasukan (format "Kategori › Subkategori"):
+${incomeCategories}
+Kategori pengeluaran (format "Kategori › Subkategori"):
+${expenseCategories}
 Rekening: ${accountNames.join(', ')}.
-Jika ragu, gunakan kategori "Lain-lain" dan rekening "Tunai".`
+Jika ragu, gunakan subkategori "Lainnya" dan rekening "Tunai".`
 
   const response = await fetch(GROQ_URL, {
     method: 'POST',
@@ -320,12 +313,8 @@ export async function chatTransactionWithGroq(
   options: ParseOptions,
 ): Promise<GroqChatResult> {
   const today = options.today ?? todayISO()
-  const incomeCategories = options.categories
-    .filter((category) => category.type === 'income' && !category.archived)
-    .map((category) => category.name)
-  const expenseCategories = options.categories
-    .filter((category) => category.type === 'expense' && !category.archived)
-    .map((category) => category.name)
+  const incomeCategories = aiCategoryList('income', options.categories)
+  const expenseCategories = aiCategoryList('expense', options.categories)
   const accountNames = options.accounts
     .filter((account) => !account.archived)
     .map((account) => account.name)
@@ -344,16 +333,18 @@ Aturan:
 - Jika informasi sudah cukup atau pengguna mengonfirmasi, isi "transaction" dengan data final.
 - "type" wajib "income" untuk pemasukan, "expense" untuk pengeluaran, "transfer" untuk pindah uang antar rekening sendiri.
 - "amount" angka bulat positif dalam Rupiah, tanpa titik/koma.
-- "categoryName" wajib salah satu dari daftar kategori sesuai type.
+- "categoryName" wajib salah satu baris dari daftar kategori sesuai type, ditulis persis "Kategori › Subkategori". Pilih subkategori yang paling spesifik; bila tidak ada yang cocok pakai subkategori "Lainnya" pada kategori yang paling dekat.
 - "accountName" wajib salah satu dari daftar rekening.
 - "occurredAt" format YYYY-MM-DD. Jika tidak disebut, gunakan ${today}.
 - "note" ringkas, maksimal 80 karakter.
 ${TRANSFER_RULES}
-- Jika kategori tidak disebut, gunakan "Lain-lain" sesuai type.
+- Jika kategori tidak disebut, tebak dari konteks (mis. "ngopi" = Kopi/jajanan/minuman, "bayar PLN" = Listrik); bila tetap ragu gunakan subkategori "Lainnya" sesuai type.
 - Jika rekening tidak disebut, gunakan "Tunai".
 - Jika pengguna mengoreksi data, perbarui "transaction" sesuai koreksi.
-Kategori pemasukan: ${incomeCategories.join(', ')}.
-Kategori pengeluaran: ${expenseCategories.join(', ')}.
+Kategori pemasukan (format "Kategori › Subkategori"):
+${incomeCategories}
+Kategori pengeluaran (format "Kategori › Subkategori"):
+${expenseCategories}
 Rekening: ${accountNames.join(', ')}.`
 
   const response = await fetch(GROQ_URL, {
@@ -511,22 +502,9 @@ export function readReceiptResult(
   }
 }
 
-/** Cocokkan nama kategori hasil AI ke kategori pengeluaran aktif; jatuh ke "Lain-lain". */
+/** Cocokkan nama kategori hasil AI ("Grup › Sub") ke subkategori pengeluaran aktif; jatuh ke "Lainnya"/"Lain-lain". */
 export function matchExpenseCategory(name: string, categories: Category[]): Category | null {
-  const active = categories.filter((item) => item.type === 'expense' && !item.archived)
-  const wanted = name.trim().toLowerCase()
-  return (
-    (wanted
-      ? (active.find((item) => item.name.toLowerCase() === wanted) ??
-        active.find((item) => {
-          const candidate = item.name.toLowerCase()
-          return candidate.includes(wanted) || wanted.includes(candidate)
-        }))
-      : undefined) ??
-    active.find((item) => item.name === 'Lain-lain') ??
-    active[0] ??
-    null
-  )
+  return findCategoryByAiName(name, 'expense', categories)
 }
 
 /**
@@ -541,9 +519,7 @@ export async function readReceiptWithGroq(options: {
   today?: string
 }): Promise<ReceiptReading> {
   const today = options.today ?? todayISO()
-  const expenseCategories = options.categories
-    .filter((category) => category.type === 'expense' && !category.archived)
-    .map((category) => category.name)
+  const expenseCategories = aiCategoryList('expense', options.categories)
 
   const systemPrompt = `Kamu membaca foto struk belanja berbahasa Indonesia.
 Hari ini: ${today}.
@@ -553,7 +529,8 @@ Aturan:
 - "total" adalah jumlah akhir yang harus dibayar (setelah pajak/diskon), angka bulat Rupiah tanpa titik/koma.
 - "date" tanggal pada struk; jika tidak terbaca gunakan ${today}.
 - "merchant" nama toko/tempat, ringkas.
-- "categoryName" wajib salah satu dari: ${expenseCategories.join(', ')}.
+- "categoryName" wajib salah satu baris berikut, ditulis persis "Kategori › Subkategori" (pilih yang paling spesifik, ragu = subkategori "Lainnya"):
+${expenseCategories}
 - "note" ringkasan barang utama, maksimal 80 karakter.
 - Jika total tidak terbaca jelas, isi "total" dengan 0. Jangan mengarang angka.`
 

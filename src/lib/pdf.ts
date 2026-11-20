@@ -2,6 +2,7 @@ import type { Account, Category, Transaction } from '../types'
 import { formatDate, formatDateTime } from './dates'
 import { formatRupiahForPdf } from './format'
 import { computeTotals } from './analytics'
+import { categoryLabel } from './categoryTree'
 
 /** jsPDF's built-in Helvetica only renders basic Latin characters. */
 function pdfSafe(value: string): string {
@@ -34,7 +35,7 @@ export async function downloadReportPdf(options: ReportPdfOptions): Promise<void
     options.accounts.map((account) => [account.id, pdfSafe(account.name)]),
   )
   const categoryMap = new Map(
-    options.categories.map((category) => [category.id, pdfSafe(category.name)]),
+    options.categories.map((category) => [category.id, pdfSafe(categoryLabel(category, options.categories).replace(' › ', ' > '))]),
   )
 
   // Header

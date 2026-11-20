@@ -26,6 +26,8 @@ export interface Category {
   /** Kunci ikon (lihat lib/icons); kosong = ikon bawaan. */
   icon?: string
   color: string
+  /** Id kategori induk (grup). Kosong = kategori tingkat atas. Transaksi disimpan pada subkategori. */
+  parentId?: string
   sortOrder: number
   archived: boolean
   createdAt: string

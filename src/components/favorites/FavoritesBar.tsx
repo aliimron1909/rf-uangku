@@ -18,6 +18,7 @@ import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { EntityIcon } from '../ui/EntityIcon'
 import { Modal } from '../ui/Modal'
 import { FavoriteForm } from './FavoriteForm'
+import { categoryLabel } from '../../lib/categoryTree'
 
 interface FavoritesBarProps {
   /** Membuka form transaksi dengan isian dari favorit. */
@@ -37,6 +38,10 @@ export function FavoritesBar({ onOpenInForm }: FavoritesBarProps) {
 
   const accountMap = useMemo(() => new Map(accounts.map((item) => [item.id, item])), [accounts])
   const categoryMap = useMemo(() => new Map(categories.map((item) => [item.id, item])), [categories])
+  const labelFor = (id: string): string | undefined => {
+    const category = categoryMap.get(id)
+    return category ? categoryLabel(category, categories) : undefined
+  }
 
   function issueFor(favorite: Favorite): string | null {
     return favoriteIssue(
@@ -229,7 +234,7 @@ export function FavoritesBar({ onOpenInForm }: FavoritesBarProps) {
                           </div>
                           <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">
                             {formatRupiah(favorite.amount)} ·{' '}
-                            {categoryMap.get(favorite.categoryId)?.name ?? 'Kategori hilang'} ·{' '}
+                            {labelFor(favorite.categoryId) ?? 'Kategori hilang'} ·{' '}
                             {accountMap.get(favorite.accountId)?.name ?? 'Rekening hilang'} · dipakai{' '}
                             {favorite.useCount}x
                           </p>

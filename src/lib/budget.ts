@@ -7,6 +7,7 @@ import type {
   Transaction,
 } from '../types'
 import { BUDGET_LEGACY_MONTH } from './constants'
+import { categoryLabel } from './categoryTree'
 
 interface MonthRange {
   start: string
@@ -79,7 +80,7 @@ export function budgetProgress(
       return {
         budgetId: budget.id,
         categoryId: budget.categoryId,
-        categoryName: category.name,
+        categoryName: categoryLabel(category, categories),
         categoryColor: category.color,
         categoryIcon: category.icon,
         categoryArchived: category.archived,

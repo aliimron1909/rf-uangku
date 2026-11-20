@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import './index.css'
 import { seedIfEmpty } from './db/seed'
+import { ensureStandardCategories } from './db/standardCategories'
 import { captureOAuthRedirect } from './lib/sync/auth'
 
 // Harus berjalan sebelum router memuat agar token login Google di URL tidak hilang.
@@ -11,6 +12,7 @@ captureOAuthRedirect()
 async function start() {
   try {
     await seedIfEmpty()
+    await ensureStandardCategories()
   } catch (error) {
     console.error('Gagal menyiapkan data awal:', error)
   }

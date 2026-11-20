@@ -110,13 +110,24 @@ export function TransactionsPage() {
     [transactions, accounts, categories],
   )
 
+  const categoryParent = useMemo(
+    () => new Map(categories.map((category) => [category.id, category.parentId])),
+    [categories],
+  )
+
   const filtered = useMemo(() => {
     const search = filters.search.trim().toLowerCase()
 
     return rows.filter((row) => {
       if (filters.type !== 'all' && row.type !== filters.type) return false
       if (filters.accountId !== 'all' && row.accountId !== filters.accountId) return false
-      if (filters.categoryId !== 'all' && row.categoryId !== filters.categoryId) return false
+      if (
+        filters.categoryId !== 'all' &&
+        row.categoryId !== filters.categoryId &&
+        categoryParent.get(row.categoryId) !== filters.categoryId
+      ) {
+        return false
+      }
       if (filters.dateFrom && row.occurredAt < filters.dateFrom) return false
       if (filters.dateTo && row.occurredAt > filters.dateTo) return false
       if (filters.tag !== 'all' && !row.tags?.includes(filters.tag)) return false
@@ -127,7 +138,7 @@ export function TransactionsPage() {
       }
       return true
     })
-  }, [rows, filters])
+  }, [rows, filters, categoryParent])
 
   const allTags = useMemo(() => collectTags(transactions), [transactions])
   const summary = useMemo(() => computeTotals(filtered), [filtered])

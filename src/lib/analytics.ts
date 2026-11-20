@@ -8,6 +8,8 @@ import type {
   TransactionWithRefs,
   Transfer,
 } from '../types'
+import { categoryLabel } from './categoryTree'
+
 
 export function computeTotals(transactions: Transaction[]): {
   income: number
@@ -103,7 +105,7 @@ export function categoryBreakdown(
       const category = categories.find((item) => item.id === id)
       return {
         id,
-        name: category?.name ?? 'Tanpa kategori',
+        name: category ? categoryLabel(category, categories) : 'Tanpa kategori',
         color: category?.color ?? '#64748b',
         total: value,
         percentage: (value / total) * 100,
@@ -139,7 +141,7 @@ export function withRefs(
     return {
       ...transaction,
       accountName: accountMap.get(transaction.accountId) ?? 'Rekening tidak ditemukan',
-      categoryName: category?.name ?? 'Kategori tidak ditemukan',
+      categoryName: category ? categoryLabel(category, categories) : 'Kategori tidak ditemukan',
       categoryColor: category?.color ?? '#64748b',
       categoryIcon: category?.icon,
     }

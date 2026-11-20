@@ -28,6 +28,7 @@ import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { EmptyState } from '../ui/EmptyState'
 import { Modal } from '../ui/Modal'
 import { RecurringForm } from './RecurringForm'
+import { categoryLabel } from '../../lib/categoryTree'
 
 export function RecurringSection() {
   const rules = useRecurringTransactions()
@@ -50,6 +51,10 @@ export function RecurringSection() {
     () => new Map(categories.map((category) => [category.id, category])),
     [categories],
   )
+  const labelFor = (id: string): string => {
+    const category = categoryMap.get(id)
+    return category ? categoryLabel(category, categories) : ''
+  }
 
   function openCreate() {
     setEditingRule(null)
@@ -109,7 +114,7 @@ export function RecurringSection() {
             </p>
             <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
               {nextRule
-                ? `Berikutnya: ${nextRule.note?.trim() || categoryMap.get(nextRule.categoryId)?.name || 'Transaksi'} · ${formatDate(nextRule.nextRunAt)}`
+                ? `Berikutnya: ${nextRule.note?.trim() || labelFor(nextRule.categoryId) || 'Transaksi'} · ${formatDate(nextRule.nextRunAt)}`
                 : 'Belum ada jadwal aktif.'}
             </p>
           </div>
@@ -180,7 +185,7 @@ export function RecurringSection() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="truncate text-sm font-bold text-slate-800 dark:text-slate-100">
-                        {rule.note?.trim() || (isTransferRule ? 'Transfer berulang' : category?.name) || 'Transaksi berulang'}
+                        {rule.note?.trim() || (isTransferRule ? 'Transfer berulang' : category && categoryLabel(category, categories)) || 'Transaksi berulang'}
                       </p>
                       <Badge variant={rule.active ? 'success' : 'neutral'}>
                         {rule.active ? 'Aktif' : 'Dijeda'}
@@ -195,7 +200,7 @@ export function RecurringSection() {
                     <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                       {isTransferRule
                         ? `${account?.name ?? 'Rekening hilang'} → ${toAccount?.name ?? 'Rekening hilang'}${rule.fee ? ` · biaya admin ${formatRupiah(rule.fee)}` : ''}`
-                        : `${category?.name ?? 'Kategori hilang'} · ${account?.name ?? 'Rekening hilang'}`}
+                        : `${category ? categoryLabel(category, categories) : 'Kategori hilang'} · ${account?.name ?? 'Rekening hilang'}`}
                     </p>
                     <p className="mt-1 text-sm font-bold text-slate-900 dark:text-slate-100">
                       {formatRupiah(rule.amount)}

@@ -11,6 +11,7 @@ import { Button } from '../ui/Button'
 import { CurrencyInput } from '../ui/CurrencyInput'
 import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
+import { categoryLabel, selectableCategories } from '../../lib/categoryTree'
 
 interface FavoriteFormProps {
   favorite?: Favorite | null
@@ -50,7 +51,7 @@ export function FavoriteForm({ favorite, onSaved, onCancel }: FavoriteFormProps)
   }, [accounts, allAccounts, accountId])
 
   const categoryOptions = useMemo(() => {
-    const active = categories.filter((category) => category.type === type)
+    const active = selectableCategories(categories).filter((category) => category.type === type)
     if (!categoryId || active.some((category) => category.id === categoryId)) return active
     const selected = allCategories.find(
       (category) => category.id === categoryId && category.type === type,
@@ -168,7 +169,7 @@ export function FavoriteForm({ favorite, onSaved, onCancel }: FavoriteFormProps)
           <option value="">Pilih kategori</option>
           {categoryOptions.map((category) => (
             <option key={category.id} value={category.id}>
-              {category.name}
+              {categoryLabel(category, allCategories)}
               {category.archived ? ' (arsip)' : ''}
             </option>
           ))}

@@ -17,6 +17,7 @@ import { CurrencyInput } from '../ui/CurrencyInput'
 import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
 import { Textarea } from '../ui/Textarea'
+import { categoryLabel, selectableCategories } from '../../lib/categoryTree'
 
 interface RecurringFormProps {
   rule?: RecurringTransaction | null
@@ -75,7 +76,7 @@ export function RecurringForm({ rule, onSaved, onCancel }: RecurringFormProps) {
 
   const categoryOptions = useMemo(
     () =>
-      allCategories.filter(
+      selectableCategories(allCategories).filter(
         (category) =>
           category.type === type && (!category.archived || category.id === categoryId),
       ),
@@ -265,7 +266,7 @@ export function RecurringForm({ rule, onSaved, onCancel }: RecurringFormProps) {
             <option value="">Pilih kategori</option>
             {categoryOptions.map((category) => (
               <option key={category.id} value={category.id}>
-                {category.name}
+                {categoryLabel(category, allCategories)}
                 {category.archived ? ' (arsip)' : ''}
               </option>
             ))}

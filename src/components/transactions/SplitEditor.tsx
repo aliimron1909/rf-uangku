@@ -5,6 +5,7 @@ import { formatNumberInput, formatRupiah, parseNumberInput } from '../../lib/for
 import { cn, createId } from '../../lib/utils'
 import { Button } from '../ui/Button'
 import { Select } from '../ui/Select'
+import { categoryLabel } from '../../lib/categoryTree'
 
 export interface SplitPartDraft {
   key: string
@@ -62,7 +63,7 @@ export function SplitEditor({ total, parts, categories, onChange, error }: Split
                   value={category.id}
                   disabled={takenElsewhere.has(category.id)}
                 >
-                  {category.name}
+                  {categoryLabel(category, categories)}
                   {category.archived ? ' (arsip)' : ''}
                 </option>
               ))}
