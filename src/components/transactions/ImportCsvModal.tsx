@@ -22,6 +22,7 @@ import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
+import { categoryLabel, selectableCategories } from '../../lib/categoryTree'
 
 interface ImportCsvModalProps {
   open: boolean
@@ -160,7 +161,7 @@ export function ImportCsvModal({ open, existing, onClose }: ImportCsvModalProps)
   )
 
   function categoriesFor(type: 'income' | 'expense', currentId: string): Category[] {
-    return categories.filter(
+    return selectableCategories(categories).filter(
       (category) => category.type === type && (!category.archived || category.id === currentId),
     )
   }
@@ -420,7 +421,7 @@ export function ImportCsvModal({ open, existing, onClose }: ImportCsvModalProps)
                 >
                   {categoriesFor(row.type, row.categoryId).map((category) => (
                     <option key={category.id} value={category.id}>
-                      {category.name}
+                      {categoryLabel(category, categories)}
                     </option>
                   ))}
                 </Select>

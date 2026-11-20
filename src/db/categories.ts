@@ -2,7 +2,7 @@ import { db } from './db'
 import { moveInOrder } from '../lib/accountOrder'
 
 /**
- * Menggeser kategori aktif satu posisi di antara kategori sejenis (pemasukan/pengeluaran).
+ * Menggeser kategori aktif satu posisi di antara saudaranya (jenis dan induk yang sama).
  * Kategori arsip tidak ikut diurutkan dan selalu ditampilkan di bawah.
  */
 export async function moveCategory(id: string, direction: 'up' | 'down'): Promise<boolean> {
@@ -10,7 +10,8 @@ export async function moveCategory(id: string, direction: 'up' | 'down'): Promis
     const target = await db.categories.get(id)
     if (!target || target.archived) return false
     const sameType = (await db.categories.orderBy('sortOrder').toArray()).filter(
-      (category) => category.type === target.type,
+      (category) =>
+        category.type === target.type && (category.parentId ?? '') === (target.parentId ?? ''),
     )
     const active = sameType.filter((category) => !category.archived)
     const nextIds = moveInOrder(

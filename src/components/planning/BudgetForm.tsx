@@ -7,6 +7,7 @@ import { errorMessage } from '../../lib/utils'
 import { Button } from '../ui/Button'
 import { CurrencyInput } from '../ui/CurrencyInput'
 import { Select } from '../ui/Select'
+import { categoryLabel, selectableCategories } from '../../lib/categoryTree'
 
 interface BudgetFormProps {
   budget?: Budget | null
@@ -38,7 +39,7 @@ export function BudgetForm({
 
   const categoryOptions = useMemo(
     () =>
-      categories.filter(
+      selectableCategories(categories).filter(
         (category) =>
           category.type === 'expense' &&
           (category.id === budget?.categoryId ||
@@ -88,7 +89,7 @@ export function BudgetForm({
         <option value="">Pilih kategori</option>
         {categoryOptions.map((category) => (
           <option key={category.id} value={category.id}>
-            {category.name}
+            {categoryLabel(category, categories)}
             {category.archived ? ' (arsip)' : ''}
           </option>
         ))}

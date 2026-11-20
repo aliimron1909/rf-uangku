@@ -112,6 +112,9 @@ import {
 import { matchAccountName, readAiEntry, resolveAiTransfer } from '../src/lib/groq'
 import { parseChangelog, pickUpdate, releaseBuild } from '../src/lib/nativeUpdate'
 import { backupNeedsAttention } from '../src/lib/backupReminder'
+import { aiCategoryList, categoryLabel, findCategoryByAiName, groupIdSet, invalidParentIds, selectableCategories, sortCategoryTree } from '../src/lib/categoryTree'
+import { buildStandardCategories, planStandardCategories } from '../src/lib/standardCategories'
+import { isKnownIcon as isKnownCategoryIcon } from '../src/lib/icons'
 import { mergePending, parseBankNotification, parseIdrAmount } from '../src/lib/bankNotif'
 import { trendSummary, widgetTexts } from '../src/lib/nativeWidget'
 import { extractNativeUrl } from '../src/lib/native'
@@ -1855,6 +1858,45 @@ async function main() {
     assert.equal(backupNeedsAttention({ ...backupBase, signedIn: true, lastSyncAt: new Date(backupBase.now - 60_000).toISOString() }), false)
     assert.equal(backupNeedsAttention({ ...backupBase, signedIn: true, lastSyncAt: new Date(backupBase.now - 8 * 86_400_000).toISOString() }), true)
     assert.equal(backupNeedsAttention({ ...backupBase, signedIn: false, lastSyncAt: new Date(backupBase.now - 60_000).toISOString() }), true)
+
+    // Kategori standar bertingkat
+    const stdAt = '2026-01-01T00:00:00.000Z'
+    const std = buildStandardCategories(stdAt)
+    assert.equal(new Set(std.map((item) => item.id)).size, std.length)
+    assert.ok(std.every((item) => isKnownCategoryIcon(item.icon) && /^#[0-9a-f]{6}$/i.test(item.color)))
+    assert.equal(std.filter((item) => !item.parentId && item.type === 'income').length, 4)
+    assert.equal(std.filter((item) => !item.parentId && item.type === 'expense').length, 8)
+    assert.ok(std.filter((item) => item.parentId).every((item) => std.some((p) => p.id === item.parentId && p.type === item.type)))
+    const stdPlan = planStandardCategories(DEFAULT_CATEGORIES, stdAt)
+    assert.equal(stdPlan.add.length, std.length)
+    assert.equal(stdPlan.update.length, 11)
+    const merged = [...DEFAULT_CATEGORIES, ...stdPlan.add].map((item) => {
+      const change = stdPlan.update.find((entry) => entry.id === item.id)
+      return change ? { ...item, ...change.changes } : item
+    })
+    assert.equal(planStandardCategories(merged, stdAt).add.length, 0)
+    assert.equal(planStandardCategories(merged, stdAt).update.length, 0)
+    assert.equal(merged.find((item) => item.id === 'cat-inc-gaji')?.parentId, 'cat-g-inc-kerja')
+    assert.equal(merged.find((item) => item.id === 'cat-exp-lain')?.parentId, undefined)
+    assert.ok(!groupIdSet(merged).has('cat-exp-lain'))
+    assert.ok(selectableCategories(merged).every((item) => !groupIdSet(merged).has(item.id)))
+    const kopi = merged.find((item) => item.id === 'cat-s-exp-makan-kopi')!
+    assert.equal(categoryLabel(kopi, merged), 'Makan & Minum › Kopi/jajanan/minuman')
+    assert.equal(findCategoryByAiName('Makan & Minum › Kopi/jajanan/minuman', 'expense', merged)?.id, kopi.id)
+    assert.equal(findCategoryByAiName('makan & minum > kopi/jajanan/minuman', 'expense', merged)?.id, kopi.id)
+    assert.equal(findCategoryByAiName('Listrik', 'expense', merged)?.id, 'cat-s-exp-hunian-listrik')
+    assert.equal(findCategoryByAiName('Makan & Minum', 'expense', merged)?.id, 'cat-s-exp-makan-lainnya')
+    assert.equal(findCategoryByAiName('Hunian & Utilitas › Lainnya', 'expense', merged)?.id, 'cat-s-exp-hunian-lainnya')
+    assert.equal(findCategoryByAiName('tidak ada', 'expense', merged)?.id, 'cat-exp-lain')
+    assert.equal(findCategoryByAiName('Gaji pokok', 'income', merged)?.id, 'cat-s-inc-kerja-gaji')
+    assert.equal(findCategoryByAiName('', 'income', merged)?.type, 'income')
+    const list = aiCategoryList('expense', merged)
+    assert.ok(list.includes('- Transportasi & Mobilitas › Parkir & tol'))
+    assert.ok(!list.includes('- Makan & Minum\n'))
+    const tree = sortCategoryTree(merged.filter((item) => item.type === 'expense'))
+    const groupAt = tree.findIndex((item) => item.id === 'cat-g-exp-makan')
+    assert.equal(tree[groupAt + 1].parentId, 'cat-g-exp-makan')
+    assert.ok(invalidParentIds('cat-g-exp-makan', merged).has('cat-s-exp-makan-kopi'))
 
     const now = new Date(2026, 10, 18, 15, 0)
     const plan = (over: Partial<Parameters<typeof planReminderTimes>[0]> = {}) =>

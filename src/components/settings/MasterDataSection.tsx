@@ -14,6 +14,8 @@ import type { Account, AccountKind, Category, TxType } from '../../types'
 import { db } from '../../db/db'
 import { moveAccount } from '../../db/accounts'
 import { moveCategory } from '../../db/categories'
+import { installStandardCategories } from '../../db/standardCategories'
+import { groupIdSet, invalidParentIds, sortCategoryTree } from '../../lib/categoryTree'
 import { useAllAccounts } from '../../hooks/useAccounts'
 import { useAllCategories } from '../../hooks/useCategories'
 import { useToast } from '../../contexts/ToastContext'
@@ -71,6 +73,8 @@ export function MasterDataSection() {
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [categoryName, setCategoryName] = useState('')
   const [categoryType, setCategoryType] = useState<TxType>('expense')
+  const [categoryParent, setCategoryParent] = useState('')
+  const [installing, setInstalling] = useState(false)
   const [categoryColor, setCategoryColor] = useState(COLOR_PALETTE[0])
   const [categoryIcon, setCategoryIcon] = useState(defaultCategoryIconKey('', 'expense'))
   const [categoryError, setCategoryError] = useState('')
@@ -89,17 +93,38 @@ export function MasterDataSection() {
     [accounts],
   )
   const sortedCategories = useMemo(
-    () =>
-      [...categories].sort(
-        (a, b) =>
-          Number(a.archived) - Number(b.archived) ||
-          a.type.localeCompare(b.type) ||
-          a.sortOrder - b.sortOrder,
-      ),
+    () => {
+      const active = sortCategoryTree(categories.filter((category) => !category.archived))
+      const archived = categories
+        .filter((category) => category.archived)
+        .sort((a, b) => a.type.localeCompare(b.type) || a.sortOrder - b.sortOrder)
+      return [
+        ...(['expense', 'income'] as TxType[]).flatMap((type) => active.filter((item) => item.type === type)),
+        ...archived,
+      ]
+    },
     [categories],
   )
 
   const activeAccounts = accounts.filter((account) => !account.archived)
+
+  const groupIds = useMemo(() => groupIdSet(categories), [categories])
+
+  async function handleInstallStandard() {
+    setInstalling(true)
+    try {
+      const result = await installStandardCategories()
+      toast(
+        result.added + result.moved > 0
+          ? `Kategori standar dipasang: ${result.added} ditambah, ${result.moved} kategori lama dipindahkan ke grup.`
+          : 'Kategori standar sudah lengkap.',
+      )
+    } catch (caught) {
+      toast(errorMessage(caught), 'error')
+    } finally {
+      setInstalling(false)
+    }
+  }
 
   async function handleMoveCategory(category: Category, direction: 'up' | 'down') {
     try {
@@ -132,6 +157,7 @@ export function MasterDataSection() {
     setEditingCategory(category ?? null)
     setCategoryName(category?.name ?? '')
     setCategoryType(category?.type ?? 'expense')
+    setCategoryParent(category?.parentId ?? '')
     setCategoryColor(category?.color ?? COLOR_PALETTE[0])
     setCategoryIcon(
       category?.icon ?? defaultCategoryIconKey(category?.name ?? '', category?.type ?? 'expense'),
@@ -217,6 +243,13 @@ export function MasterDataSection() {
       setCategoryError('Nama kategori sudah ada untuk jenis ini.')
       return
     }
+    if (categoryParent) {
+      const parent = categories.find((category) => category.id === categoryParent)
+      if (!parent || parent.type !== categoryType || parent.parentId) {
+        setCategoryError('Induk kategori harus berupa grup dengan jenis yang sama.')
+        return
+      }
+    }
     if (editingCategory && categoryUsage > 0 && categoryType !== editingCategory.type) {
       setCategoryError('Jenis kategori tidak bisa diubah karena sudah dipakai transaksi.')
       return
@@ -234,6 +267,7 @@ export function MasterDataSection() {
             type: categoryType,
             color: categoryColor,
             icon: categoryIcon,
+            parentId: categoryParent || undefined,
           })
           if (typeChanged) {
             await db.budgets.where('categoryId').equals(editingCategory.id).delete()
@@ -252,7 +286,10 @@ export function MasterDataSection() {
         )
       } else {
         const maxOrder = categories
-          .filter((category) => category.type === categoryType)
+          .filter(
+            (category) =>
+              category.type === categoryType && (category.parentId ?? '') === categoryParent,
+          )
           .reduce((max, category) => Math.max(max, category.sortOrder), 0)
         await db.categories.add({
           id: createId(),
@@ -260,6 +297,7 @@ export function MasterDataSection() {
           type: categoryType,
           color: categoryColor,
           icon: categoryIcon,
+          parentId: categoryParent || undefined,
           sortOrder: maxOrder + 1,
           archived: false,
           createdAt: new Date().toISOString(),
@@ -410,6 +448,11 @@ export function MasterDataSection() {
 
   async function handleDeleteCategory() {
     if (!deletingCategory) return
+    if (groupIds.has(deletingCategory.id)) {
+      toast('Grup ini masih punya subkategori. Hapus atau pindahkan subkategorinya dulu.', 'error')
+      setDeletingCategory(null)
+      return
+    }
     const activeSameType = categories.filter(
       (item) => !item.archived && item.type === deletingCategory.type && item.id !== deletingCategory.id,
     ).length
@@ -509,7 +552,12 @@ export function MasterDataSection() {
           </button>
         </div>
 
-        <div className="mt-3 flex justify-end">
+        <div className="mt-3 flex flex-wrap justify-end gap-2">
+          {tab === 'categories' && (
+            <Button size="sm" variant="outline" loading={installing} onClick={() => void handleInstallStandard()}>
+              Pasang kategori standar
+            </Button>
+          )}
           <Button
             size="sm"
             onClick={() => (tab === 'accounts' ? openAccountModal() : void openCategoryModal())}
@@ -606,11 +654,20 @@ export function MasterDataSection() {
           <div className="mt-3 divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-100 dark:divide-slate-800 dark:border-slate-800">
             {sortedCategories.map((category) => {
               const sameType = sortedCategories.filter(
-                (item) => item.type === category.type && !item.archived,
+                (item) =>
+                  item.type === category.type &&
+                  !item.archived &&
+                  (item.parentId ?? '') === (category.parentId ?? ''),
               )
               const typeIndex = sameType.findIndex((item) => item.id === category.id)
               return (
-              <div key={category.id} className="flex items-center gap-3 bg-white px-3 py-2.5 dark:bg-slate-900">
+              <div
+                key={category.id}
+                className={cn(
+                  'flex items-center gap-3 bg-white py-2.5 pr-3 dark:bg-slate-900',
+                  category.parentId && !category.archived ? 'pl-8' : 'pl-3',
+                )}
+              >
                 <EntityIcon
                   icon={category.icon}
                   fallback={defaultCategoryIconKey(category.name, category.type)}
@@ -621,9 +678,16 @@ export function MasterDataSection() {
                     <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">
                       {category.name}
                     </p>
-                    <Badge variant={category.type === 'income' ? 'income' : 'expense'}>
-                      {category.type === 'income' ? 'Pemasukan' : 'Pengeluaran'}
-                    </Badge>
+                    {(!category.parentId || category.archived) && (
+                      <Badge variant={category.type === 'income' ? 'income' : 'expense'}>
+                        {category.type === 'income' ? 'Pemasukan' : 'Pengeluaran'}
+                      </Badge>
+                    )}
+                    {groupIds.has(category.id) && (
+                      <Badge variant="neutral">
+                        {categories.filter((item) => item.parentId === category.id).length} subkategori
+                      </Badge>
+                    )}
                     {category.archived && <Badge variant="warning">Diarsipkan</Badge>}
                   </div>
                 </div>
@@ -765,6 +829,27 @@ export function MasterDataSection() {
           >
             <option value="expense">Pengeluaran</option>
             <option value="income">Pemasukan</option>
+          </Select>
+          <Select
+            label="Masuk ke grup"
+            value={categoryParent}
+            onChange={(event) => setCategoryParent(event.target.value)}
+            disabled={Boolean(editingCategory && groupIds.has(editingCategory.id))}
+          >
+            <option value="">Tingkat atas (grup / kategori mandiri)</option>
+            {categories
+              .filter(
+                (category) =>
+                  category.type === categoryType &&
+                  !category.parentId &&
+                  !category.archived &&
+                  !(editingCategory && invalidParentIds(editingCategory.id, categories).has(category.id)),
+              )
+              .map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
           </Select>
           {editingCategory && categoryUsage > 0 && (
             <p className="text-[11px] text-slate-500 dark:text-slate-400">

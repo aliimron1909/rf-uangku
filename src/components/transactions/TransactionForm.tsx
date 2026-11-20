@@ -31,6 +31,7 @@ import { AiQuickAdd } from './AiQuickAdd'
 import { ReceiptField } from './ReceiptField'
 import { SplitEditor, type SplitPartDraft } from './SplitEditor'
 import { TagInput } from './TagInput'
+import { categoryLabel, selectableCategories } from '../../lib/categoryTree'
 
 interface TransactionFormProps {
   transaction?: Transaction | null
@@ -111,7 +112,7 @@ export function TransactionForm({
   const [favoriteName, setFavoriteName] = useState('')
 
   const availableCategories = useMemo(
-    () => categories.filter((category) => category.type === type),
+    () => selectableCategories(categories).filter((category) => category.type === type),
     [categories, type],
   )
 
@@ -405,7 +406,7 @@ export function TransactionForm({
             <option value="">Pilih kategori</option>
             {categoryOptions.map((category) => (
               <option key={category.id} value={category.id}>
-                {category.name}
+                {categoryLabel(category, allCategories)}
                 {category.archived ? ' (arsip)' : ''}
               </option>
             ))}

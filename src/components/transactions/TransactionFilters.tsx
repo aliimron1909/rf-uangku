@@ -4,6 +4,7 @@ import type { TagCount } from '../../lib/tags'
 import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
 import { Button } from '../ui/Button'
+import { categoryLabel, groupIdSet } from '../../lib/categoryTree'
 
 export interface TransactionFilterState {
   search: string
@@ -34,6 +35,8 @@ export function TransactionFilters({
     filters.type === 'all'
       ? categories
       : categories.filter((category) => category.type === filters.type)
+
+  const groups = groupIdSet(categories)
 
   function update(patch: Partial<TransactionFilterState>) {
     onChange({ ...filters, ...patch })
@@ -98,7 +101,8 @@ export function TransactionFilters({
           <option value="all">Semua kategori</option>
           {visibleCategories.map((category) => (
             <option key={category.id} value={category.id}>
-              {category.name}
+              {categoryLabel(category, categories)}
+              {groups.has(category.id) ? ' (semua)' : ''}
               {category.archived ? ' (arsip)' : ''}
             </option>
           ))}
