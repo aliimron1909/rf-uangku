@@ -55,7 +55,7 @@ export function ChangelogModal({ open, installedBuild, onClose }: ChangelogModal
               {log.date && (
                 <span className="font-normal text-slate-500 dark:text-slate-400">
                   {' · '}
-                  {formatDate(new Date(log.date))}
+                  {formatDate(log.date.slice(0, 10))}
                 </span>
               )}
             </p>
