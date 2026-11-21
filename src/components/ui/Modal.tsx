@@ -1,4 +1,6 @@
 import { useEffect, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
+import { useBackClose } from '../../hooks/useBackClose'
 import { X } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
@@ -27,6 +29,8 @@ export function Modal({
   footer,
   size = 'md',
 }: ModalProps) {
+  useBackClose(open, onClose)
+
   useEffect(() => {
     if (!open) return
     const onKeyDown = (event: KeyboardEvent) => {
@@ -43,7 +47,8 @@ export function Modal({
 
   if (!open) return null
 
-  return (
+  // Dirender di <body>: kartu "kaca" (backdrop-filter) membuat position:fixed ikut ke kartu, bukan ke layar.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center pb-[var(--inset-bottom)] sm:items-center sm:p-4">
       <button
         type="button"
@@ -87,6 +92,7 @@ export function Modal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
