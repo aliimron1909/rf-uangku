@@ -136,11 +136,28 @@ export async function checkNativeUpdate(): Promise<UpdateCheck | null> {
 }
 
 interface RfUpdatePlugin {
+  getNotify(): Promise<{ enabled?: boolean }>
+  setNotify(options: { enabled: boolean }): Promise<unknown>
   canInstall(): Promise<{ allowed?: boolean }>
   openInstallSettings(): Promise<unknown>
   download(options: { url: string }): Promise<unknown>
   progress(): Promise<{ state?: string; percent?: number; error?: string }>
   install(): Promise<unknown>
+}
+
+/** Notifikasi "versi baru tersedia" di latar belakang (aktif secara bawaan). */
+export async function getUpdateNotify(): Promise<boolean | null> {
+  try {
+    const plugin = nativePlugin<RfUpdatePlugin>('RfUpdate')
+    if (!plugin) return null
+    return (await plugin.getNotify()).enabled !== false
+  } catch {
+    return null
+  }
+}
+
+export async function setUpdateNotify(enabled: boolean): Promise<void> {
+  await nativePlugin<RfUpdatePlugin>('RfUpdate')?.setNotify({ enabled })
 }
 
 export type InAppUpdateResult = 'installing' | 'need-permission'

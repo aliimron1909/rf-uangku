@@ -98,6 +98,7 @@ jobs:
                   <category android:name="android.intent.category.BROWSABLE" />
                   <data android:scheme="rfuangku" android:host="auth" />
                   <data android:scheme="rfuangku" android:host="new" />
+                  <data android:scheme="rfuangku" android:host="update" />
               </intent-filter>'''
           i = s.index('</intent-filter>') + len('</intent-filter>')
           s = s[:i] + link + s[i:]
@@ -218,6 +219,19 @@ jobs:
           sed -i -E "s/versionCode [0-9]+/versionCode $((200 + GITHUB_RUN_NUMBER))/; s/versionName \"[^\"]*\"/versionName \"$VERSION\"/" \
             android-native/app/build.gradle
           grep -n "versionCode\|versionName" android-native/app/build.gradle
+
+      - name: Tambah WorkManager untuk cek pembaruan latar belakang
+        run: |
+          python3 - <<'PY'
+          import re
+          p = 'android-native/app/build.gradle'
+          s = open(p).read()
+          if 'androidx.work:work-runtime' not in s:
+              s, n = re.subn(r'^dependencies \{', 'dependencies {\n    implementation "androidx.work:work-runtime:2.9.1"', s, count=1, flags=re.M)
+              assert n == 1, 'blok dependencies tidak ditemukan'
+              open(p, 'w').write(s)
+          PY
+          grep -n "work-runtime" android-native/app/build.gradle
 
       - name: Bangun APK (Gradle)
         working-directory: android-native
