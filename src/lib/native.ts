@@ -102,6 +102,9 @@ export const NATIVE_AUTH_REDIRECT = 'rfuangku://auth'
 /** Tautan dari widget layar utama untuk membuka form transaksi baru. */
 export const NATIVE_NEW_LINK = 'rfuangku://new'
 
+/** Tautan dari notifikasi "versi baru tersedia" untuk membuka dialog pembaruan. */
+export const NATIVE_UPDATE_LINK = 'rfuangku://update'
+
 /** Mencari tautan berawalan tertentu di data event; bentuk data dari jembatan native bisa berlapis. */
 export function extractNativeUrl(value: unknown, prefix: string, depth = 0): string | undefined {
   if (depth > 3 || value == null) return undefined

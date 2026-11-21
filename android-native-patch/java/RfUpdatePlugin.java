@@ -33,6 +33,21 @@ public class RfUpdatePlugin extends Plugin {
     }
 
     @PluginMethod
+    public void getNotify(PluginCall call) {
+        JSObject result = new JSObject();
+        result.put("enabled", UpdateCheckWorker.notifyEnabled(getContext()));
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void setNotify(PluginCall call) {
+        boolean enabled = Boolean.TRUE.equals(call.getBoolean("enabled", true));
+        getContext().getSharedPreferences(UpdateCheckWorker.PREFS, Context.MODE_PRIVATE)
+            .edit().putBoolean(UpdateCheckWorker.KEY_NOTIFY, enabled).apply();
+        call.resolve();
+    }
+
+    @PluginMethod
     public void canInstall(PluginCall call) {
         boolean ok = Build.VERSION.SDK_INT < Build.VERSION_CODES.O
             || getContext().getPackageManager().canRequestPackageInstalls();

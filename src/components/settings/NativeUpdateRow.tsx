@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Download, History, RefreshCw } from 'lucide-react'
-import { checkNativeUpdate, installedAppInfo, type NativeUpdateInfo, type UpdateCheck } from '../../lib/nativeUpdate'
+import { checkNativeUpdate, getUpdateNotify, installedAppInfo, setUpdateNotify, type NativeUpdateInfo, type UpdateCheck } from '../../lib/nativeUpdate'
 import { ChangelogModal } from './ChangelogModal'
 import { UpdateModal } from './UpdateModal'
+import { requestNativeNotifPermission } from '../../lib/nativeReminder'
 import { errorMessage } from '../../lib/utils'
 import { Button } from '../ui/Button'
 
@@ -14,9 +15,21 @@ export function NativeUpdateRow() {
   const [dialog, setDialog] = useState<NativeUpdateInfo | null>(null)
   const [logOpen, setLogOpen] = useState(false)
   const [build, setBuild] = useState(0)
+  const [notify, setNotify] = useState<boolean | null>(null)
   useEffect(() => {
     void installedAppInfo().then((info) => setBuild(info?.build ?? 0))
+    void getUpdateNotify().then(setNotify)
   }, [])
+
+  async function toggleNotify(next: boolean) {
+    setNotify(next)
+    try {
+      await setUpdateNotify(next)
+      if (next) await requestNativeNotifPermission()
+    } catch (caught) {
+      setError(errorMessage(caught))
+    }
+  }
 
   async function check() {
     setBusy(true)
@@ -31,6 +44,7 @@ export function NativeUpdateRow() {
   }
 
   return (
+    <div className="space-y-3">
     <div className="flex flex-wrap items-center justify-between gap-2">
       <p className="text-xs text-slate-500 dark:text-slate-400">
         {error ||
@@ -58,6 +72,18 @@ export function NativeUpdateRow() {
       </div>
       <UpdateModal update={dialog} onClose={() => setDialog(null)} />
       <ChangelogModal open={logOpen} installedBuild={build} onClose={() => setLogOpen(false)} />
+    </div>
+    {notify !== null && (
+      <label className="flex cursor-pointer items-center justify-between gap-3">
+        <span className="text-xs text-slate-600 dark:text-slate-300">Beri tahu saat ada versi baru</span>
+        <input
+          type="checkbox"
+          checked={notify}
+          onChange={(event) => void toggleNotify(event.target.checked)}
+          className="h-5 w-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+        />
+      </label>
+    )}
     </div>
   )
 }

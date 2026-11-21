@@ -20,6 +20,11 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(RfDiagPlugin.class);
         super.onCreate(savedInstanceState);
         setupEdgeToEdge();
+        try {
+            UpdateCheckWorker.schedule(this);
+        } catch (Exception ignored) {
+            // Tanpa penjadwal, cek pembaruan tetap berjalan saat aplikasi dibuka.
+        }
     }
 
     /**
