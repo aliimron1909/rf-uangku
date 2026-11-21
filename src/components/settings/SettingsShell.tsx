@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { ArrowLeft, ChevronRight, Search, X } from 'lucide-react'
+import { useBackClose } from '../../hooks/useBackClose'
 import { cn } from '../../lib/utils'
 
 export interface SettingsSectionMeta {
@@ -56,12 +57,20 @@ export function SettingsShell({ groups, targetId, top }: SettingsShellProps) {
     return groups.some((group) => group.id === saved) ? (saved as string) : groups[0].id
   })
   const [mobileOpen, setMobileOpen] = useState(false)
+  // Halaman detail yang dibuka dari daftar: tombol kembali HP menutupnya dulu. Tautan langsung (#hash) tidak.
+  const [openedByUser, setOpenedByUser] = useState(false)
+  const closeDetail = () => {
+    setMobileOpen(false)
+    setOpenedByUser(false)
+  }
+  useBackClose(mobileOpen && openedByUser, closeDetail)
   const [query, setQuery] = useState('')
   const [scrollTo, setScrollTo] = useState('')
 
   function openGroup(groupId: string, sectionId = '') {
     setActiveId(groupId)
     setMobileOpen(true)
+    setOpenedByUser(typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches)
     setScrollTo(sectionId)
     setQuery('')
     writeLastGroup(groupId)
@@ -212,7 +221,7 @@ export function SettingsShell({ groups, targetId, top }: SettingsShellProps) {
           <div className={cn('min-w-0', !mobileOpen && 'hidden md:block')}>
             <button
               type="button"
-              onClick={() => setMobileOpen(false)}
+              onClick={closeDetail}
               className="mb-3 inline-flex items-center gap-1.5 rounded-lg py-1 text-sm font-semibold text-emerald-700 dark:text-emerald-400 md:hidden"
             >
               <ArrowLeft className="h-4 w-4" />
