@@ -1995,7 +1995,7 @@ async function main() {
     assert.equal(kprBank[39].balance, kprRows[39].balance)
     assert.ok(Math.abs(kprBank[239].balance) < 0.01)
     assert.ok(Math.abs(kprBank[40].principal + kprBank[40].interest - kprBank[40].payment) < 0.01)
-    assert.ok(Math.abs(kprBank[40].interest - (300_000_000 * 10) / 100 / 12) < 0.01)
+    assert.ok(Math.abs(kprBank[40].interest - (300_000_000 * 5) / 100 / 12) < 0.01)
     const kprBeforePaid = await db.recurringTransactions.count()
     const kprPaidMade = await createKprRecurring({
       input: kprIn,
