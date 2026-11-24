@@ -111,6 +111,10 @@ export interface KprSimulation {
   floatingRate: number
   /** Bulan cicilan pertama, 'YYYY-MM'. */
   startMonth: string
+  /** Jumlah cicilan yang sudah dibayar (0 = belum ada). */
+  paidMonths?: number
+  /** Sisa pokok menurut bank saat ini (Rp); kosong = pakai hitungan rumus. */
+  actualBalance?: number
   createdAt: string
   updatedAt: string
 }
