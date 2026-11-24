@@ -5,7 +5,6 @@ import {
   buildSchedule,
   fixedMonthsOf,
   installmentDate,
-  summarize,
   totalMonths,
   type KprInput,
 } from '../lib/kpr'
@@ -14,6 +13,8 @@ import type { KprSimulation } from '../types'
 export interface KprSaveInput extends KprInput {
   name: string
   startMonth: string
+  paidMonths?: number
+  actualBalance?: number
 }
 
 export async function saveKprSimulation(input: KprSaveInput, id?: string): Promise<KprSimulation> {
@@ -29,6 +30,8 @@ export async function saveKprSimulation(input: KprSaveInput, id?: string): Promi
     fixedYears: input.fixedYears,
     floatingRate: input.floatingRate,
     startMonth: input.startMonth,
+    paidMonths: input.paidMonths && input.paidMonths > 0 ? Math.floor(input.paidMonths) : undefined,
+    actualBalance: input.actualBalance && input.actualBalance > 0 ? Math.round(input.actualBalance) : undefined,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   }
@@ -41,35 +44,44 @@ export async function deleteKprSimulation(id: string): Promise<void> {
 }
 
 /**
- * Membuat transaksi berulang bulanan untuk cicilan: satu aturan untuk masa fixed dan, bila ada,
- * satu lagi untuk masa floating (nominalnya berbeda). Mengembalikan jumlah aturan yang dibuat.
+ * Membuat transaksi berulang bulanan untuk cicilan yang belum dibayar: satu aturan untuk sisa masa fixed
+ * dan, bila ada, satu lagi untuk masa floating (nominalnya berbeda). `paidMonths` = cicilan yang sudah
+ * dibayar; `firstDate` = tanggal cicilan berikutnya (ke-paidMonths+1). Mengembalikan jumlah aturan dibuat.
  */
 export async function createKprRecurring(options: {
   input: KprInput
   firstDate: string
   accountId: string
   categoryId: string
+  paidMonths?: number
+  actualBalance?: number
 }): Promise<number> {
   const { input, firstDate, accountId, categoryId } = options
-  const summary = summarize(input, buildSchedule(input))
+  const paid = Math.max(0, Math.floor(options.paidMonths ?? 0))
+  const rows = buildSchedule(
+    input,
+    options.actualBalance && paid > 0 ? { afterMonth: paid, balance: options.actualBalance } : undefined,
+  )
   const months = totalMonths(input)
   const fixedMonths = fixedMonthsOf(input)
+  const from = paid + 1
   let created = 0
-  const make = async (amount: number, from: number, to: number, label: string) => {
+  const make = async (fromMonth: number, toMonth: number, label: string) => {
+    if (fromMonth > toMonth) return
     await createRecurring({
       type: 'expense',
-      amount: Math.round(amount),
+      amount: Math.round(rows[fromMonth - 1].payment),
       accountId,
       categoryId,
       note: `Cicilan KPR (${label})`,
       frequency: 'monthly',
       interval: 1,
-      startDate: installmentDate(firstDate, from),
-      endDate: installmentDate(firstDate, to),
+      startDate: installmentDate(firstDate, fromMonth - from + 1),
+      endDate: installmentDate(firstDate, toMonth - from + 1),
     })
     created += 1
   }
-  if (fixedMonths > 0) await make(summary.paymentFixed, 1, fixedMonths, 'bunga fixed')
-  if (fixedMonths < months) await make(summary.paymentFloating, fixedMonths + 1, months, 'bunga floating')
+  await make(from, fixedMonths, 'bunga fixed')
+  await make(Math.max(from, fixedMonths + 1), months, 'bunga floating')
   return created
 }

@@ -57,7 +57,13 @@ export function monthlyPayment(principal: number, annualRatePercent: number, mon
   return (principal * rate) / (1 - Math.pow(1 + rate, -months))
 }
 
-export function buildSchedule(input: KprInput): KprRow[] {
+/** Sisa pokok bank (actualBalance) berlaku setelah cicilan ke-afterMonth dibayar; cicilan ke depan dihitung ulang darinya. */
+export interface KprOverride {
+  afterMonth: number
+  balance: number
+}
+
+export function buildSchedule(input: KprInput, override?: KprOverride): KprRow[] {
   const loan = loanAmount(input)
   const months = totalMonths(input)
   if (loan <= 0 || months <= 0) return []
@@ -65,11 +71,13 @@ export function buildSchedule(input: KprInput): KprRow[] {
   const rows: KprRow[] = []
   let balance = loan
   let payment = 0
+  const recalcAt = override && override.afterMonth >= 0 && override.afterMonth < months ? override.afterMonth + 1 : 0
   for (let month = 1; month <= months; month++) {
+    if (override && month === recalcAt && override.afterMonth > 0) balance = Math.max(0, override.balance)
     const phase = month <= fixedMonths ? 'fixed' : 'floating'
     const annual = phase === 'fixed' ? input.fixedRate : input.floatingRate
     // Cicilan dihitung ulang di awal tiap masa dari sisa pokok dan sisa bulan.
-    if (month === 1 || month === fixedMonths + 1) payment = monthlyPayment(balance, annual, months - month + 1)
+    if (month === 1 || month === fixedMonths + 1 || month === recalcAt) payment = monthlyPayment(balance, annual, months - month + 1)
     const interest = (balance * annual) / 100 / 12
     const principal = month === months ? balance : Math.min(balance, payment - interest)
     balance = Math.max(0, balance - principal)
@@ -131,4 +139,27 @@ export function parseDecimal(text: string): number {
 export function installmentDate(firstDate: string, month: number): string {
   const day = Math.min(28, Number(firstDate.slice(8, 10)) || 1)
   return `${monthDate(firstDate.slice(0, 7), month).slice(0, 7)}-${String(day).padStart(2, '0')}`
+}
+
+export interface KprRemaining {
+  paidMonths: number
+  remainingMonths: number
+  balance: number
+  nextPayment: number
+  remainingInterest: number
+  remainingPaid: number
+}
+
+/** Posisi saat ini setelah `paidMonths` cicilan dibayar (jadwal `rows` sudah memakai sisa pokok bank bila ada). */
+export function remainingAfter(rows: KprRow[], paidMonths: number): KprRemaining {
+  const paid = Math.max(0, Math.min(rows.length, Math.floor(paidMonths)))
+  const left = rows.slice(paid)
+  return {
+    paidMonths: paid,
+    remainingMonths: left.length,
+    balance: paid === 0 ? (rows[0] ? rows[0].balance + rows[0].principal : 0) : rows[paid - 1].balance,
+    nextPayment: left[0]?.payment ?? 0,
+    remainingInterest: left.reduce((sum, row) => sum + row.interest, 0),
+    remainingPaid: left.reduce((sum, row) => sum + row.payment, 0),
+  }
 }

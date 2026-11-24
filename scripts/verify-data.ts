@@ -98,6 +98,7 @@ import {
   monthDate as kprMonthDate,
   monthlyPayment as kprPayment,
   parseDecimal as kprParseDecimal,
+  remainingAfter as kprRemainingAfter,
   summarize as kprSummarize,
   yearlyBreakdown as kprYearly,
 } from '../src/lib/kpr'
@@ -1984,6 +1985,40 @@ async function main() {
     const kprMade = await createKprRecurring({ input: kprIn, firstDate: '2027-01-05', accountId: 'a', categoryId: 'c' })
     assert.equal(kprMade, 2)
     assert.equal((await db.recurringTransactions.count()) - kprBefore, 2)
+    // Cicilan sudah berjalan 40 bulan
+    const kprLeft = kprRemainingAfter(kprRows, 40)
+    assert.equal(kprLeft.remainingMonths, 200)
+    assert.equal(kprLeft.balance, kprRows[39].balance)
+    assert.equal(kprLeft.nextPayment, kprRows[40].payment)
+    const kprBank = kprSchedule(kprIn, { afterMonth: 40, balance: 300_000_000 })
+    assert.equal(kprBank.length, 240)
+    assert.equal(kprBank[39].balance, kprRows[39].balance)
+    assert.ok(Math.abs(kprBank[239].balance) < 0.01)
+    assert.ok(Math.abs(kprBank[40].principal + kprBank[40].interest - kprBank[40].payment) < 0.01)
+    assert.ok(Math.abs(kprBank[40].interest - (300_000_000 * 5) / 100 / 12) < 0.01)
+    const kprPaidMade = await createKprRecurring({
+      input: kprIn,
+      firstDate: '2028-03-07',
+      accountId: 'a',
+      categoryId: 'c',
+      paidMonths: 40,
+    })
+    assert.equal(kprPaidMade, 2)
+    const kprNew = (await db.recurringTransactions.toArray())
+      .filter((r) => r.startDate === '2028-03-07' || r.startDate === kprInstallmentDate('2028-03-07', 21))
+      .sort((x, y) => x.startDate.localeCompare(y.startDate))
+    const kprRule = kprNew[0]
+    assert.equal(kprRule.startDate, '2028-03-07')
+    assert.equal(kprRule.endDate, kprInstallmentDate('2028-03-07', 20))
+    assert.equal(kprRule.amount, Math.round(kprRows[40].payment))
+    const kprRule2 = kprNew[1]
+    assert.equal(kprRule2.startDate, kprInstallmentDate('2028-03-07', 21))
+    assert.equal(kprRule2.endDate, kprInstallmentDate('2028-03-07', 200))
+    assert.equal(kprRule2.amount, Math.round(kprRows[60].payment))
+    const kprPaidSaved = await saveKprSimulation({ ...kprIn, name: 'B', startMonth: '2023-07', paidMonths: 40, actualBalance: 300_000_000 })
+    assert.equal(kprPaidSaved.paidMonths, 40)
+    assert.equal(kprPaidSaved.actualBalance, 300_000_000)
+    await deleteKprSimulation(kprPaidSaved.id)
     await deleteKprSimulation(kprSaved.id)
     assert.equal(await db.kprSimulations.count(), 0)
   }

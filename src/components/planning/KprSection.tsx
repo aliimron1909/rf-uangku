@@ -9,6 +9,7 @@ import {
   loanAmount,
   monthDate,
   parseDecimal,
+  remainingAfter,
   summarize,
   totalMonths,
   yearlyBreakdown,
@@ -68,6 +69,8 @@ export function KprSection() {
   const [fixedYears, setFixedYears] = useState('5')
   const [floatingRate, setFloatingRate] = useState('10')
   const [startMonth, setStartMonth] = useState(todayISO().slice(0, 7))
+  const [paidMonths, setPaidMonths] = useState('')
+  const [bankBalance, setBankBalance] = useState('')
   const [editingId, setEditingId] = useState<string | undefined>()
   const [showAll, setShowAll] = useState(false)
   const [deleting, setDeleting] = useState<KprSimulation | null>(null)
@@ -91,10 +94,19 @@ export function KprSection() {
     floatingRate: parseDecimal(floatingRate),
   }
   const valid = loanAmount(input) > 0 && input.years > 0
-  const rows = useMemo(() => (valid ? buildSchedule(input) : []), [valid, input.price, input.downPayment, input.years, input.fixedRate, input.fixedYears, input.floatingRate]) // eslint-disable-line react-hooks/exhaustive-deps
+  const monthsTotal = totalMonths(input)
+  const paid = Math.min(monthsTotal, Math.round(parseDecimal(paidMonths)))
+  const actualBalance = paid > 0 ? parseNumberInput(bankBalance) : 0
+  const override = actualBalance > 0 && paid < monthsTotal ? { afterMonth: paid, balance: actualBalance } : undefined
+  const rows = useMemo(
+    () => (valid ? buildSchedule(input, override) : []),
+    [valid, input.price, input.downPayment, input.years, input.fixedRate, input.fixedYears, input.floatingRate, override?.afterMonth, override?.balance], // eslint-disable-line react-hooks/exhaustive-deps
+  )
   const summary = useMemo(() => (valid ? summarize(input, rows) : null), [valid, rows]) // eslint-disable-line react-hooks/exhaustive-deps
   const yearly = useMemo(() => yearlyBreakdown(rows), [rows])
-  const shownRows = showAll ? rows : rows.slice(0, 24)
+  const remaining = useMemo(() => (paid > 0 ? remainingAfter(rows, paid) : null), [rows, paid])
+  const pageStart = showAll ? 0 : Math.min(paid, Math.max(0, rows.length - 24))
+  const shownRows = showAll ? rows : rows.slice(pageStart, pageStart + 24)
   const hasFloating = summary ? summary.fixedMonths < summary.months : false
 
   function load(item: KprSimulation) {
@@ -108,13 +120,15 @@ export function KprSection() {
     setFixedYears(String(item.fixedYears))
     setFloatingRate(String(item.floatingRate).replace('.', ','))
     setStartMonth(item.startMonth)
+    setPaidMonths(item.paidMonths ? String(item.paidMonths) : '')
+    setBankBalance(item.actualBalance ? formatNumberInput(String(item.actualBalance)) : '')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   async function save(asNew: boolean) {
     if (!valid) return
     try {
-      const row = await saveKprSimulation({ ...input, name, startMonth }, asNew ? undefined : editingId)
+      const row = await saveKprSimulation({ ...input, name, startMonth, paidMonths: paid, actualBalance }, asNew ? undefined : editingId)
       setEditingId(row.id)
       toast('Simulasi disimpan.')
     } catch (error) {
@@ -123,8 +137,7 @@ export function KprSection() {
   }
 
   function openRecurring() {
-    const first = monthDate(startMonth, 1).slice(0, 8) + '01'
-    setFirstDate(first)
+    setFirstDate(monthDate(startMonth, paid + 1))
     setAccountId((current) => current || accounts[0]?.id || '')
     setCategoryId(
       (current) =>
@@ -142,7 +155,14 @@ export function KprSection() {
     if (!accountId || !categoryId || !firstDate || dateInPast) return
     setBusy(true)
     try {
-      const count = await createKprRecurring({ input, firstDate, accountId, categoryId })
+      const count = await createKprRecurring({
+        input,
+        firstDate,
+        accountId,
+        categoryId,
+        paidMonths: paid,
+        actualBalance,
+      })
       toast(`${count} tagihan berulang dibuat. Lihat di tab Berulang.`)
       setRecurringOpen(false)
     } catch (error) {
@@ -195,6 +215,21 @@ export function KprSection() {
           <Input label="Lama masa fixed (tahun)" inputMode="numeric" value={fixedYears} onChange={(e) => setFixedYears(e.target.value)} />
           <Input label="Bunga floating (% / tahun)" inputMode="decimal" value={floatingRate} onChange={(e) => setFloatingRate(e.target.value)} />
           <Input label="Bulan mulai cicilan" type="month" value={startMonth} onChange={(e) => setStartMonth(e.target.value)} />
+          <Input
+            label="Sudah dibayar (bulan)"
+            inputMode="numeric"
+            placeholder="0"
+            value={paidMonths}
+            onChange={(e) => setPaidMonths(e.target.value.replace(/\D/g, ''))}
+            hint="Isi bila cicilan sudah berjalan, mis. 40."
+          />
+          {paid > 0 && (
+            <CurrencyInput
+              label="Sisa pokok sesuai bank (opsional)"
+              value={bankBalance}
+              onChange={setBankBalance}
+            />
+          )}
         </div>
       </section>
 
@@ -216,6 +251,21 @@ export function KprSection() {
             />
           </div>
 
+          {remaining && (
+            <div className="rounded-3xl border border-emerald-200 bg-emerald-50/60 p-3 dark:border-emerald-900 dark:bg-emerald-950/30">
+              <p className="mb-2 text-sm font-bold text-emerald-800 dark:text-emerald-300">
+                Posisi sekarang: {remaining.paidMonths} dari {summary.months} bulan sudah dibayar
+              </p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                <Stat label="Sisa pokok" value={formatRupiah(remaining.balance)} />
+                <Stat label="Sisa bulan" value={`${remaining.remainingMonths} bulan`} />
+                <Stat label={`Cicilan ke-${remaining.paidMonths + 1}`} value={formatRupiah(remaining.nextPayment)} tone="rose" />
+                <Stat label="Sisa bunga" value={formatRupiah(remaining.remainingInterest)} tone="rose" />
+                <Stat label="Sisa yang dibayar" value={formatRupiah(remaining.remainingPaid)} />
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-wrap gap-2">
             {editingId && (
               <Button variant="secondary" onClick={() => save(false)}>
@@ -225,8 +275,8 @@ export function KprSection() {
             <Button variant={editingId ? 'ghost' : 'primary'} onClick={() => save(true)}>
               <Save className="h-4 w-4" /> {editingId ? 'Simpan sebagai baru' : 'Simpan simulasi'}
             </Button>
-            <Button variant="secondary" onClick={openRecurring}>
-              <Repeat className="h-4 w-4" /> Jadikan tagihan berulang
+            <Button variant="secondary" onClick={openRecurring} disabled={paid >= summary.months}>
+              <Repeat className="h-4 w-4" /> Jadikan tagihan berulang{paid > 0 ? ` (mulai ke-${paid + 1})` : ''}
             </Button>
           </div>
 
@@ -252,9 +302,13 @@ export function KprSection() {
                 </thead>
                 <tbody>
                   {shownRows.map((row) => (
-                    <tr key={row.month} className="border-t border-slate-100 dark:border-slate-800">
+                    <tr
+                      key={row.month}
+                      className={`border-t border-slate-100 dark:border-slate-800 ${row.month <= paid ? 'bg-slate-50 text-slate-400 dark:bg-slate-900/60' : ''}`}
+                    >
                       <td className="px-2 py-1.5 text-left">
                         {row.month}
+                        {row.month <= paid && <span className="ml-1 text-[10px] font-semibold text-emerald-600">lunas</span>}
                         <span className="ml-1 text-[10px] text-slate-400">
                           {formatDate(monthDate(startMonth, row.month), 'MMM yy')}
                         </span>
@@ -274,7 +328,7 @@ export function KprSection() {
                 onClick={() => setShowAll(!showAll)}
                 className="mt-3 text-sm font-semibold text-emerald-600 dark:text-emerald-400"
               >
-                {showAll ? 'Tampilkan 24 bulan pertama' : `Tampilkan semua ${rows.length} bulan`}
+                {showAll ? (paid > 0 ? 'Tampilkan sekitar bulan berjalan' : 'Tampilkan 24 bulan pertama') : `Tampilkan semua ${rows.length} bulan`}
               </button>
             )}
           </section>
@@ -324,8 +378,8 @@ export function KprSection() {
         title="Jadikan tagihan berulang"
         description={
           hasFloating
-            ? 'Dibuat 2 aturan bulanan: masa fixed dan masa floating (nominal berbeda).'
-            : 'Dibuat 1 aturan bulanan selama masa cicilan.'
+            ? 'Dibuat aturan bulanan untuk sisa cicilan: masa fixed dan floating (nominal berbeda).'
+            : 'Dibuat 1 aturan bulanan untuk sisa cicilan.'
         }
         footer={
           <Button
@@ -339,7 +393,7 @@ export function KprSection() {
       >
         <div className="space-y-3">
           <Input
-            label="Tanggal cicilan pertama"
+            label={paid > 0 ? `Tanggal cicilan berikutnya (ke-${paid + 1})` : 'Tanggal cicilan pertama'}
             type="date"
             value={firstDate}
             min={todayISO()}

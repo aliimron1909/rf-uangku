@@ -275,6 +275,8 @@ function isKprRow(value: unknown): boolean {
     finite(value.floatingRate) &&
     typeof value.startMonth === 'string' &&
     /^\d{4}-\d{2}$/.test(value.startMonth) &&
+    (value.paidMonths === undefined || finite(value.paidMonths)) &&
+    (value.actualBalance === undefined || finite(value.actualBalance)) &&
     typeof value.createdAt === 'string'
   )
 }
