@@ -93,6 +93,16 @@ import {
 } from '../src/lib/dates'
 import { formatNumberInput, formatRupiah, parseNumberInput } from '../src/lib/format'
 import {
+  buildSchedule as kprSchedule,
+  installmentDate as kprInstallmentDate,
+  monthDate as kprMonthDate,
+  monthlyPayment as kprPayment,
+  parseDecimal as kprParseDecimal,
+  summarize as kprSummarize,
+  yearlyBreakdown as kprYearly,
+} from '../src/lib/kpr'
+import { createKprRecurring, deleteKprSimulation, saveKprSimulation } from '../src/db/kpr'
+import {
   budgetProgress,
   budgetSummary,
   newExpenseBudgetAlert,
@@ -1941,6 +1951,41 @@ async function main() {
     assert.equal(readReceiptResult({ total: 'abc' }, '2026-11-17'), null)
     assert.equal(readReceiptResult({ total: 5000, date: '2030-01-01' }, '2026-11-17')?.occurredAt, '2026-11-17')
     assert.equal(readReceiptResult({ total: 5000, date: 'kemarin' }, '2026-11-17')?.occurredAt, '2026-11-17')
+  }
+
+  // Simulasi KPR
+  {
+    assert.ok(Math.abs(kprPayment(144_499_999.945, 5, 240) - 953_636.0428) < 0.01)
+    assert.equal(kprPayment(120_000, 0, 12), 10_000)
+    const kprIn = { price: 500_000_000, downPayment: 100_000_000, years: 20, fixedRate: 5, fixedYears: 5, floatingRate: 10 }
+    const kprRows = kprSchedule(kprIn)
+    assert.equal(kprRows.length, 240)
+    assert.ok(Math.abs(kprRows[239].balance) < 0.01)
+    assert.equal(kprRows[0].phase, 'fixed')
+    assert.equal(kprRows[60].phase, 'floating')
+    const kprSum = kprSummarize(kprIn, kprRows)
+    assert.ok(Math.abs(kprSum.totalPrincipal - 400_000_000) < 0.5)
+    assert.ok(kprSum.paymentFloating > kprSum.paymentFixed)
+    const kprYears = kprYearly(kprRows)
+    assert.equal(kprYears.length, 20)
+    assert.ok(Math.abs(kprYears.reduce((t, y) => t + y.principal, 0) - 400_000_000) < 0.5)
+    assert.equal(kprMonthDate('2026-11', 1), '2026-11-01')
+    assert.equal(kprMonthDate('2026-11', 3), '2027-01-01')
+    assert.equal(kprInstallmentDate('2026-12-31', 2), '2027-01-28')
+    assert.equal(kprParseDecimal('5,25'), 5.25)
+    assert.equal(kprParseDecimal('abc'), 0)
+
+    const kprSaved = await saveKprSimulation({ ...kprIn, name: '  Rumah A  ', startMonth: '2027-01' })
+    assert.equal(kprSaved.name, 'Rumah A')
+    assert.equal((await db.kprSimulations.count()), 1)
+    const kprBackup = await buildBackup()
+    assert.equal(kprBackup.kprSimulations?.length, 1)
+    const kprBefore = await db.recurringTransactions.count()
+    const kprMade = await createKprRecurring({ input: kprIn, firstDate: '2027-01-05', accountId: 'a', categoryId: 'c' })
+    assert.equal(kprMade, 2)
+    assert.equal((await db.recurringTransactions.count()) - kprBefore, 2)
+    await deleteKprSimulation(kprSaved.id)
+    assert.equal(await db.kprSimulations.count(), 0)
   }
 
   await db.delete()

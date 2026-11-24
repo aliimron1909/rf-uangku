@@ -7,6 +7,7 @@ import type {
   Debt,
   DebtPayment,
   Favorite,
+  KprSimulation,
   Goal,
   GoalContribution,
   ProfileBackup,
@@ -53,6 +54,7 @@ export async function buildBackup(): Promise<BackupData> {
     debtPayments: await db.debtPayments.toArray(),
     favorites: await db.favorites.toArray(),
     receipts: await db.receipts.toArray(),
+    kprSimulations: await db.kprSimulations.toArray(),
     ...(profile ? { profile } : {}),
   }
 }
@@ -259,6 +261,24 @@ function isFavoriteRow(value: unknown): boolean {
   )
 }
 
+function isKprRow(value: unknown): boolean {
+  if (!isRecord(value)) return false
+  const finite = (item: unknown) => typeof item === 'number' && Number.isFinite(item) && item >= 0
+  return (
+    typeof value.id === 'string' &&
+    typeof value.name === 'string' &&
+    finite(value.price) &&
+    finite(value.downPayment) &&
+    finite(value.years) &&
+    finite(value.fixedRate) &&
+    finite(value.fixedYears) &&
+    finite(value.floatingRate) &&
+    typeof value.startMonth === 'string' &&
+    /^\d{4}-\d{2}$/.test(value.startMonth) &&
+    typeof value.createdAt === 'string'
+  )
+}
+
 function isDebtPaymentRow(value: unknown): boolean {
   if (!isRecord(value)) return false
   return (
@@ -371,6 +391,11 @@ export function validateBackup(value: unknown): asserts value is BackupData {
   if (data.favorites !== undefined) {
     if (!Array.isArray(data.favorites) || !data.favorites.every(isFavoriteRow)) {
       throw new Error('Data favorit di file backup tidak valid.')
+    }
+  }
+  if (data.kprSimulations !== undefined) {
+    if (!Array.isArray(data.kprSimulations) || !data.kprSimulations.every(isKprRow)) {
+      throw new Error('Data simulasi KPR di file backup tidak valid.')
     }
   }
   if (data.profile !== undefined && !isProfileRow(data.profile)) {
@@ -582,6 +607,11 @@ export async function restoreBackup(data: BackupData): Promise<void> {
   }))
 
   const receiptRows: Receipt[] = (data.receipts ?? []).map((receipt) => ({ ...receipt }))
+  const kprRows: KprSimulation[] = (data.kprSimulations ?? []).map((item) => ({
+    ...item,
+    name: item.name.trim().slice(0, 60) || 'Simulasi KPR',
+    updatedAt: item.updatedAt || item.createdAt,
+  }))
   const favoriteRows: Favorite[] = (data.favorites ?? []).map((favorite) => ({
     ...favorite,
     name: favorite.name.trim().slice(0, FAVORITE_NAME_MAX_LENGTH),
@@ -606,6 +636,7 @@ export async function restoreBackup(data: BackupData): Promise<void> {
       db.debtPayments,
       db.favorites,
       db.receipts,
+      db.kprSimulations,
       db.trash,
       db.settings,
     ],
@@ -622,6 +653,7 @@ export async function restoreBackup(data: BackupData): Promise<void> {
       await db.debts.clear()
       await db.favorites.clear()
       await db.receipts.clear()
+      await db.kprSimulations.clear()
       await db.trash.clear()
       await db.accounts.bulkAdd(accounts)
       await db.categories.bulkAdd(categories)
@@ -639,6 +671,7 @@ export async function restoreBackup(data: BackupData): Promise<void> {
       if (debtPaymentRows.length > 0) await db.debtPayments.bulkAdd(debtPaymentRows)
       if (favoriteRows.length > 0) await db.favorites.bulkAdd(favoriteRows)
       if (receiptRows.length > 0) await db.receipts.bulkAdd(receiptRows)
+      if (kprRows.length > 0) await db.kprSimulations.bulkAdd(kprRows)
 
       if (data.profile) {
         await db.settings.put({ key: 'profileName', value: data.profile.name.trim() })
