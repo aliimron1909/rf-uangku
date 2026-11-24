@@ -17,6 +17,7 @@ export const SYNC_TABLE_NAMES = [
   'debtPayments',
   'favorites',
   'receipts',
+  'kprSimulations',
   'trash',
 ] as const
 

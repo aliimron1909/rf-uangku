@@ -7,6 +7,7 @@ import type {
   DebtPayment,
   Favorite,
   Goal,
+  KprSimulation,
   GoalContribution,
   Receipt,
   RecurringTransaction,
@@ -32,6 +33,7 @@ class UangkuDB extends Dexie {
   debtPayments!: Table<DebtPayment, string>
   favorites!: Table<Favorite, string>
   receipts!: Table<Receipt, string>
+  kprSimulations!: Table<KprSimulation, string>
   syncState!: Table<SyncStateRow, string>
   trash!: Table<TrashItem, string>
 
@@ -91,6 +93,10 @@ class UangkuDB extends Dexie {
     // v9: tempat sampah transaksi.
     this.version(9).stores({
       trash: 'id, deletedAt',
+    })
+    // v10: simulasi cicilan KPR.
+    this.version(10).stores({
+      kprSimulations: 'id, updatedAt',
     })
   }
 }

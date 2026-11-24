@@ -99,6 +99,22 @@ export interface Favorite {
   updatedAt: string
 }
 
+/** Simulasi cicilan KPR yang disimpan (rumus ada di lib/kpr.ts). */
+export interface KprSimulation {
+  id: string
+  name: string
+  price: number
+  downPayment: number
+  years: number
+  fixedRate: number
+  fixedYears: number
+  floatingRate: number
+  /** Bulan cicilan pertama, 'YYYY-MM'. */
+  startMonth: string
+  createdAt: string
+  updatedAt: string
+}
+
 export interface Transfer {
   id: string
   fromAccountId: string
@@ -260,6 +276,7 @@ export interface BackupData {
   debtPayments?: DebtPayment[]
   favorites?: Favorite[]
   receipts?: Receipt[]
+  kprSimulations?: KprSimulation[]
   profile?: ProfileBackup
 }
 

@@ -1,18 +1,20 @@
 import { useSearchParams } from 'react-router-dom'
-import { HandCoins, PiggyBank, Repeat, Target, type LucideIcon } from 'lucide-react'
+import { Calculator, HandCoins, PiggyBank, Repeat, Target, type LucideIcon } from 'lucide-react'
 import { BudgetSection } from '../components/planning/BudgetSection'
 import { DebtSection } from '../components/planning/DebtSection'
 import { GoalSection } from '../components/planning/GoalSection'
+import { KprSection } from '../components/planning/KprSection'
 import { RecurringSection } from '../components/planning/RecurringSection'
 import { cn } from '../lib/utils'
 
-type PlanningTab = 'budget' | 'recurring' | 'goals' | 'debts'
+type PlanningTab = 'budget' | 'recurring' | 'goals' | 'debts' | 'kpr'
 
 const TABS: { id: PlanningTab; label: string; icon: LucideIcon }[] = [
   { id: 'budget', label: 'Budget', icon: Target },
   { id: 'recurring', label: 'Berulang', icon: Repeat },
   { id: 'goals', label: 'Tabungan', icon: PiggyBank },
   { id: 'debts', label: 'Hutang', icon: HandCoins },
+  { id: 'kpr', label: 'KPR', icon: Calculator },
 ]
 
 function parseTab(value: string | null): PlanningTab {
@@ -39,11 +41,11 @@ export function PlanningPage() {
           Rencana
         </h2>
         <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
-          Atur budget, transaksi rutin, target tabungan, serta hutang dan piutang.
+          Atur budget, transaksi rutin, target tabungan, hutang dan piutang, serta simulasi KPR.
         </p>
       </div>
 
-      <div className="grid grid-cols-4 gap-1 rounded-3xl glass p-1">
+      <div className="grid grid-cols-5 gap-1 rounded-3xl glass p-1">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -67,6 +69,7 @@ export function PlanningPage() {
       {tab === 'recurring' && <RecurringSection />}
       {tab === 'goals' && <GoalSection />}
       {tab === 'debts' && <DebtSection />}
+      {tab === 'kpr' && <KprSection />}
     </div>
   )
 }
