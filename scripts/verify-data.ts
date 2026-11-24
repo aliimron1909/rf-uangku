@@ -1996,22 +1996,24 @@ async function main() {
     assert.ok(Math.abs(kprBank[239].balance) < 0.01)
     assert.ok(Math.abs(kprBank[40].principal + kprBank[40].interest - kprBank[40].payment) < 0.01)
     assert.ok(Math.abs(kprBank[40].interest - (300_000_000 * 5) / 100 / 12) < 0.01)
-    const kprBeforePaid = await db.recurringTransactions.count()
     const kprPaidMade = await createKprRecurring({
       input: kprIn,
-      firstDate: '2027-01-05',
+      firstDate: '2028-03-07',
       accountId: 'a',
       categoryId: 'c',
       paidMonths: 40,
     })
     assert.equal(kprPaidMade, 2)
-    const kprRule = (await db.recurringTransactions.toArray()).slice(kprBeforePaid)[0]
-    assert.equal(kprRule.startDate, '2027-01-05')
-    assert.equal(kprRule.endDate, kprInstallmentDate('2027-01-05', 20))
+    const kprNew = (await db.recurringTransactions.toArray())
+      .filter((r) => r.startDate === '2028-03-07' || r.startDate === kprInstallmentDate('2028-03-07', 21))
+      .sort((x, y) => x.startDate.localeCompare(y.startDate))
+    const kprRule = kprNew[0]
+    assert.equal(kprRule.startDate, '2028-03-07')
+    assert.equal(kprRule.endDate, kprInstallmentDate('2028-03-07', 20))
     assert.equal(kprRule.amount, Math.round(kprRows[40].payment))
-    const kprRule2 = (await db.recurringTransactions.toArray()).slice(kprBeforePaid)[1]
-    assert.equal(kprRule2.startDate, kprInstallmentDate('2027-01-05', 21))
-    assert.equal(kprRule2.endDate, kprInstallmentDate('2027-01-05', 200))
+    const kprRule2 = kprNew[1]
+    assert.equal(kprRule2.startDate, kprInstallmentDate('2028-03-07', 21))
+    assert.equal(kprRule2.endDate, kprInstallmentDate('2028-03-07', 200))
     assert.equal(kprRule2.amount, Math.round(kprRows[60].payment))
     const kprPaidSaved = await saveKprSimulation({ ...kprIn, name: 'B', startMonth: '2023-07', paidMonths: 40, actualBalance: 300_000_000 })
     assert.equal(kprPaidSaved.paidMonths, 40)
