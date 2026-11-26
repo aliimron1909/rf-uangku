@@ -129,6 +129,9 @@ jobs:
           cp android-native-patch/res/drawable/*.xml $app/res/drawable/
           cp android-native-patch/res/xml/*.xml $app/res/xml/
           cp android-native-patch/res/values-strings.xml $app/res/values/widget_strings.xml
+          cp android-native-patch/res/values-colors.xml $app/res/values/widget_colors.xml
+          mkdir -p $app/res/values-night
+          cp android-native-patch/res/values-night-colors.xml $app/res/values-night/widget_colors.xml
           python3 - <<'PY'
           p = 'android-native/app/src/main/AndroidManifest.xml'
           s = open(p).read()
