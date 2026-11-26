@@ -3,9 +3,12 @@
     android:id="@+id/due_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/widget_bg"
+    android:background="@drawable/widget_due_bg"
     android:orientation="vertical"
-    android:padding="14dp">
+    android:paddingStart="14dp"
+    android:paddingEnd="14dp"
+    android:paddingTop="10dp"
+    android:paddingBottom="10dp">
 
     <TextView
         android:id="@+id/due_title"
@@ -14,210 +17,263 @@
         android:fontFamily="sans-serif-medium"
         android:maxLines="1"
         android:text="Jatuh tempo"
-        android:textColor="#B3FFFFFF"
-        android:textSize="12sp" />
+        android:textColor="@color/rfw_text_dim"
+        android:textSize="10sp" />
 
-    <LinearLayout
-        android:id="@+id/due_row_1"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:visibility="gone">
         <LinearLayout
-            android:layout_width="0dp"
+            android:id="@+id/due_row_1"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
+            android:layout_marginTop="3dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
             <TextView
                 android:id="@+id/due_name_1"
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
                 android:ellipsize="end"
                 android:fontFamily="sans-serif-medium"
                 android:maxLines="1"
-                android:textColor="#FFFFFF"
-                android:textSize="13sp" />
+                android:textColor="@color/rfw_text"
+                android:textSize="11sp" />
             <TextView
                 android:id="@+id/due_when_1"
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
                 android:maxLines="1"
-                android:textColor="#CBD5E1"
-                android:textSize="11sp" />
+                android:textColor="@color/rfw_text_dim"
+                android:textSize="10sp" />
+            <TextView
+                android:id="@+id/due_when_hot_1"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:textColor="@color/rfw_hot"
+                android:textSize="10sp"
+                android:visibility="gone" />
+            <TextView
+                android:id="@+id/due_amount_1"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:textColor="@color/rfw_text"
+                android:textSize="11sp"
+                android:fontFamily="sans-serif-medium" />
+            <TextView
+                android:id="@+id/due_amount_good_1"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:textColor="@color/rfw_good"
+                android:textSize="11sp"
+                android:fontFamily="sans-serif-medium"
+                android:visibility="gone" />
         </LinearLayout>
-        <TextView
-            android:id="@+id/due_amount_1"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:fontFamily="sans-serif-medium"
-            android:maxLines="1"
-            android:textColor="#FFFFFF"
-            android:textSize="13sp" />
-    </LinearLayout>
-    <LinearLayout
-        android:id="@+id/due_row_2"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:visibility="gone">
         <LinearLayout
-            android:layout_width="0dp"
+            android:id="@+id/due_row_2"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
+            android:layout_marginTop="3dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
             <TextView
                 android:id="@+id/due_name_2"
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
                 android:ellipsize="end"
                 android:fontFamily="sans-serif-medium"
                 android:maxLines="1"
-                android:textColor="#FFFFFF"
-                android:textSize="13sp" />
+                android:textColor="@color/rfw_text"
+                android:textSize="11sp" />
             <TextView
                 android:id="@+id/due_when_2"
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
                 android:maxLines="1"
-                android:textColor="#CBD5E1"
-                android:textSize="11sp" />
+                android:textColor="@color/rfw_text_dim"
+                android:textSize="10sp" />
+            <TextView
+                android:id="@+id/due_when_hot_2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:textColor="@color/rfw_hot"
+                android:textSize="10sp"
+                android:visibility="gone" />
+            <TextView
+                android:id="@+id/due_amount_2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:textColor="@color/rfw_text"
+                android:textSize="11sp"
+                android:fontFamily="sans-serif-medium" />
+            <TextView
+                android:id="@+id/due_amount_good_2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:textColor="@color/rfw_good"
+                android:textSize="11sp"
+                android:fontFamily="sans-serif-medium"
+                android:visibility="gone" />
         </LinearLayout>
-        <TextView
-            android:id="@+id/due_amount_2"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:fontFamily="sans-serif-medium"
-            android:maxLines="1"
-            android:textColor="#FFFFFF"
-            android:textSize="13sp" />
-    </LinearLayout>
-    <LinearLayout
-        android:id="@+id/due_row_3"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:visibility="gone">
         <LinearLayout
-            android:layout_width="0dp"
+            android:id="@+id/due_row_3"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
+            android:layout_marginTop="3dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
             <TextView
                 android:id="@+id/due_name_3"
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
                 android:ellipsize="end"
                 android:fontFamily="sans-serif-medium"
                 android:maxLines="1"
-                android:textColor="#FFFFFF"
-                android:textSize="13sp" />
+                android:textColor="@color/rfw_text"
+                android:textSize="11sp" />
             <TextView
                 android:id="@+id/due_when_3"
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
                 android:maxLines="1"
-                android:textColor="#CBD5E1"
-                android:textSize="11sp" />
+                android:textColor="@color/rfw_text_dim"
+                android:textSize="10sp" />
+            <TextView
+                android:id="@+id/due_when_hot_3"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:textColor="@color/rfw_hot"
+                android:textSize="10sp"
+                android:visibility="gone" />
+            <TextView
+                android:id="@+id/due_amount_3"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:textColor="@color/rfw_text"
+                android:textSize="11sp"
+                android:fontFamily="sans-serif-medium" />
+            <TextView
+                android:id="@+id/due_amount_good_3"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:textColor="@color/rfw_good"
+                android:textSize="11sp"
+                android:fontFamily="sans-serif-medium"
+                android:visibility="gone" />
         </LinearLayout>
-        <TextView
-            android:id="@+id/due_amount_3"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:fontFamily="sans-serif-medium"
-            android:maxLines="1"
-            android:textColor="#FFFFFF"
-            android:textSize="13sp" />
-    </LinearLayout>
-    <LinearLayout
-        android:id="@+id/due_row_4"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:visibility="gone">
         <LinearLayout
-            android:layout_width="0dp"
+            android:id="@+id/due_row_4"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
+            android:layout_marginTop="3dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
             <TextView
                 android:id="@+id/due_name_4"
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
                 android:ellipsize="end"
                 android:fontFamily="sans-serif-medium"
                 android:maxLines="1"
-                android:textColor="#FFFFFF"
-                android:textSize="13sp" />
+                android:textColor="@color/rfw_text"
+                android:textSize="11sp" />
             <TextView
                 android:id="@+id/due_when_4"
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
                 android:maxLines="1"
-                android:textColor="#CBD5E1"
-                android:textSize="11sp" />
+                android:textColor="@color/rfw_text_dim"
+                android:textSize="10sp" />
+            <TextView
+                android:id="@+id/due_when_hot_4"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:textColor="@color/rfw_hot"
+                android:textSize="10sp"
+                android:visibility="gone" />
+            <TextView
+                android:id="@+id/due_amount_4"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:textColor="@color/rfw_text"
+                android:textSize="11sp"
+                android:fontFamily="sans-serif-medium" />
+            <TextView
+                android:id="@+id/due_amount_good_4"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:textColor="@color/rfw_good"
+                android:textSize="11sp"
+                android:fontFamily="sans-serif-medium"
+                android:visibility="gone" />
         </LinearLayout>
-        <TextView
-            android:id="@+id/due_amount_4"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:fontFamily="sans-serif-medium"
-            android:maxLines="1"
-            android:textColor="#FFFFFF"
-            android:textSize="13sp" />
-    </LinearLayout>
 
     <TextView
         android:id="@+id/due_empty"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
+        android:layout_marginTop="3dp"
+        android:ellipsize="end"
+        android:maxLines="2"
         android:text="Tidak ada tagihan atau hutang jatuh tempo dalam 7 hari."
-        android:textColor="#86EFAC"
-        android:textSize="12sp" />
+        android:textColor="@color/rfw_good"
+        android:textSize="11sp" />
 
     <LinearLayout
         android:id="@+id/due_insight_box"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
+        android:layout_marginTop="6dp"
         android:orientation="vertical">
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:fontFamily="sans-serif-medium"
-            android:maxLines="1"
-            android:text="Insight bulan ini"
-            android:textColor="#B3FFFFFF"
-            android:textSize="12sp" />
         <TextView
             android:id="@+id/due_insight_1"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
             android:ellipsize="end"
-            android:maxLines="2"
-            android:textColor="#FFFFFF"
-            android:textSize="12sp" />
+            android:maxLines="1"
+            android:textColor="@color/rfw_text"
+            android:textSize="10sp" />
         <TextView
             android:id="@+id/due_insight_2"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="3dp"
+            android:layout_marginTop="2dp"
             android:ellipsize="end"
-            android:maxLines="2"
-            android:textColor="#E2E8F0"
-            android:textSize="12sp" />
+            android:maxLines="1"
+            android:textColor="@color/rfw_text_dim"
+            android:textSize="10sp" />
     </LinearLayout>
 </LinearLayout>

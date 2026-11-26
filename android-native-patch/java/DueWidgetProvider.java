@@ -5,7 +5,6 @@ import android.appwidget.AppWidgetProvider;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.graphics.Color;
 import android.os.Bundle;
 import android.util.TypedValue;
 import android.view.View;
@@ -18,7 +17,9 @@ public class DueWidgetProvider extends AppWidgetProvider {
     private static final int[] ROWS = {R.id.due_row_1, R.id.due_row_2, R.id.due_row_3, R.id.due_row_4};
     private static final int[] NAMES = {R.id.due_name_1, R.id.due_name_2, R.id.due_name_3, R.id.due_name_4};
     private static final int[] WHENS = {R.id.due_when_1, R.id.due_when_2, R.id.due_when_3, R.id.due_when_4};
+    private static final int[] WHENS_HOT = {R.id.due_when_hot_1, R.id.due_when_hot_2, R.id.due_when_hot_3, R.id.due_when_hot_4};
     private static final int[] AMOUNTS = {R.id.due_amount_1, R.id.due_amount_2, R.id.due_amount_3, R.id.due_amount_4};
+    private static final int[] AMOUNTS_GOOD = {R.id.due_amount_good_1, R.id.due_amount_good_2, R.id.due_amount_good_3, R.id.due_amount_good_4};
     private static final int[] INSIGHTS = {R.id.due_insight_1, R.id.due_insight_2};
 
     @Override
@@ -36,30 +37,40 @@ public class DueWidgetProvider extends AppWidgetProvider {
     static RemoteViews build(Context context, AppWidgetManager manager, int id) {
         SharedPreferences prefs = WidgetStore.prefs(context);
         int width = WidgetStore.widthDp(manager, id);
-        int height = WidgetStore.heightDp(manager, id, 180);
-        float k = WidgetStore.scale(width / 250f, 0.9f, 1.5f);
-        boolean showInsight = height >= 150;
-        // Tiap baris sekitar 36dp; sisanya untuk judul dan (bila muat) insight.
-        int reserved = showInsight ? 120 : 40;
-        int capacity = (int) WidgetStore.scale((height - reserved) / (36f * k), 1f, 4f);
+        int height = WidgetStore.heightDp(manager, id, 110);
+        float k = WidgetStore.scale(width / 250f, 0.85f, 1.3f);
+        // Satu baris insight bila tinggi 4x2; dua baris bila diperbesar. Tiap baris tagihan sekitar 20dp.
+        int insightLines = height >= 190 ? 2 : 1;
+        float insightHeight = insightLines * 14f + 8f;
+        int capacity = (int) WidgetStore.scale((height - 40f - insightHeight) / (20f * k), 1f, 4f);
 
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_due);
-        views.setTextViewTextSize(R.id.due_title, TypedValue.COMPLEX_UNIT_SP, 12f * k);
+        views.setTextViewTextSize(R.id.due_title, TypedValue.COMPLEX_UNIT_SP, 10f * k);
         int shown = 0;
         try {
             JSONArray list = new JSONArray(prefs.getString("dues", "[]"));
             for (int i = 0; i < list.length() && i < capacity; i++) {
                 JSONObject item = list.getJSONObject(i);
-                String kind = item.optString("k");
                 boolean hot = item.optBoolean("hot", false);
+                boolean good = "p".equals(item.optString("k"));
+                String when = item.optString("w");
+                String amount = WidgetStore.money(context, item.optString("a"));
                 views.setTextViewText(NAMES[i], item.optString("n"));
-                views.setTextViewText(WHENS[i], item.optString("w"));
-                views.setTextColor(WHENS[i], Color.parseColor(hot ? "#FDA4AF" : "#CBD5E1"));
-                views.setTextViewText(AMOUNTS[i], WidgetStore.money(context, item.optString("a")));
-                views.setTextColor(AMOUNTS[i], Color.parseColor("p".equals(kind) ? "#86EFAC" : "#FFFFFF"));
-                views.setTextViewTextSize(NAMES[i], TypedValue.COMPLEX_UNIT_SP, 13f * k);
-                views.setTextViewTextSize(WHENS[i], TypedValue.COMPLEX_UNIT_SP, 11f * k);
-                views.setTextViewTextSize(AMOUNTS[i], TypedValue.COMPLEX_UNIT_SP, 13f * k);
+                views.setTextViewText(WHENS[i], when);
+                views.setTextViewText(WHENS_HOT[i], when);
+                views.setViewVisibility(WHENS[i], hot ? View.GONE : View.VISIBLE);
+                views.setViewVisibility(WHENS_HOT[i], hot ? View.VISIBLE : View.GONE);
+                views.setTextViewText(AMOUNTS[i], amount);
+                views.setTextViewText(AMOUNTS_GOOD[i], amount);
+                views.setViewVisibility(AMOUNTS[i], good ? View.GONE : View.VISIBLE);
+                views.setViewVisibility(AMOUNTS_GOOD[i], good ? View.VISIBLE : View.GONE);
+                views.setTextViewTextSize(NAMES[i], TypedValue.COMPLEX_UNIT_SP, 11f * k);
+                for (int text : new int[] {WHENS[i], WHENS_HOT[i]}) {
+                    views.setTextViewTextSize(text, TypedValue.COMPLEX_UNIT_SP, 10f * k);
+                }
+                for (int text : new int[] {AMOUNTS[i], AMOUNTS_GOOD[i]}) {
+                    views.setTextViewTextSize(text, TypedValue.COMPLEX_UNIT_SP, 11f * k);
+                }
                 views.setViewVisibility(ROWS[i], View.VISIBLE);
                 shown++;
             }
@@ -70,15 +81,15 @@ public class DueWidgetProvider extends AppWidgetProvider {
             views.setViewVisibility(ROWS[i], View.GONE);
         }
         views.setViewVisibility(R.id.due_empty, shown == 0 ? View.VISIBLE : View.GONE);
-        views.setTextViewTextSize(R.id.due_empty, TypedValue.COMPLEX_UNIT_SP, 12f * k);
+        views.setTextViewTextSize(R.id.due_empty, TypedValue.COMPLEX_UNIT_SP, 11f * k);
 
         int lines = 0;
         try {
             JSONArray list = new JSONArray(prefs.getString("insights", "[]"));
-            int max = height >= 220 ? 2 : 1;
+            int max = insightLines;
             for (int i = 0; i < list.length() && i < max; i++) {
                 views.setTextViewText(INSIGHTS[i], list.getString(i));
-                views.setTextViewTextSize(INSIGHTS[i], TypedValue.COMPLEX_UNIT_SP, 12f * k);
+                views.setTextViewTextSize(INSIGHTS[i], TypedValue.COMPLEX_UNIT_SP, 10f * k);
                 views.setViewVisibility(INSIGHTS[i], View.VISIBLE);
                 lines++;
             }
@@ -88,7 +99,7 @@ public class DueWidgetProvider extends AppWidgetProvider {
         for (int i = lines; i < INSIGHTS.length; i++) {
             views.setViewVisibility(INSIGHTS[i], View.GONE);
         }
-        views.setViewVisibility(R.id.due_insight_box, showInsight && lines > 0 ? View.VISIBLE : View.GONE);
+        views.setViewVisibility(R.id.due_insight_box, lines > 0 ? View.VISIBLE : View.GONE);
 
         android.app.PendingIntent open = BalanceWidgetProvider.openApp(context);
         if (open != null) views.setOnClickPendingIntent(R.id.due_root, open);

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="rfw_bg_start">#F2F0FDFA</color>
+    <color name="rfw_bg_end">#F2EEF2FF</color>
+    <color name="rfw_stroke">#26000000</color>
+    <color name="rfw_text">#0F172A</color>
+    <color name="rfw_text_dim">#475569</color>
+    <color name="rfw_hot">#E11D48</color>
+    <color name="rfw_good">#059669</color>
+</resources>
