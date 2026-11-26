@@ -1,9 +1,15 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useCategories } from '../../hooks/useCategories'
 import { useDashboardData } from '../../hooks/useDashboard'
+import { useDebts } from '../../hooks/useDebts'
+import { useRecurringTransactions } from '../../hooks/useRecurringTransactions'
 import { NATIVE_NEW_LINK, extractNativeUrl, nativePlugin } from '../../lib/native'
 import { pushWidgetData, WIDGET_PERIODS, type WidgetPeriod } from '../../lib/nativeWidget'
-import { buildTrend } from '../../lib/dates'
+import { buildTrend, monthKey, todayISO } from '../../lib/dates'
+import { debtProgress } from '../../lib/debts'
+import { monthlyInsights } from '../../lib/insights'
+import { widgetDues } from '../../lib/widgetDue'
 import type { Granularity, TrendPoint } from '../../types'
 
 interface AppPlugin {
@@ -15,6 +21,22 @@ interface AppPlugin {
 export function NativeWidgetSync() {
   const { balance, totals, balances, budget, transactions } = useDashboardData()
   const navigate = useNavigate()
+  const rules = useRecurringTransactions()
+  const { debts, payments } = useDebts()
+  const categories = useCategories()
+  const duesJson = useMemo(() => {
+    const today = todayISO()
+    return JSON.stringify(widgetDues(rules, debtProgress(debts, payments, today), categories, today))
+  }, [rules, debts, payments, categories])
+  const insightsJson = useMemo(
+    () =>
+      JSON.stringify(
+        monthlyInsights(transactions, categories, monthKey(), todayISO())
+          .insights.slice(0, 3)
+          .map((item) => item.text),
+      ),
+    [transactions, categories],
+  )
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -33,10 +55,12 @@ export function NativeWidgetSync() {
         budget: { limit: budget.limit, spent: budget.spent },
         accounts: balances.map((account) => ({ name: account.name, balance: account.balance })),
         trends,
+        dues: JSON.parse(duesJson),
+        insights: JSON.parse(insightsJson),
       }).catch(() => undefined)
     }, 800)
     return () => window.clearTimeout(timer)
-  }, [balance, totals.income, totals.expense, balances, budget.limit, budget.spent, transactions])
+  }, [balance, totals.income, totals.expense, balances, budget.limit, budget.spent, transactions, duesJson, insightsJson])
 
   useEffect(() => {
     const app = nativePlugin<AppPlugin>('App')

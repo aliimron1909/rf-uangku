@@ -4,4 +4,5 @@
     <string name="widget_compact_description">Saldo dan keluar/masuk dalam satu baris</string>
     <string name="widget_accounts_description">Saldo tiap rekening</string>
     <string name="widget_trend_description">Grafik pemasukan dan pengeluaran harian sampai tahunan</string>
+    <string name="widget_due_description">Tagihan, hutang dan piutang jatuh tempo, plus insight bulan ini</string>
 </resources>

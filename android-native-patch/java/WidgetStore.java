@@ -49,5 +49,6 @@ final class WidgetStore {
         AccountsWidgetProvider.refresh(context);
         TrendWidgetProvider.refresh(context);
         CompactWidgetProvider.refresh(context);
+        DueWidgetProvider.refresh(context);
     }
 }
