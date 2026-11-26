@@ -128,6 +128,7 @@ import { buildStandardCategories, planStandardCategories } from '../src/lib/stan
 import { isKnownIcon as isKnownCategoryIcon } from '../src/lib/icons'
 import { mergePending, parseBankNotification, parseIdrAmount } from '../src/lib/bankNotif'
 import { trendSummary, widgetTexts } from '../src/lib/nativeWidget'
+import { dueWhen, widgetDues } from '../src/lib/widgetDue'
 import { extractNativeUrl } from '../src/lib/native'
 import { planReminderTimes, shouldRemindToday } from '../src/lib/dailyReminder'
 import { moveCategory } from '../src/db/categories'
@@ -1952,6 +1953,51 @@ async function main() {
     assert.equal(readReceiptResult({ total: 'abc' }, '2026-11-17'), null)
     assert.equal(readReceiptResult({ total: 5000, date: '2030-01-01' }, '2026-11-17')?.occurredAt, '2026-11-17')
     assert.equal(readReceiptResult({ total: 5000, date: 'kemarin' }, '2026-11-17')?.occurredAt, '2026-11-17')
+  }
+
+  // Widget jatuh tempo
+  {
+    assert.equal(dueWhen(-2), 'Terlambat 2 hari')
+    assert.equal(dueWhen(0), 'Hari ini')
+    assert.equal(dueWhen(1), 'Besok')
+    assert.equal(dueWhen(5), '5 hari lagi')
+    const dueRule = (id: string, nextRunAt: string, extra: object = {}) => ({
+      id, type: 'expense' as const, amount: 100_000, accountId: 'a', categoryId: 'c', note: id,
+      frequency: 'monthly' as const, interval: 1, startDate: '2026-01-01', nextRunAt, active: true,
+      createdAt: '2026-01-01', updatedAt: '2026-01-01', ...extra,
+    })
+    const dueDebt = (id: string, person: string, direction: 'owe' | 'lent', dueDate: string) => ({
+      id, direction, person, amount: 500_000, dueDate, createdAt: '2026-01-01', updatedAt: '2026-01-01',
+    })
+    const dueProg = debtProgress(
+      [dueDebt('d1', 'Budi', 'owe', '2026-11-20'), dueDebt('d2', 'Sari', 'lent', '2026-11-30'), dueDebt('d3', 'Joko', 'owe', '2027-03-01')],
+      [],
+      '2026-11-26',
+    )
+    const dues = widgetDues(
+      [
+        dueRule('Listrik', '2026-11-28'),
+        dueRule('Nonaktif', '2026-11-27', { active: false }),
+        dueRule('Transfer', '2026-11-27', { toAccountId: 'b' }),
+        dueRule('Gaji', '2026-11-27', { type: 'income' }),
+        dueRule('Jauh', '2026-12-30'),
+        dueRule('Hari ini', '2026-11-26'),
+      ],
+      dueProg,
+      [],
+      '2026-11-26',
+    )
+    assert.deepEqual(dues.map((d) => d.n), ['Hutang saya: Budi', 'Hari ini', 'Listrik', 'Piutang: Sari'])
+    assert.equal(dues[0].hot, true)
+    assert.equal(dues[0].w, 'Terlambat 6 hari')
+    assert.equal(dues[3].k, 'p')
+    assert.equal(widgetDues([], [], [], '2026-11-26').length, 0)
+    const dueTexts = widgetTexts(
+      { balance: 0, income: 0, expense: 0, budget: { limit: 0, spent: 0 }, accounts: [], trends: {}, dues, insights: ['a', 'b', 'c', 'd'] },
+      new Date(),
+    )
+    assert.equal(JSON.parse(dueTexts.dues).length, 4)
+    assert.equal(JSON.parse(dueTexts.insights).length, 3)
   }
 
   // Simulasi KPR

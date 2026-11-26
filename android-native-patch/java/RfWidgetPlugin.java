@@ -16,7 +16,7 @@ public class RfWidgetPlugin extends Plugin {
     public void update(PluginCall call) {
         Context context = getContext();
         SharedPreferences.Editor editor = WidgetStore.prefs(context).edit();
-        String[] keys = {"balance", "income", "expense", "budget", "updated", "accounts"};
+        String[] keys = {"balance", "income", "expense", "budget", "updated", "accounts", "dues", "insights"};
         for (String key : keys) {
             if (call.hasOption(key)) editor.putString(key, call.getString(key, ""));
         }

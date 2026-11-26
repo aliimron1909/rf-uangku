@@ -2,6 +2,7 @@ import type { TrendPoint } from '../types'
 import { formatRupiah } from './format'
 import { isNativeApp, nativePlugin } from './native'
 import { renderTrendChart } from './widgetChart'
+import type { WidgetDue } from './widgetDue'
 
 interface RfWidgetPlugin {
   update(data: Record<string, unknown>): Promise<unknown>
@@ -20,6 +21,9 @@ export interface WidgetSummary {
   budget: { limit: number; spent: number }
   accounts: { name: string; balance: number }[]
   trends: Partial<Record<WidgetPeriod, TrendPoint[]>>
+  /** Jatuh tempo terdekat (tagihan berulang, hutang, piutang) dan insight bulan ini. */
+  dues?: WidgetDue[]
+  insights?: string[]
 }
 
 /** Teks yang tampil di widget. Dipisah agar mudah diuji. */
@@ -34,6 +38,8 @@ export function widgetTexts(summary: WidgetSummary, now: Date) {
     budget: limit > 0 ? `Budget ${Math.round((spent / limit) * 100)}% terpakai` : '',
     budgetPct: limit > 0 ? Math.min(100, Math.max(0, Math.round((spent / limit) * 100))) : 0,
     updated: `Diperbarui ${hh}.${mm}`,
+    dues: JSON.stringify((summary.dues ?? []).slice(0, 4).map(({ n, a, w, k, hot }) => ({ n, a, w, k, hot }))),
+    insights: JSON.stringify((summary.insights ?? []).slice(0, 3)),
     accounts: JSON.stringify(
       summary.accounts.slice(0, 6).map((account) => ({ n: account.name, b: formatRupiah(account.balance) })),
     ),
