@@ -18,7 +18,7 @@
             android:id="@+id/acc_title"
             android:fontFamily="sans-serif-medium"
             android:text="Saldo per rekening"
-            android:textColor="#B3FFFFFF"
+            android:textColor="@color/rfw_text_dim"
             android:textSize="12sp" />
         <TextView
             android:id="@+id/acc_total"
@@ -27,7 +27,7 @@
             android:maxLines="1"
             android:text="Rp –"
             android:fontFamily="sans-serif-black"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/rfw_text"
             android:textSize="16sp" />
     </LinearLayout>
 
@@ -45,7 +45,7 @@
                 android:layout_weight="1"
                 android:maxLines="1"
                 android:fontFamily="sans-serif"
-                android:textColor="#E6FFFFFF"
+                android:textColor="@color/rfw_text"
                 android:textSize="14sp" />
             <TextView
                 android:id="@+id/acc_bal_1"
@@ -53,7 +53,7 @@
                 android:layout_height="wrap_content"
                 android:maxLines="1"
                 android:fontFamily="sans-serif-medium"
-                android:textColor="#FFFFFF"
+                android:textColor="@color/rfw_text"
                 android:textSize="14sp" />
         </LinearLayout>
 
@@ -71,7 +71,7 @@
                 android:layout_weight="1"
                 android:maxLines="1"
                 android:fontFamily="sans-serif"
-                android:textColor="#E6FFFFFF"
+                android:textColor="@color/rfw_text"
                 android:textSize="14sp" />
             <TextView
                 android:id="@+id/acc_bal_2"
@@ -79,7 +79,7 @@
                 android:layout_height="wrap_content"
                 android:maxLines="1"
                 android:fontFamily="sans-serif-medium"
-                android:textColor="#FFFFFF"
+                android:textColor="@color/rfw_text"
                 android:textSize="14sp" />
         </LinearLayout>
 
@@ -97,7 +97,7 @@
                 android:layout_weight="1"
                 android:maxLines="1"
                 android:fontFamily="sans-serif"
-                android:textColor="#E6FFFFFF"
+                android:textColor="@color/rfw_text"
                 android:textSize="14sp" />
             <TextView
                 android:id="@+id/acc_bal_3"
@@ -105,7 +105,7 @@
                 android:layout_height="wrap_content"
                 android:maxLines="1"
                 android:fontFamily="sans-serif-medium"
-                android:textColor="#FFFFFF"
+                android:textColor="@color/rfw_text"
                 android:textSize="14sp" />
         </LinearLayout>
 
@@ -123,7 +123,7 @@
                 android:layout_weight="1"
                 android:maxLines="1"
                 android:fontFamily="sans-serif"
-                android:textColor="#E6FFFFFF"
+                android:textColor="@color/rfw_text"
                 android:textSize="14sp" />
             <TextView
                 android:id="@+id/acc_bal_4"
@@ -131,7 +131,7 @@
                 android:layout_height="wrap_content"
                 android:maxLines="1"
                 android:fontFamily="sans-serif-medium"
-                android:textColor="#FFFFFF"
+                android:textColor="@color/rfw_text"
                 android:textSize="14sp" />
         </LinearLayout>
 
@@ -149,7 +149,7 @@
                 android:layout_weight="1"
                 android:maxLines="1"
                 android:fontFamily="sans-serif"
-                android:textColor="#E6FFFFFF"
+                android:textColor="@color/rfw_text"
                 android:textSize="14sp" />
             <TextView
                 android:id="@+id/acc_bal_5"
@@ -157,7 +157,7 @@
                 android:layout_height="wrap_content"
                 android:maxLines="1"
                 android:fontFamily="sans-serif-medium"
-                android:textColor="#FFFFFF"
+                android:textColor="@color/rfw_text"
                 android:textSize="14sp" />
         </LinearLayout>
 
@@ -175,7 +175,7 @@
                 android:layout_weight="1"
                 android:maxLines="1"
                 android:fontFamily="sans-serif"
-                android:textColor="#E6FFFFFF"
+                android:textColor="@color/rfw_text"
                 android:textSize="14sp" />
             <TextView
                 android:id="@+id/acc_bal_6"
@@ -183,7 +183,7 @@
                 android:layout_height="wrap_content"
                 android:maxLines="1"
                 android:fontFamily="sans-serif-medium"
-                android:textColor="#FFFFFF"
+                android:textColor="@color/rfw_text"
                 android:textSize="14sp" />
         </LinearLayout>
 
@@ -193,6 +193,6 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:text="Buka aplikasi untuk memuat"
-        android:textColor="#CCFFFFFF"
+        android:textColor="@color/rfw_text_dim"
         android:textSize="12sp" />
 </LinearLayout>

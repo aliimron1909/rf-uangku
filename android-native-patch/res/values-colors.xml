@@ -7,4 +7,8 @@
     <color name="rfw_text_dim">#475569</color>
     <color name="rfw_hot">#E11D48</color>
     <color name="rfw_good">#059669</color>
+    <color name="rfw_text_faint">#8A64748B</color>
+    <color name="rfw_chip">#14000000</color>
+    <color name="rfw_chip_stroke">#26000000</color>
+    <color name="rfw_progress_fill">#059669</color>
 </resources>
