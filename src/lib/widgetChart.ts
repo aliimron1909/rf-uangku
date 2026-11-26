@@ -23,7 +23,7 @@ export function renderTrendChart(points: TrendPoint[]): string | null {
   const slot = (right - left) / points.length
   const barWidth = Math.max(3, Math.min(18, slot / 2 - 2))
 
-  ctx.strokeStyle = 'rgba(255,255,255,0.18)'
+  ctx.strokeStyle = 'rgba(100,116,139,0.35)'
   ctx.lineWidth = 1
   for (let i = 0; i <= 2; i++) {
     const y = top + ((bottom - top) * i) / 2
@@ -55,7 +55,7 @@ export function renderTrendChart(points: TrendPoint[]): string | null {
     bar(center + 1, point.expense, '#fb7185')
   })
 
-  ctx.fillStyle = 'rgba(255,255,255,0.7)'
+  ctx.fillStyle = '#64748b'
   ctx.font = '16px sans-serif'
   ctx.textBaseline = 'alphabetic'
   const labelAt = (index: number, align: CanvasTextAlign) => {

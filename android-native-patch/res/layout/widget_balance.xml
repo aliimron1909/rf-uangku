@@ -15,7 +15,7 @@
         android:fontFamily="sans-serif-medium"
         android:letterSpacing="0.04"
         android:text="Saldo total"
-        android:textColor="#B3FFFFFF"
+        android:textColor="@color/rfw_text_dim"
         android:textSize="13sp" />
 
     <TextView
@@ -30,7 +30,7 @@
         android:paddingTop="4dp"
         android:paddingBottom="4dp"
         android:text="Sembunyikan"
-        android:textColor="#FFFFFF"
+        android:textColor="@color/rfw_text"
         android:textSize="11sp" />
 
     <TextView
@@ -42,7 +42,7 @@
         android:fontFamily="sans-serif-black"
         android:maxLines="1"
         android:text="Rp –"
-        android:textColor="#FFFFFF"
+        android:textColor="@color/rfw_text"
         android:textSize="30sp" />
 
     <LinearLayout
@@ -61,7 +61,7 @@
             android:fontFamily="sans-serif-medium"
             android:maxLines="1"
             android:text="Buka aplikasi untuk memuat"
-            android:textColor="#FDA4AF"
+            android:textColor="@color/rfw_hot"
             android:textSize="13sp" />
         <LinearLayout
             android:id="@+id/widget_expense_row"
@@ -77,7 +77,7 @@
                 android:fontFamily="sans-serif-medium"
                 android:maxLines="1"
                 android:text="Keluar"
-                android:textColor="#FDA4AF"
+                android:textColor="@color/rfw_hot"
                 android:textSize="13sp" />
             <TextView
                 android:id="@+id/widget_expense"
@@ -87,7 +87,7 @@
                 android:ellipsize="end"
                 android:fontFamily="sans-serif-medium"
                 android:maxLines="1"
-                android:textColor="#FDA4AF"
+                android:textColor="@color/rfw_hot"
                 android:textSize="13sp" />
         </LinearLayout>
         <LinearLayout
@@ -104,7 +104,7 @@
                 android:fontFamily="sans-serif-medium"
                 android:maxLines="1"
                 android:text="Masuk"
-                android:textColor="#86EFAC"
+                android:textColor="@color/rfw_good"
                 android:textSize="13sp" />
             <TextView
                 android:id="@+id/widget_income"
@@ -114,7 +114,7 @@
                 android:ellipsize="end"
                 android:fontFamily="sans-serif-medium"
                 android:maxLines="1"
-                android:textColor="#86EFAC"
+                android:textColor="@color/rfw_good"
                 android:textSize="13sp" />
         </LinearLayout>
     </LinearLayout>
@@ -142,7 +142,7 @@
             android:layout_marginTop="4dp"
             android:fontFamily="sans-serif"
             android:maxLines="1"
-            android:textColor="#CCFFFFFF"
+            android:textColor="@color/rfw_text_dim"
             android:textSize="11sp" />
     </LinearLayout>
 
@@ -152,7 +152,7 @@
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
         android:fontFamily="sans-serif"
-        android:textColor="#80FFFFFF"
+        android:textColor="@color/rfw_text_faint"
         android:textSize="10sp" />
 
     <TextView
@@ -165,6 +165,6 @@
         android:fontFamily="sans-serif-light"
         android:gravity="center"
         android:text="+"
-        android:textColor="#FFFFFF"
+        android:textColor="@color/rfw_text"
         android:textSize="28sp" />
 </RelativeLayout>
