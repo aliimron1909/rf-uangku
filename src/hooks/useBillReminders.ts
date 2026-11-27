@@ -9,6 +9,8 @@ import {
   upcomingBills,
 } from '../lib/billReminders'
 import { todayISO } from '../lib/dates'
+import { shiftDateISO } from '../lib/dateMath'
+import { BILL_PAID_WINDOW_DAYS } from '../lib/billReminders'
 import { showSystemNotification } from '../lib/notify'
 import { errorMessage } from '../lib/utils'
 import { useToast } from '../contexts/ToastContext'
@@ -20,14 +22,22 @@ export function useBillReminders(): void {
   const today = todayISO()
 
   const rules = useLiveQuery(() => db.recurringTransactions.toArray(), [])
+  const recent = useLiveQuery(
+    () =>
+      db.transactions
+        .where('occurredAt')
+        .between(shiftDateISO(today, -BILL_PAID_WINDOW_DAYS), today, true, true)
+        .toArray(),
+    [today],
+  )
 
   useEffect(() => {
-    if (!rules) return
+    if (!rules || !recent) return
     const run = async () => {
       try {
         const enabled = await getSetting<boolean>(BILL_REMINDERS_ENABLED_KEY, true)
         const seen = await getSetting<string[] | undefined>(BILL_REMINDERS_SEEN_KEY, undefined)
-        const result = evaluateBillReminders(upcomingBills(rules, today), seen, enabled)
+        const result = evaluateBillReminders(upcomingBills(rules, today, undefined, recent), seen, enabled)
         await setSetting(BILL_REMINDERS_SEEN_KEY, result.nextSeen)
         for (const bill of result.events) {
           const message = billReminderMessage(bill)
@@ -39,5 +49,5 @@ export function useBillReminders(): void {
       }
     }
     chain.current = chain.current.then(run)
-  }, [rules, today, toast])
+  }, [rules, recent, today, toast])
 }

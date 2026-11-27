@@ -18,3 +18,10 @@ export function daysBetween(from: string, to: string): number {
   const ms = Date.UTC(ty, tm - 1, td) - Date.UTC(fy, fm - 1, fd)
   return Math.round(ms / 86_400_000)
 }
+
+/** Tanggal ISO digeser `days` hari (boleh negatif). */
+export function shiftDateISO(iso: string, days: number): string {
+  const [year, month, day] = iso.split('-').map(Number)
+  const date = new Date(Date.UTC(year, month - 1, day + days))
+  return date.toISOString().slice(0, 10)
+}

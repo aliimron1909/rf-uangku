@@ -1,4 +1,4 @@
-import type { RecurringTransaction } from '../types'
+import type { RecurringTransaction, Transaction } from '../types'
 import { daysBetween } from './dateMath'
 import { formatRupiah } from './format'
 
@@ -14,6 +14,26 @@ export interface UpcomingBill {
   key: string
 }
 
+/** Pembayaran yang dicatat sampai sekian hari sebelum jatuh tempo dianggap melunasi tagihan itu. */
+export const BILL_PAID_WINDOW_DAYS = 15
+
+/**
+ * Tagihan bulanan/tahunan dianggap sudah dibayar bila ada pengeluaran manual (bukan hasil aturan ini)
+ * dengan akun, kategori, dan nominal yang sama, tercatat dalam 15 hari sampai tanggal jatuh tempo.
+ * Aturan harian/mingguan tidak dicocokkan karena nominalnya sering sama tanpa berarti lunas.
+ */
+export function isBillPaid(rule: RecurringTransaction, date: string, transactions: Transaction[]): boolean {
+  if (rule.type !== 'expense' || rule.toAccountId) return false
+  if (rule.frequency !== 'monthly' && rule.frequency !== 'yearly') return false
+  return transactions.some((item) => {
+    if (item.type !== 'expense' || item.recurringId === rule.id) return false
+    if (item.accountId !== rule.accountId || item.categoryId !== rule.categoryId) return false
+    if (item.amount !== rule.amount) return false
+    const ago = daysBetween(item.occurredAt, date)
+    return ago >= 0 && ago <= BILL_PAID_WINDOW_DAYS
+  })
+}
+
 export function billReminderKey(ruleId: string, date: string): string {
   return `bill|${ruleId}|${date}`
 }
@@ -27,6 +47,7 @@ export function upcomingBills(
   rules: RecurringTransaction[],
   today: string,
   days = BILL_REMINDER_DAYS,
+  transactions: Transaction[] = [],
 ): UpcomingBill[] {
   return rules
     .filter((rule) => rule.active && rule.type === 'expense' && !rule.toAccountId)
@@ -41,6 +62,7 @@ export function upcomingBills(
       }
     })
     .filter((bill) => bill.daysUntil >= 0 && bill.daysUntil <= days)
+    .filter((bill) => !isBillPaid(bill.rule, bill.date, transactions))
     .sort((a, b) => a.date.localeCompare(b.date) || a.rule.id.localeCompare(b.rule.id))
 }
 

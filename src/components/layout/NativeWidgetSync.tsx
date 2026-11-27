@@ -26,8 +26,10 @@ export function NativeWidgetSync() {
   const categories = useCategories()
   const duesJson = useMemo(() => {
     const today = todayISO()
-    return JSON.stringify(widgetDues(rules, debtProgress(debts, payments, today), categories, today))
-  }, [rules, debts, payments, categories])
+    return JSON.stringify(
+      widgetDues(rules, debtProgress(debts, payments, today), categories, today, 6, transactions),
+    )
+  }, [rules, debts, payments, categories, transactions])
   const insightsJson = useMemo(
     () =>
       JSON.stringify(
