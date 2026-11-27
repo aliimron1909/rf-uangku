@@ -2,6 +2,8 @@ import { db } from './db'
 import { createId } from '../lib/utils'
 import { writeTransfer } from './transfers'
 import { todayISO } from '../lib/dates'
+import { BILL_PAID_WINDOW_DAYS, isBillPaid } from '../lib/billReminders'
+import { shiftDateISO } from '../lib/dateMath'
 import {
   advanceOccurrence,
   dueOccurrences,
@@ -107,6 +109,20 @@ export async function setRecurringActive(
   return { active: !finished, finished }
 }
 
+/** Melewati satu kali jatuh tempo (mis. sudah dibayar di luar aplikasi): tanggal berikutnya maju tanpa mencatat transaksi. */
+export async function skipRecurringOccurrence(id: string): Promise<{ finished: boolean }> {
+  const rule = await db.recurringTransactions.get(id)
+  if (!rule) throw new Error('Aturan berulang tidak ditemukan.')
+  const nextRunAt = advanceOccurrence(rule.nextRunAt, rule)
+  const finished = Boolean(rule.endDate && nextRunAt > rule.endDate)
+  await db.recurringTransactions.update(id, {
+    nextRunAt,
+    active: rule.active && !finished,
+    updatedAt: new Date().toISOString(),
+  })
+  return { finished }
+}
+
 export async function processDueRecurring(today = todayISO()): Promise<RecurringRunResult> {
   return db.transaction(
     'rw',
@@ -177,6 +193,14 @@ export async function processDueRecurring(today = todayISO()): Promise<Recurring
           }
 
           for (const date of dates) {
+            // Sudah dibayar manual (akun, kategori, nominal sama): lewati agar tidak tercatat dobel.
+            if (rule.type === 'expense') {
+              const nearby = await db.transactions
+                .where('occurredAt')
+                .between(shiftDateISO(date, -BILL_PAID_WINDOW_DAYS), date, true, true)
+                .toArray()
+              if (isBillPaid(rule, date, nearby)) continue
+            }
             const transaction: Transaction = {
               id: createId(),
               type: rule.type,

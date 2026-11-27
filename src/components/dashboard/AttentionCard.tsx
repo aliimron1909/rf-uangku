@@ -5,7 +5,8 @@ import { ArrowRight, BellRing, CalendarClock, HandCoins, ShieldAlert } from 'luc
 import type { ReactNode } from 'react'
 import { db } from '../../db/db'
 import { useDebts } from '../../hooks/useDebts'
-import { billDueLabel, upcomingBills } from '../../lib/billReminders'
+import { shiftDateISO } from '../../lib/dateMath'
+import { BILL_PAID_WINDOW_DAYS, billDueLabel, upcomingBills } from '../../lib/billReminders'
 import { debtProgress, debtReminders } from '../../lib/debts'
 import { formatDate, todayISO } from '../../lib/dates'
 import { formatRupiah } from '../../lib/format'
@@ -35,12 +36,20 @@ export function AttentionCard({ backupOld, lastBackupLabel }: AttentionCardProps
   const { debts, payments } = useDebts()
   const rules = useLiveQuery(() => db.recurringTransactions.toArray(), [])
   const today = todayISO()
+  const recent = useLiveQuery(
+    () =>
+      db.transactions
+        .where('occurredAt')
+        .between(shiftDateISO(today, -BILL_PAID_WINDOW_DAYS), today, true, true)
+        .toArray(),
+    [today],
+  )
 
   const debtRows = useMemo(
     () => debtReminders(debtProgress(debts, payments, today)),
     [debts, payments, today],
   )
-  const bills = useMemo(() => upcomingBills(rules ?? [], today), [rules, today])
+  const bills = useMemo(() => upcomingBills(rules ?? [], today, undefined, recent ?? []), [rules, recent, today])
 
   const rows: Row[] = []
   if (backupOld) {

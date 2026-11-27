@@ -71,6 +71,7 @@ import {
   createRecurring,
   deleteRecurring,
   processDueRecurring,
+  skipRecurringOccurrence,
   setRecurringActive,
 } from '../src/db/recurring'
 import { buildBackup, restoreBackup, toCsv, validateBackup } from '../src/db/backup'
@@ -1736,6 +1737,49 @@ async function main() {
     // Aturan transfer tidak muncul sebagai pengingat tagihan
     const { upcomingBills } = await import('../src/lib/billReminders')
     assert.equal(upcomingBills([{ ...rule, active: true, nextRunAt: '2026-11-18' }], '2026-11-16').length, 0)
+
+    // Tagihan yang sudah dibayar manual tidak muncul lagi dan tidak dicatat dobel
+    {
+      const { isBillPaid } = await import('../src/lib/billReminders')
+      const expenseCat = (await db.categories.toArray()).find((c) => c.type === 'expense' && !c.archived)
+      assert.ok(expenseCat)
+      const kpr = await createRecurring({
+        type: 'expense', amount: 1_500_000, accountId: 'f-a', categoryId: expenseCat.id,
+        note: 'Cicilan KPR', frequency: 'monthly', interval: 1, startDate: '2026-12-05',
+      })
+      const manual = (over: object = {}) => ({
+        id: 'm1', type: 'expense' as const, amount: 1_500_000, accountId: 'f-a', categoryId: expenseCat.id,
+        occurredAt: '2026-11-28', createdAt: '2026-11-28', updatedAt: '2026-11-28', ...over,
+      })
+      assert.equal(isBillPaid(kpr, '2026-12-05', [manual()]), true)
+      assert.equal(isBillPaid(kpr, '2026-12-05', [manual({ occurredAt: '2026-11-10' })]), false) // terlalu lama
+      assert.equal(isBillPaid(kpr, '2026-12-05', [manual({ amount: 1_400_000 })]), false)
+      assert.equal(isBillPaid(kpr, '2026-12-05', [manual({ accountId: 'f-b' })]), false)
+      assert.equal(isBillPaid(kpr, '2026-12-05', [manual({ recurringId: kpr.id })]), false)
+      assert.equal(isBillPaid({ ...kpr, frequency: 'daily' }, '2026-12-05', [manual()]), false)
+      const { upcomingBills: upcoming } = await import('../src/lib/billReminders')
+      assert.equal(upcoming([kpr], '2026-12-01').length, 1)
+      assert.equal(upcoming([kpr], '2026-12-01', 7, [manual()]).length, 0)
+      assert.equal(widgetDues([kpr], [], [], '2026-12-01').length, 1)
+      assert.equal(widgetDues([kpr], [], [], '2026-12-01', 6, [manual()]).length, 0)
+
+      // Pembayaran manual sudah ada -> saat jatuh tempo tidak dicatat dobel, tanggal tetap maju
+      await db.transactions.add(manual({ id: 'kpr-manual', occurredAt: '2026-12-02' }))
+      const kprRun = await processDueRecurring('2026-12-05')
+      assert.equal(kprRun.created, 0)
+      assert.equal((await db.recurringTransactions.get(kpr.id))?.nextRunAt, '2027-01-05')
+      assert.equal(await db.transactions.where('recurringId').equals(kpr.id).count(), 0)
+      // Tanpa pembayaran manual, tetap dicatat otomatis
+      const kprRun2 = await processDueRecurring('2027-01-05')
+      assert.equal(kprRun2.created, 1)
+
+      // Lewati sekali jatuh tempo
+      const skipped = await skipRecurringOccurrence(kpr.id)
+      assert.equal(skipped.finished, false)
+      assert.equal((await db.recurringTransactions.get(kpr.id))?.nextRunAt, '2027-03-05')
+      await db.recurringTransactions.delete(kpr.id)
+      await db.transactions.clear()
+    }
 
     // Tabungan tujuan menggerakkan saldo
     const goalX = await createGoal({ name: 'Dana darurat', targetAmount: 1000000, color: '#10b981' })

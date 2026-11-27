@@ -10,14 +10,15 @@ import {
   Play,
   Plus,
   Repeat,
+  SkipForward,
   Trash2,
 } from 'lucide-react'
 import type { RecurringTransaction } from '../../types'
 import { useAllAccounts } from '../../hooks/useAccounts'
 import { useAllCategories } from '../../hooks/useCategories'
 import { useRecurringTransactions } from '../../hooks/useRecurringTransactions'
-import { deleteRecurring, setRecurringActive } from '../../db/recurring'
-import { formatDate } from '../../lib/dates'
+import { deleteRecurring, setRecurringActive, skipRecurringOccurrence } from '../../db/recurring'
+import { formatDate, todayISO } from '../../lib/dates'
 import { formatRupiah } from '../../lib/format'
 import { recurrenceDescription } from '../../lib/recurrence'
 import { errorMessage } from '../../lib/utils'
@@ -82,6 +83,19 @@ export function RecurringSection() {
       } else {
         toast('Aturan berulang diaktifkan kembali.')
       }
+    } catch (caught) {
+      toast(errorMessage(caught), 'error')
+    }
+  }
+
+  async function handleSkip(rule: RecurringTransaction) {
+    try {
+      const result = await skipRecurringOccurrence(rule.id)
+      toast(
+        result.finished
+          ? 'Jatuh tempo dilewati. Aturan sudah selesai.'
+          : 'Jatuh tempo ini dilewati, tanpa mencatat transaksi.',
+      )
     } catch (caught) {
       toast(errorMessage(caught), 'error')
     }
@@ -224,6 +238,17 @@ export function RecurringSection() {
                     >
                       {rule.active ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                     </button>
+                    {rule.active && rule.nextRunAt >= todayISO() && (
+                      <button
+                        type="button"
+                        onClick={() => void handleSkip(rule)}
+                        className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                        aria-label="Lewati jatuh tempo berikutnya"
+                        title="Sudah dibayar / lewati sekali"
+                      >
+                        <SkipForward className="h-4 w-4" />
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => openEdit(rule)}

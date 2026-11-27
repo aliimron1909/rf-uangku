@@ -1,4 +1,5 @@
-import type { Category, RecurringTransaction } from '../types'
+import type { Category, RecurringTransaction, Transaction } from '../types'
+import { isBillPaid } from './billReminders'
 import { categoryLabel } from './categoryTree'
 import { daysBetween } from './dateMath'
 import { debtDirectionLabel, type DebtProgress } from './debts'
@@ -32,6 +33,7 @@ export function widgetDues(
   categories: Category[],
   today: string,
   limit = 6,
+  transactions: Transaction[] = [],
 ): WidgetDue[] {
   const items: WidgetDue[] = []
   for (const rule of rules) {
@@ -39,6 +41,7 @@ export function widgetDues(
     if (rule.endDate && rule.nextRunAt > rule.endDate) continue
     const days = daysBetween(today, rule.nextRunAt)
     if (days < 0 || days > WIDGET_DUE_DAYS) continue
+    if (isBillPaid(rule, rule.nextRunAt, transactions)) continue
     const category = categories.find((item) => item.id === rule.categoryId)
     items.push({
       n: rule.note?.trim() || (category ? categoryLabel(category, categories) : 'Transaksi berulang'),
